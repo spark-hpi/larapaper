@@ -40,8 +40,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ env.REGISTRY }}/usetrmnl/byos_laravel
-            ${{ env.REGISTRY }}/usetrmnl/larapaper
+            ${{ env.REGISTRY }}/spark-hpi/larapaper
           tags: |
             type=semver,pattern={{version}}
 
