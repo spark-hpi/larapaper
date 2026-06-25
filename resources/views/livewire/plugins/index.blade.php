@@ -515,22 +515,13 @@ new class extends Component
                     </a>
 
                     @if (isset($plugin['id']))
-                        <div class="px-4 pb-4 flex flex-wrap items-center gap-2">
-                            {{-- Share toggle (owner or admin only) --}}
-                            @if (($plugin['user_id'] ?? null) === auth()->id() || auth()->user()->isAdmin())
-                                <flux:switch wire:click="toggleShared({{ $plugin['id'] }})"
-                                             :checked="$plugin['is_shared'] ?? false"
-                                             label="Shared"/>
-                            @endif
-
-                            {{-- Copy button: visible to non-owners when plugin is shared --}}
-                            @if (($plugin['is_shared'] ?? false) && ($plugin['user_id'] ?? null) !== auth()->id())
+                        @if (($plugin['is_shared'] ?? false) && ($plugin['user_id'] ?? null) !== auth()->id())
+                            <div class="px-4 pb-4">
                                 <flux:button size="sm" wire:click="copyPlugin({{ $plugin['id'] }})">
                                     Install Copy
                                 </flux:button>
-                            @endif
-
-                        </div>
+                            </div>
+                        @endif
                     @endif
                 </div>
             @endforeach

@@ -2,6 +2,7 @@
 
 use App\Models\Device;
 use App\Models\DeviceModel;
+use App\Models\User;
 use Livewire\Component;
 
 new class extends Component
@@ -138,6 +139,21 @@ new class extends Component
         $this->loadDevices();
         Flux::toast(variant: 'success', text: 'Device paused until '.$pauseUntil->format('H:i'));
     }
+
+    public function getAvailableUsersProperty(): \Illuminate\Database\Eloquent\Collection
+    {
+        return User::whereNotNull('confirmed_at')->orderBy('name')->get();
+    }
+
+    public function reassignDevice(int $deviceId, int $newOwnerId): void
+    {
+        $device = Device::findOrFail($deviceId);
+        $this->authorize('reassign', $device);
+
+        $device->update(['user_id' => $newOwnerId]);
+        $this->loadDevices();
+        Flux::toast(variant: 'success', text: 'Device ownership updated.');
+    }
 }
 
 ?>
@@ -256,6 +272,12 @@ new class extends Component
                         data-flux-column="">
                         <div class="whitespace-nowrap flex group-[]/right-align:justify-end">Refresh</div>
                     </th>
+                    @if(auth()->user()->isAdmin())
+                    <th class="py-3 px-3 first:pl-0 last:pr-0 text-left text-sm font-medium text-zinc-800 dark:text-white"
+                        data-flux-column="">
+                        <div class="whitespace-nowrap flex group-[]/right-align:justify-end">Owner</div>
+                    </th>
+                    @endif
                     <th class="py-3 px-3 first:pl-0 last:pr-0 text-left text-sm font-medium text-zinc-800 dark:text-white"
                         data-flux-column="">
                         <div class="whitespace-nowrap flex group-[]/right-align:justify-end">Actions</div>
@@ -288,6 +310,17 @@ new class extends Component
                         >
                             {{ $device->default_refresh_interval }}
                         </td>
+                        @if(auth()->user()->isAdmin())
+                        <td class="py-3 px-3 first:pl-0 last:pr-0 text-sm text-zinc-500 dark:text-zinc-300">
+                            <flux:select wire:change="reassignDevice({{ $device->id }}, $event.target.value)" class="min-w-[160px]">
+                                @foreach($this->availableUsers as $u)
+                                    <flux:select.option value="{{ $u->id }}" :selected="$device->user_id === $u->id">
+                                        {{ $u->name }}
+                                    </flux:select.option>
+                                @endforeach
+                            </flux:select>
+                        </td>
+                        @endif
                         <td class="py-3 px-3 first:pl-0 last:pr-0 text-sm whitespace-nowrap  font-medium text-zinc-800 dark:text-white"
                         >
                             <div class="flex items-center gap-4">
