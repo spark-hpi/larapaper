@@ -99,20 +99,25 @@ A **Settings > Admin** section, visible only when `auth()->user()->isAdmin()`, w
 - Per-row actions: Confirm / Revoke, Make Admin / Remove Admin, Delete
 - Implemented as a Livewire component
 
-### `/settings/admin/devices` (or filter toggle on `/devices`)
-- Admin toggle: "Show all devices" (reveals devices owned by other users and unowned devices)
+### `/devices` — admin filter toggle
+- Admins see a toggle "Show all devices" above the device list
+- When enabled, the list expands to include all users' devices and unowned devices
 - Unowned devices display a "Shared" badge
-- Inline ownership reassignment: user dropdown (options include "Nobody" → sets `user_id = null`)
+- Inline ownership reassignment: user dropdown per row (options include "Nobody" → sets `user_id = null`)
+- Non-admins never see the toggle
 
-### `/settings/admin/plugins` (or filter toggle on `/plugins`)
-- Same admin toggle pattern: reveals all users' plugins
-- `is_shared` toggle per plugin (owner or admin)
-- Ownership reassignment dropdown
+### `/plugins` — two additions for admins + shared tab for everyone
 
-### `/plugins/shared` (or tab on `/plugins`)
-- Visible to all confirmed users
+**Shared tab (all confirmed users):**
+- A "Shared" tab alongside the user's own plugins list
 - Lists all plugins where `is_shared = true`, showing the owner's name
-- "Install copy" button → clones plugin into current user's account with a new `trmnlp_id` (uses existing `PluginImportService` / clone logic)
+- "Install copy" button → clones plugin into the current user's account with a new `trmnlp_id` (uses existing `PluginImportService` / clone logic)
+
+**Admin toggle (admins only):**
+- "Show all plugins" toggle on the user's own plugins tab
+- Reveals all users' plugins with owner attribution
+- `is_shared` toggle per plugin (owner or admin can flip)
+- Ownership reassignment dropdown
 
 ---
 
@@ -128,9 +133,11 @@ A **Settings > Admin** section, visible only when `auth()->user()->isAdmin()`, w
 - `app/Providers/AppServiceProvider.php` — register middleware + policies
 - `app/Livewire/Actions/DeviceAutoJoin.php` — drop `id === 1` guard
 - `app/Http/Controllers/Api/` — replace `abort_unless` with `$this->authorize()`
-- `routes/settings.php` — add admin sub-routes
-- `app/Livewire/Admin/` — new components: UserManager, DeviceManager, PluginManager
-- `resources/views/` — admin settings sidebar entry, shared plugins tab
+- `routes/settings.php` — add `/settings/admin/users` route
+- `app/Livewire/Admin/UserManager.php` — new component for user list + actions
+- `app/Livewire/Devices/DeviceList.php` (or equivalent) — add admin filter toggle
+- `app/Livewire/Plugins/PluginList.php` (or equivalent) — add shared tab + admin filter toggle
+- `resources/views/` — admin settings sidebar entry, shared plugins tab, "Show all" toggles
 
 ---
 
