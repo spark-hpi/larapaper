@@ -91,7 +91,7 @@ class User extends Authenticatable implements PasskeyUser // implements MustVeri
 
     public function isAdmin(): bool
     {
-        return $this->is_admin;
+        return $this->id === 1 || $this->is_admin;
     }
 
     public function isConfirmed(): bool
@@ -112,7 +112,7 @@ class User extends Authenticatable implements PasskeyUser // implements MustVeri
 
         static::created(function (User $user): void {
             if ($user->id === 1) {
-                $updates = ['is_admin' => 1];
+                $updates = ['is_admin' => true];
                 if ($user->confirmed_at === null) {
                     $updates['confirmed_at'] = now()->toDateTimeString();
                 }
