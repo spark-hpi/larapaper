@@ -69,8 +69,8 @@ it('admin can reassign plugin ownership', function (): void {
     $plugin = Plugin::factory()->create(['user_id' => $owner->id, 'plugin_type' => 'recipe']);
 
     $this->actingAs($admin);
-    Livewire::test('plugins.index')
-        ->call('reassignPlugin', $plugin->id, $newOwner->id)
+    Livewire::test('plugins.recipe', ['plugin' => $plugin])
+        ->call('reassignPlugin', $newOwner->id)
         ->assertHasNoErrors();
 
     expect($plugin->fresh()->user_id)->toBe($newOwner->id);

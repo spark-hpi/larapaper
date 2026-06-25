@@ -192,18 +192,6 @@ new class extends Component
         Flux::toast(variant: 'success', text: "'{$plugin->name}' copied to your plugins.");
     }
 
-    public function reassignPlugin(int $pluginId, int $newOwnerId): void
-    {
-        $plugin = Plugin::findOrFail($pluginId);
-        $this->authorize('reassign', $plugin);
-
-        $newOwner = User::findOrFail($newOwnerId);
-        $plugin->update(['user_id' => $newOwner->id]);
-        $this->refreshPlugins();
-
-        Flux::toast(variant: 'success', text: 'Plugin ownership updated.');
-    }
-
     public function getListeners(): array
     {
         return [
@@ -316,8 +304,9 @@ new class extends Component
         </div>
 
         @if (auth()->user()->isAdmin() && $activeTab === 'mine')
-            <div class="mb-4">
-                <flux:switch wire:model.live="showAllPlugins" label="Show all users' plugins"/>
+            <div class="mb-4 flex items-center gap-2">
+                <flux:switch wire:model.live="showAllPlugins" />
+                <span class="text-sm font-medium dark:text-zinc-200">Show all users' plugins</span>
             </div>
         @endif
 
@@ -541,16 +530,6 @@ new class extends Component
                                 </flux:button>
                             @endif
 
-                            {{-- Admin reassignment --}}
-                            @if (auth()->user()->isAdmin())
-                                <flux:select wire:change="reassignPlugin({{ $plugin['id'] }}, $event.target.value)" class="text-xs">
-                                    @foreach (\App\Models\User::whereNotNull('confirmed_at')->orderBy('name')->get() as $u)
-                                        <flux:select.option value="{{ $u->id }}" :selected="($plugin['user_id'] ?? null) === $u->id">
-                                            {{ $u->name }}
-                                        </flux:select.option>
-                                    @endforeach
-                                </flux:select>
-                            @endif
                         </div>
                     @endif
                 </div>
