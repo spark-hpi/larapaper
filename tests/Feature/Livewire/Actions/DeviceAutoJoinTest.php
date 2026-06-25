@@ -15,8 +15,7 @@ test('device auto join component can be rendered', function (): void {
     Livewire::actingAs($user)
         ->test(DeviceAutoJoin::class)
         ->assertSee('Permit Auto-Join')
-        ->assertSet('deviceAutojoin', false)
-        ->assertSet('isFirstUser', true);
+        ->assertSet('deviceAutojoin', false);
 });
 
 test('device auto join component initializes with user settings', function (): void {
@@ -24,21 +23,20 @@ test('device auto join component initializes with user settings', function (): v
 
     Livewire::actingAs($user)
         ->test(DeviceAutoJoin::class)
-        ->assertSet('deviceAutojoin', true)
-        ->assertSet('isFirstUser', true);
+        ->assertSet('deviceAutojoin', true);
 });
 
-test('device auto join component identifies first user correctly', function (): void {
+test('device auto join component is visible to all confirmed users', function (): void {
     $firstUser = User::factory()->create(['id' => 1, 'assign_new_devices' => false]);
     $otherUser = User::factory()->create(['id' => 2, 'assign_new_devices' => false]);
 
     Livewire::actingAs($firstUser)
         ->test(DeviceAutoJoin::class)
-        ->assertSet('isFirstUser', true);
+        ->assertSee('Permit Auto-Join');
 
     Livewire::actingAs($otherUser)
         ->test(DeviceAutoJoin::class)
-        ->assertSet('isFirstUser', false);
+        ->assertSee('Permit Auto-Join');
 });
 
 test('device auto join component updates user setting when toggled', function (): void {
@@ -73,8 +71,8 @@ test('device auto join component only updates when deviceAutojoin property chang
     $component = Livewire::actingAs($user)
         ->test(DeviceAutoJoin::class);
 
-    // Set a different property to ensure it doesn't trigger the update
-    $component->set('isFirstUser', true);
+    // Verify the component is still in its initial state
+    $component->assertSet('deviceAutojoin', false);
 
     $user->refresh();
     expect($user->assign_new_devices)->toBeFalse();
@@ -95,7 +93,6 @@ test('device auto join component works with authenticated user', function (): vo
         ->test(DeviceAutoJoin::class);
 
     expect($component->instance()->deviceAutojoin)->toBeTrue();
-    expect($component->instance()->isFirstUser)->toBe($user->id === 1);
 });
 
 test('device auto join component handles multiple updates correctly', function (): void {
