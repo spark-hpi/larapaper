@@ -56,8 +56,8 @@ class Plugin extends Model
         'plugin_type' => 'string',
         'alias' => 'boolean',
         'current_image_metadata' => 'array',
-        'transform_code'         => 'string',   // add this
-        'transform_language'     => 'string',   // add this
+        'transform_code'         => 'string',
+        'transform_language'     => 'string',
     ];
 
     protected static function boot()
