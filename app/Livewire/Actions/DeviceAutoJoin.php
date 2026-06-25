@@ -8,13 +8,9 @@ class DeviceAutoJoin extends Component
 {
     public bool $deviceAutojoin = false;
 
-    public bool $isFirstUser = false;
-
     public function mount(): void
     {
         $this->deviceAutojoin = (bool) (auth()->user()->assign_new_devices ?? false);
-        $this->isFirstUser = auth()->user()->id === 1;
-
     }
 
     public function updating($name, $value): void
