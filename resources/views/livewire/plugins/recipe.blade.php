@@ -579,6 +579,14 @@ HTML;
 
         try {
             $device = $this->createPreviewDevice();
+
+            if ($this->transform_run_output !== null) {
+                $decoded = json_decode($this->transform_run_output, true);
+                if (is_array($decoded)) {
+                    $this->plugin->data_payload = $decoded;
+                }
+            }
+
             $previewMarkup = $this->plugin->render($size, true, $device);
             $dimensions = $this->previewScreenDimensionsForDevice($device);
             $this->dispatch(
@@ -637,6 +645,14 @@ HTML;
 
         try {
             $device = $this->createPreviewDevice();
+
+            if ($this->transform_run_output !== null) {
+                $decoded = json_decode($this->transform_run_output, true);
+                if (is_array($decoded)) {
+                    $this->plugin->data_payload = $decoded;
+                }
+            }
+
             $markup = $this->plugin->render($this->preview_size, true, $device);
 
             $imageUuid = App\Services\ImageGenerationService::generateImageFromModel(
