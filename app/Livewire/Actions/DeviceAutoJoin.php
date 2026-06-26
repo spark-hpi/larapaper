@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Actions;
 
+use App\Models\User;
 use Livewire\Component;
 
 class DeviceAutoJoin extends Component
@@ -10,7 +11,7 @@ class DeviceAutoJoin extends Component
 
     public function mount(): void
     {
-        $this->deviceAutojoin = (bool) (auth()->user()->assign_new_devices ?? false);
+        $this->deviceAutojoin = User::where('assign_new_devices', true)->exists();
     }
 
     public function updating($name, $value): void
@@ -20,9 +21,11 @@ class DeviceAutoJoin extends Component
         ]);
 
         if ($name === 'deviceAutojoin') {
-            auth()->user()->update([
-                'assign_new_devices' => $value,
-            ]);
+            if ($value) {
+                auth()->user()->update(['assign_new_devices' => true]);
+            } else {
+                User::where('assign_new_devices', true)->update(['assign_new_devices' => false]);
+            }
         }
     }
 
