@@ -501,8 +501,13 @@ new class extends Component
                     x-data="{ pluginName: {{ json_encode(strtolower($plugin['name'] ?? '')) }} }"
                     x-show="searchTerm.length <= 1 || pluginName.includes(searchTerm.toLowerCase())"
                     class="styled-container flex flex-col">
-                    <a href="{{ $plugin['detail_view_url'] ?? route('plugins.recipe', ['plugin' => $plugin['id']]) }}"
-                       class="block flex-1">
+                    @php $isOtherUsersShared = ($plugin['is_shared'] ?? false) && ($plugin['user_id'] ?? null) !== auth()->id(); @endphp
+                    @if ($isOtherUsersShared)
+                        <div class="block flex-1">
+                    @else
+                        <a href="{{ $plugin['detail_view_url'] ?? route('plugins.recipe', ['plugin' => $plugin['id']]) }}"
+                           class="block flex-1">
+                    @endif
                         <div class="flex items-center space-x-4 px-10 py-8">
                             @isset($plugin['icon_url'])
                                 <img src="{{ $plugin['icon_url'] }}" class="h-6"/>
@@ -512,16 +517,18 @@ new class extends Component
                             @endif
                             <h3 class="text-lg font-medium dark:text-zinc-200">{{$plugin['name']}}</h3>
                         </div>
-                    </a>
+                    @if ($isOtherUsersShared)
+                        </div>
+                    @else
+                        </a>
+                    @endif
 
-                    @if (isset($plugin['id']))
-                        @if (($plugin['is_shared'] ?? false) && ($plugin['user_id'] ?? null) !== auth()->id())
-                            <div class="px-4 pb-4">
-                                <flux:button size="sm" wire:click="copyPlugin({{ $plugin['id'] }})">
-                                    Install Copy
-                                </flux:button>
-                            </div>
-                        @endif
+                    @if (isset($plugin['id']) && $isOtherUsersShared)
+                        <div class="px-4 pb-4">
+                            <flux:button size="sm" wire:click="copyPlugin({{ $plugin['id'] }})">
+                                Install Copy
+                            </flux:button>
+                        </div>
                     @endif
                 </div>
             @endforeach
