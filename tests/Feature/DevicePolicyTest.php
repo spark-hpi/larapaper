@@ -50,12 +50,12 @@ it('non-owner cannot update another user device', function (): void {
     expect($other->can('update', $device))->toBeFalse();
 });
 
-it('regular user cannot update unowned device', function (): void {
+it('regular user can update an unowned device', function (): void {
     User::factory()->create(); // consume id=1 (auto-admin slot)
     $user = User::factory()->confirmed()->create();
     $device = Device::factory()->create(['user_id' => null]);
 
-    expect($user->can('update', $device))->toBeFalse();
+    expect($user->can('update', $device))->toBeTrue();
 });
 
 it('admin can update unowned device', function (): void {

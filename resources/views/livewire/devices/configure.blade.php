@@ -91,7 +91,7 @@ new class extends Component
 
     public function mount(App\Models\Device $device)
     {
-        abort_unless(auth()->user()->isAdmin() || auth()->user()->devices->contains($device), 403);
+        $this->authorize('update', $device);
 
         $current_image_uuid = $device->current_screen_image;
         $current_image_path = 'images/generated/'.$current_image_uuid.'.png';
@@ -152,7 +152,7 @@ new class extends Component
 
     public function deleteDevice(App\Models\Device $device)
     {
-        abort_unless(auth()->user()->isAdmin() || auth()->user()->devices->contains($device), 403);
+        $this->authorize('delete', $device);
         $device->delete();
 
         redirect()->route('devices');
@@ -179,7 +179,7 @@ new class extends Component
 
     public function updateDevice()
     {
-        abort_unless(auth()->user()->isAdmin() || auth()->user()->devices->contains($this->device), 403);
+        $this->authorize('update', $this->device);
 
         $this->validate([
             'name' => 'required|string|max:255',
@@ -274,7 +274,7 @@ new class extends Component
     public function sortPlaylistItem(int $id, int $position): void
     {
         $item = PlaylistItem::query()->with('playlist.device')->findOrFail($id);
-        abort_unless(auth()->user()->devices->contains($item->playlist->device), 403);
+        $this->authorize('update', $item->playlist->device);
 
         $items = $item->playlist->items()->orderBy('order')->orderBy('id')->get();
         $ids = $items->pluck('id')->all();
@@ -302,7 +302,7 @@ new class extends Component
 
     public function deletePlaylist(Playlist $playlist)
     {
-        abort_unless(auth()->user()->devices->contains($playlist->device), 403);
+        $this->authorize('update', $playlist->device);
         $playlist->delete();
         $this->playlists = $this->device->playlists()->with('items.plugin')->orderBy('created_at')->get();
         Flux::modal('delete-playlist-'.$playlist->id)->close();
@@ -310,7 +310,7 @@ new class extends Component
 
     public function deletePlaylistItem(PlaylistItem $item)
     {
-        abort_unless(auth()->user()->devices->contains($item->playlist->device), 403);
+        $this->authorize('update', $item->playlist->device);
         $item->delete();
         $this->playlists = $this->device->playlists()->with('items.plugin')->orderBy('created_at')->get();
         Flux::modal('delete-playlist-item-'.$item->id)->close();
@@ -320,7 +320,7 @@ new class extends Component
     {
         $item->loadMissing(['playlist.device', 'plugin']);
 
-        abort_unless(auth()->user()->devices->contains($item->playlist->device), 403);
+        $this->authorize('update', $item->playlist->device);
 
         if ($item->isMashup()) {
             return;
@@ -387,7 +387,7 @@ new class extends Component
 
     public function updateFirmware()
     {
-        abort_unless(auth()->user()->devices->contains($this->device), 403);
+        $this->authorize('update', $this->device);
 
         $this->validate([
             'selected_firmware_id' => 'required|exists:firmware,id',

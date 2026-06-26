@@ -24,7 +24,7 @@ class DevicePolicy
             return true;
         }
 
-        return $device->user_id === $user->id;
+        return $device->user_id === null || $device->user_id === $user->id;
     }
 
     public function delete(User $user, Device $device): bool
