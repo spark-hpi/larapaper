@@ -1481,20 +1481,20 @@ HTML;
 
                 </div>
             @else
-            <div class="flex items-center gap-6 mb-4 mt-4">
-                <div class="flex-1 flex items-center">
-                    <span class="pr-2">Template language</span>
-                    <flux:radio.group wire:model.live="markup_language" variant="segmented">
-                        <flux:radio value="blade" label="Blade"/>
-                        <flux:radio value="liquid" label="Liquid"/>
-                    </flux:radio.group>
+                <div class="flex items-center gap-6 mb-4 mt-4">
+                    <div class="flex-1 flex items-center">
+                        <span class="pr-2">Template language</span>
+                        <flux:radio.group wire:model.live="markup_language" variant="segmented">
+                            <flux:radio value="blade" label="Blade"/>
+                            <flux:radio value="liquid" label="Liquid"/>
+                        </flux:radio.group>
+                    </div>
+                    <div class="text-accent flex items-center gap-2">
+                        <span class="pr-2">Getting started</span>
+                        <flux:button wire:click="renderExample('layoutTitle')" class="text-xl">Responsive Layout with Title Bar</flux:button>
+                        <flux:button wire:click="renderExample('layout')" class="text-xl">Responsive Layout</flux:button>
+                    </div>
                 </div>
-                <div class="text-accent flex items-center gap-2">
-                    <span class="pr-2">Getting started</span>
-                    <flux:button wire:click="renderExample('layoutTitle')" class="text-xl">Responsive Layout with Title Bar</flux:button>
-                    <flux:button wire:click="renderExample('layout')" class="text-xl">Responsive Layout</flux:button>
-                </div>
-            </div>
             @endif
         </div>
         @if(!$plugin->render_markup_view)
