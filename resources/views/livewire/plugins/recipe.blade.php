@@ -15,8 +15,6 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 new class extends Component
 {
-    use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-
     public Plugin $plugin;
 
     public ?string $markup_code;
@@ -83,27 +81,9 @@ new class extends Component
 
     public ?string $transform_error = null;
 
-    public bool $is_shared = false;
-
-    public function getAvailableUsersProperty(): \Illuminate\Database\Eloquent\Collection
-    {
-        return \App\Models\User::whereNotNull('confirmed_at')->orderBy('name')->get();
-    }
-
-    public function reassignPlugin(int $newOwnerId): void
-    {
-        $this->authorize('reassign', $this->plugin);
-
-        $newOwner = \App\Models\User::findOrFail($newOwnerId);
-        $this->plugin->update(['user_id' => $newOwner->id]);
-        $this->plugin = $this->plugin->fresh();
-
-        Flux::toast(variant: 'success', text: 'Plugin ownership updated.');
-    }
-
     public function mount(): void
     {
-        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
+        abort_unless(auth()->user()->plugins->contains($this->plugin), 403);
         $this->blade_code = $this->plugin->render_markup;
         // required to render some stuff
         $this->configuration_template = $this->plugin->configuration_template ?? [];
@@ -177,17 +157,6 @@ new class extends Component
         $this->polling_header = $this->plugin->polling_header;
         $this->polling_body = $this->plugin->polling_body;
         $this->data_payload = json_encode($this->plugin->data_payload, JSON_PRETTY_PRINT);
-        $this->is_shared = (bool) $this->plugin->is_shared;
-    }
-
-    public function toggleShared(): void
-    {
-        $this->authorize('share', $this->plugin);
-
-        $this->plugin->update(['is_shared' => ! $this->plugin->is_shared]);
-        $this->is_shared = (bool) $this->plugin->fresh()->is_shared;
-
-        Flux::toast(variant: 'success', text: $this->is_shared ? 'Plugin shared.' : 'Plugin unshared.');
     }
 
     public function saveMarkup(): void
@@ -750,7 +719,7 @@ HTML;
 
     public function enableTransform(): void
     {
-        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
+        abort_unless(auth()->user()->plugins->contains($this->plugin), 403);
         if ($this->transform_code === null) {
             $this->transform_code = '';
             $this->transform_language ??= 'python';
@@ -763,7 +732,7 @@ HTML;
 
     public function disableTransform(): void
     {
-        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
+        abort_unless(auth()->user()->plugins->contains($this->plugin), 403);
         $this->transform_code = null;
         $this->plugin->update(['transform_code' => null, 'transform_language' => null]);
         if ($this->active_tab === 'transform') {
@@ -781,7 +750,7 @@ HTML;
 
     public function saveTransform(): void
     {
-        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
+        abort_unless(auth()->user()->plugins->contains($this->plugin), 403);
         $this->validate(['transform_code' => 'nullable|string', 'transform_language' => 'nullable|string|in:python,node,php']);
 
         $this->plugin->update([
@@ -842,10 +811,6 @@ HTML;
             </h2>
 
             <div class="flex items-center gap-3">
-                @if($plugin->user_id === auth()->id() || auth()->user()->isAdmin())
-                    <flux:switch wire:click="toggleShared" :checked="$is_shared" label="Shared"/>
-                @endif
-
                 <flux:button.group>
                     <flux:modal.trigger name="preview-plugin">
                         <flux:button icon="eye" wire:click="renderPreview" :disabled="$plugin->hasMissingRequiredConfigurationFields()">Preview</flux:button>
@@ -1112,18 +1077,6 @@ HTML;
                         <flux:input label="Name" wire:model="name" id="name" class="block mt-1 w-full" type="text"
                                     name="name" autofocus/>
                     </div>
-
-                    @if(auth()->user()->isAdmin())
-                        <div class="mb-4">
-                            <flux:select label="Owner" wire:change="reassignPlugin($event.target.value)">
-                                @foreach ($this->availableUsers as $u)
-                                    <flux:select.option value="{{ $u->id }}" :selected="$plugin->user_id === $u->id">
-                                        {{ $u->name }}
-                                    </flux:select.option>
-                                @endforeach
-                            </flux:select>
-                        </div>
-                    @endif
 
                     @php
                         $authorField = null;
