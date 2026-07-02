@@ -3,6 +3,7 @@
 use App\Models\Device;
 use App\Models\DeviceModel;
 use App\Models\Plugin;
+use App\Services\Plugin\ServerlessTransformService;
 use App\Services\PluginExportService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
@@ -14,6 +15,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 new class extends Component
 {
+    use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+
     public Plugin $plugin;
 
     public ?string $markup_code;
@@ -74,9 +77,43 @@ new class extends Component
 
     public string $active_tab = 'full';
 
+    public ?string $transform_code = null;
+
+    public ?string $transform_language = 'python';
+
+    public ?string $transform_error = null;
+
+    public bool $is_shared = false;
+
+    public function getAvailableUsersProperty(): \Illuminate\Database\Eloquent\Collection
+    {
+        return \App\Models\User::whereNotNull('confirmed_at')->orderBy('name')->get();
+    }
+
+    public function getManageableDevicesProperty()
+    {
+        $user = auth()->user();
+
+        return Device::where('user_id', $user->id)
+            ->orWhereNull('user_id')
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function reassignPlugin(?int $newOwnerId): void
+    {
+        $this->authorize('reassign', $this->plugin);
+
+        $newOwner = $newOwnerId ? \App\Models\User::findOrFail($newOwnerId) : null;
+        $this->plugin->update(['user_id' => $newOwner?->id]);
+        $this->plugin = $this->plugin->fresh();
+
+        Flux::toast(variant: 'success', text: 'Plugin ownership updated.');
+    }
+
     public function mount(): void
     {
-        abort_unless(auth()->user()->plugins->contains($this->plugin), 403);
+        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
         $this->blade_code = $this->plugin->render_markup;
         // required to render some stuff
         $this->configuration_template = $this->plugin->configuration_template ?? [];
@@ -118,19 +155,25 @@ new class extends Component
             }
 
             $this->markup_code = $this->markup_layouts['full'];
-            $this->markup_language = $this->plugin->markup_language ?? 'blade';
+            $canUseBlade = ! config('app.multi_user_mode') || auth()->user()->isAdmin() || config('app.dangerously_allow_blade_for_non_admins');
+            $this->markup_language = $this->plugin->markup_language ?? ($canUseBlade ? 'blade' : 'liquid');
         }
 
         // Initialize screen settings from the model
         $this->no_bleed = (bool) ($this->plugin->no_bleed ?? false);
         $this->dark_mode = (bool) ($this->plugin->dark_mode ?? false);
 
+        $this->transform_code = $this->plugin->transform_code;
+        $this->transform_language = $this->plugin->transform_language ?? 'python';
+
         $this->fillformFields();
         $this->data_payload_updated_at = $this->plugin->data_payload_updated_at;
 
         // Set default preview device model
         if ($this->preview_device_model_id === null) {
-            $defaultModel = DeviceModel::where('name', 'og_plus')->first() ?? DeviceModel::first();
+            $defaultModel = $this->getUserDeviceModels()->first()
+                ?? DeviceModel::where('name', 'og_plus')->first()
+                ?? DeviceModel::first();
             $this->preview_device_model_id = $defaultModel?->id;
         }
     }
@@ -145,11 +188,22 @@ new class extends Component
         $this->polling_header = $this->plugin->polling_header;
         $this->polling_body = $this->plugin->polling_body;
         $this->data_payload = json_encode($this->plugin->data_payload, JSON_PRETTY_PRINT);
+        $this->is_shared = (bool) $this->plugin->is_shared;
+    }
+
+    public function toggleShared(): void
+    {
+        $this->authorize('share', $this->plugin);
+
+        $this->plugin->update(['is_shared' => ! $this->plugin->is_shared]);
+        $this->is_shared = (bool) $this->plugin->fresh()->is_shared;
+
+        Flux::toast(variant: 'success', text: $this->is_shared ? 'Plugin shared.' : 'Plugin unshared.');
     }
 
     public function saveMarkup(): void
     {
-        abort_unless(auth()->user()->plugins->contains($this->plugin), 403);
+        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
         $this->validate();
 
         // Update markup_code for the active tab
@@ -195,13 +249,22 @@ new class extends Component
 
     public function switchTab(string $layout): void
     {
-        if (in_array($layout, $this->active_tabs, true)) {
-            // Save current tab's content before switching
-            if (isset($this->markup_layouts[$this->active_tab])) {
-                $this->markup_layouts[$this->active_tab] = $this->markup_code ?? '';
-            }
+        $isMarkupTab = in_array($layout, $this->active_tabs, true);
+        $isTransformTab = $layout === 'transform'
+            && $this->transform_code !== null
+            && app(ServerlessTransformService::class)->isEnabled();
 
-            $this->active_tab = $layout;
+        if (! $isMarkupTab && ! $isTransformTab) {
+            return;
+        }
+
+        // Save outgoing markup tab content (not when leaving the transform tab)
+        if ($this->active_tab !== 'transform' && isset($this->markup_layouts[$this->active_tab])) {
+            $this->markup_layouts[$this->active_tab] = $this->markup_code ?? '';
+        }
+
+        $this->active_tab = $layout;
+        if ($layout !== 'transform') {
             $this->markup_code = $this->markup_layouts[$layout] ?? '';
         }
     }
@@ -237,6 +300,7 @@ new class extends Component
             'half_vertical' => 'Half Vertical',
             'quadrant' => 'Quadrant',
             'shared' => 'Shared',
+            'transform' => 'Transform',
             default => ucfirst($layout),
         };
     }
@@ -253,30 +317,43 @@ new class extends Component
         return 'Responsive';
     }
 
-    protected array $rules = [
-        'name' => 'required|string|max:255',
-        'data_stale_minutes' => 'required|integer|min:1',
-        'data_strategy' => 'required|string|in:polling,webhook,static',
-        'polling_url' => 'required_if:data_strategy,polling|nullable',
-        'polling_verb' => 'required|string|in:get,post',
-        'polling_header' => 'nullable|string|max:10240',
-        'polling_body' => 'nullable|string',
-        'data_payload' => 'required_if:data_strategy,static|nullable|json',
-        'markup_code' => 'nullable|string',
-        'markup_language' => 'nullable|string|in:blade,liquid',
-        'checked_devices' => 'array',
-        'device_playlist_names' => 'array',
-        'device_playlists' => 'array',
-        'device_weekdays' => 'array',
-        'device_active_from' => 'array',
-        'device_active_until' => 'array',
-        'no_bleed' => 'boolean',
-        'dark_mode' => 'boolean',
-    ];
+    protected function rules(): array
+    {
+        return [
+            'name' => 'required|string|max:255',
+            'data_stale_minutes' => 'required|integer|min:1',
+            'data_strategy' => 'required|string|in:polling,webhook,static',
+            'polling_url' => 'required_if:data_strategy,polling|nullable',
+            'polling_verb' => 'required|string|in:get,post',
+            'polling_header' => 'nullable|string|max:10240',
+            'polling_body' => 'nullable|string',
+            'data_payload' => 'required_if:data_strategy,static|nullable|json',
+            'markup_code' => 'nullable|string',
+            'markup_language' => ['nullable', 'string', function ($attribute, $value, $fail) {
+                $allowed = ['liquid'];
+                if (! config('app.multi_user_mode') || auth()->user()?->isAdmin() || config('app.dangerously_allow_blade_for_non_admins')) {
+                    $allowed[] = 'blade';
+                }
+                if (! in_array($value, $allowed)) {
+                    $fail('Blade templates are restricted to administrators.');
+                }
+            }],
+            'checked_devices' => 'array',
+            'device_playlist_names' => 'array',
+            'device_playlists' => 'array',
+            'device_weekdays' => 'array',
+            'device_active_from' => 'array',
+            'device_active_until' => 'array',
+            'no_bleed' => 'boolean',
+            'dark_mode' => 'boolean',
+            'transform_code' => 'nullable|string',
+            'transform_language' => 'nullable|string|in:python,node,php',
+        ];
+    }
 
     public function editSettings()
     {
-        abort_unless(auth()->user()->plugins->contains($this->plugin), 403);
+        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
 
         // Custom validation for polling_url with Liquid variable resolution
         $this->validatePollingUrl();
@@ -333,6 +410,12 @@ new class extends Component
                 $this->data_payload = json_encode($this->plugin->data_payload, JSON_PRETTY_PRINT);
                 $this->data_payload_updated_at = $this->plugin->data_payload_updated_at;
 
+                $payload = $this->plugin->data_payload;
+                if ($this->transform_code !== null && is_array($payload) && array_key_exists('error', $payload)) {
+                    $this->transform_error = (string) ($payload['error'] ?? 'Unknown transform error');
+                } else {
+                    $this->transform_error = null;
+                }
             } catch (Exception $e) {
                 $this->dispatch('data-update-error', message: $e->getMessage().$e->getPrevious()?->getMessage());
             }
@@ -368,6 +451,11 @@ new class extends Component
             'mashup_layout' => 'required|string',
             'mashup_plugins' => 'required_if:mashup_layout,1Lx1R,1Lx2R,2Lx1R,1Tx1B,2Tx1B,1Tx2B,2x2|array',
         ]);
+
+        $manageableIds = $this->manageableDevices->pluck('id')->all();
+        foreach ($this->checked_devices as $deviceId) {
+            abort_unless(in_array((int) $deviceId, $manageableIds, true), 403);
+        }
 
         // Validate that each checked device has a playlist selected
         foreach ($this->checked_devices as $deviceId) {
@@ -513,7 +601,7 @@ HTML;
 
     public function renderPreview($size = 'full'): void
     {
-        abort_unless(auth()->user()->plugins->contains($this->plugin), 403);
+        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
 
         $this->preview_size = $size;
 
@@ -574,7 +662,7 @@ HTML;
 
     public function renderImage(): void
     {
-        abort_unless(auth()->user()->plugins->contains($this->plugin), 403);
+        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
 
         if ($this->plugin->data_strategy === 'polling' && $this->plugin->data_payload === null) {
             $this->updateData();
@@ -607,21 +695,54 @@ HTML;
 
     public function getDeviceModels()
     {
+        $groups = [];
+        $userDeviceModels = $this->getUserDeviceModels();
+        $userDeviceModelIds = $userDeviceModels->pluck('id');
 
-        return [
+        if ($userDeviceModels->isNotEmpty()) {
+            $groups['user_devices'] = [
+                'label' => 'Your Devices',
+                'models' => $userDeviceModels,
+            ];
+        }
+
+        return $groups + [
             'trmnl' => [
                 'label' => 'TRMNL',
-                'models' => DeviceModel::whereKind('trmnl')->orderBy('label')->get(),
+                'models' => DeviceModel::whereKind('trmnl')
+                    ->whereNotIn('id', $userDeviceModelIds)
+                    ->orderBy('label')
+                    ->get(),
             ],
             'byod' => [
                 'label' => 'BYOD',
-                'models' => DeviceModel::whereKind('byod')->orderBy('label')->get(),
+                'models' => DeviceModel::whereKind('byod')
+                    ->whereNotIn('id', $userDeviceModelIds)
+                    ->orderBy('label')
+                    ->get(),
             ],
             'readers' => [
                 'label' => 'eReaders',
-                'models' => DeviceModel::whereKind('kindle')->orderBy('label')->get(),
+                'models' => DeviceModel::whereKind('kindle')
+                    ->whereNotIn('id', $userDeviceModelIds)
+                    ->orderBy('label')
+                    ->get(),
             ],
         ];
+    }
+
+    private function getUserDeviceModels()
+    {
+        return auth()->user()
+            ->devices()
+            ->with('deviceModel')
+            ->whereNotNull('device_model_id')
+            ->orderBy('id')
+            ->get()
+            ->pluck('deviceModel')
+            ->filter()
+            ->unique('id')
+            ->values();
     }
 
     public function updatedPreviewDeviceModelId(): void
@@ -631,7 +752,7 @@ HTML;
 
     public function duplicatePlugin(): void
     {
-        abort_unless(auth()->user()->plugins->contains($this->plugin), 403);
+        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
 
         // Use the model's duplicate method
         $newPlugin = $this->plugin->duplicate(auth()->id());
@@ -642,16 +763,60 @@ HTML;
 
     public function exportPluginArchive(PluginExportService $exporter): BinaryFileResponse
     {
-        abort_unless(auth()->user()->plugins->contains($this->plugin), 403);
+        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
 
         return $exporter->exportToZip($this->plugin, auth()->user());
     }
 
     public function deletePlugin(): void
     {
-        abort_unless(auth()->user()->plugins->contains($this->plugin), 403);
+        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
         $this->plugin->delete();
         $this->redirect(route('plugins.index'));
+    }
+
+    public function enableTransform(): void
+    {
+        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
+        if ($this->transform_code === null) {
+            $this->transform_code = '';
+            $this->transform_language ??= 'python';
+            $this->plugin->update([
+                'transform_code'     => '',
+                'transform_language' => $this->transform_language,
+            ]);
+        }
+    }
+
+    public function disableTransform(): void
+    {
+        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
+        $this->transform_code = null;
+        $this->plugin->update(['transform_code' => null, 'transform_language' => null]);
+        if ($this->active_tab === 'transform') {
+            $this->active_tab = 'full';
+            $this->markup_code = $this->markup_layouts['full'] ?? '';
+        }
+    }
+
+    public function updatedTransformLanguage(): void
+    {
+        if ($this->transform_code !== null) {
+            $this->plugin->update(['transform_language' => $this->transform_language]);
+        }
+    }
+
+    public function saveTransform(): void
+    {
+        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
+        $this->validate(['transform_code' => 'nullable|string', 'transform_language' => 'nullable|string|in:python,node,php']);
+
+        $this->plugin->update([
+            'transform_code'     => $this->transform_code,
+            'transform_language' => $this->transform_language,
+        ]);
+
+        Flux::toast(variant: 'success', text: 'Transform saved.');
     }
 
     #[On('config-updated')]
@@ -698,55 +863,62 @@ HTML;
     "
 >
     <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center mb-6">
+        <div class="flex justify-between items-center mb-3">
             <h2 class="text-2xl font-semibold dark:text-gray-100">{{$plugin->name}}
                 <flux:badge size="sm" class="ml-2">Recipe</flux:badge>
             </h2>
 
-            <flux:button.group>
-                <flux:modal.trigger name="preview-plugin">
-                    <flux:button icon="eye" wire:click="renderPreview" :disabled="$plugin->hasMissingRequiredConfigurationFields()">Preview</flux:button>
-                </flux:modal.trigger>
-                <flux:dropdown>
-                    <flux:button icon="chevron-down" :disabled="$plugin->hasMissingRequiredConfigurationFields()"></flux:button>
-                    <flux:menu>
-                        <flux:modal.trigger name="preview-plugin">
-                            <flux:menu.item icon="mashup-1Tx1B" wire:click="renderPreview('half_horizontal')" :disabled="$plugin->hasMissingRequiredConfigurationFields()">Half-Horizontal
-                            </flux:menu.item>
-                        </flux:modal.trigger>
+            <div class="flex items-center gap-3">
+                @if($plugin->user_id === auth()->id() || auth()->user()->isAdmin())
+                    <flux:switch wire:click="toggleShared" :checked="$is_shared" label="Shared"/>
+                @endif
 
-                        <flux:modal.trigger name="preview-plugin">
-                            <flux:menu.item icon="mashup-1Lx1R" wire:click="renderPreview('half_vertical')" :disabled="$plugin->hasMissingRequiredConfigurationFields()">Half-Vertical
-                            </flux:menu.item>
-                        </flux:modal.trigger>
+                <flux:button.group>
+                    <flux:modal.trigger name="preview-plugin">
+                        <flux:button icon="eye" wire:click="renderPreview" :disabled="$plugin->hasMissingRequiredConfigurationFields()">Preview</flux:button>
+                    </flux:modal.trigger>
+                    <flux:dropdown>
+                        <flux:button icon="chevron-down" :disabled="$plugin->hasMissingRequiredConfigurationFields()"></flux:button>
+                        <flux:menu>
+                            <flux:modal.trigger name="preview-plugin">
+                                <flux:menu.item icon="mashup-1Tx1B" wire:click="renderPreview('half_horizontal')" :disabled="$plugin->hasMissingRequiredConfigurationFields()">Half-Horizontal
+                                </flux:menu.item>
+                            </flux:modal.trigger>
 
-                        <flux:modal.trigger name="preview-plugin">
-                            <flux:menu.item icon="mashup-2x2" wire:click="renderPreview('quadrant')" :disabled="$plugin->hasMissingRequiredConfigurationFields()">Quadrant</flux:menu.item>
-                        </flux:modal.trigger>
-                    </flux:menu>
-                </flux:dropdown>
-            </flux:button.group>
-            <flux:button.group>
-                <flux:modal.trigger name="add-to-playlist">
-                    <flux:button icon="play" variant="primary" :disabled="$plugin->hasMissingRequiredConfigurationFields()">Add to Playlist</flux:button>
-                </flux:modal.trigger>
+                            <flux:modal.trigger name="preview-plugin">
+                                <flux:menu.item icon="mashup-1Lx1R" wire:click="renderPreview('half_vertical')" :disabled="$plugin->hasMissingRequiredConfigurationFields()">Half-Vertical
+                                </flux:menu.item>
+                            </flux:modal.trigger>
 
-                <flux:dropdown>
-                    <flux:button icon="chevron-down" variant="primary"></flux:button>
-                    <flux:menu>
-                        <flux:modal.trigger name="trmnlp-settings">
-                            <flux:menu.item icon="cog">Recipe Settings</flux:menu.item>
-                        </flux:modal.trigger>
-                        <flux:menu.separator />
-                        <flux:menu.item icon="document-duplicate" wire:click="duplicatePlugin">Duplicate Plugin</flux:menu.item>
-                        <flux:modal.trigger name="delete-plugin">
-                            <flux:menu.item icon="trash" variant="danger">Delete Plugin</flux:menu.item>
-                        </flux:modal.trigger>
-                        <flux:menu.separator />
-                        <flux:menu.item icon="archive-box" wire:click="exportPluginArchive">Export Recipe Archive</flux:menu.item>
-                    </flux:menu>
-                </flux:dropdown>
-            </flux:button.group>
+                            <flux:modal.trigger name="preview-plugin">
+                                <flux:menu.item icon="mashup-2x2" wire:click="renderPreview('quadrant')" :disabled="$plugin->hasMissingRequiredConfigurationFields()">Quadrant</flux:menu.item>
+                            </flux:modal.trigger>
+                        </flux:menu>
+                    </flux:dropdown>
+                </flux:button.group>
+
+                <flux:button.group>
+                    <flux:modal.trigger name="add-to-playlist">
+                        <flux:button icon="play" variant="primary" :disabled="$plugin->hasMissingRequiredConfigurationFields()">Add to Playlist</flux:button>
+                    </flux:modal.trigger>
+
+                    <flux:dropdown>
+                        <flux:button icon="chevron-down" variant="primary"></flux:button>
+                        <flux:menu>
+                            <flux:modal.trigger name="trmnlp-settings">
+                                <flux:menu.item icon="cog">Recipe Settings</flux:menu.item>
+                            </flux:modal.trigger>
+                            <flux:menu.separator />
+                            <flux:menu.item icon="document-duplicate" wire:click="duplicatePlugin">Duplicate Plugin</flux:menu.item>
+                            <flux:modal.trigger name="delete-plugin">
+                                <flux:menu.item icon="trash" variant="danger">Delete Plugin</flux:menu.item>
+                            </flux:modal.trigger>
+                            <flux:menu.separator />
+                            <flux:menu.item icon="archive-box" wire:click="exportPluginArchive">Export Recipe Archive</flux:menu.item>
+                        </flux:menu>
+                    </flux:dropdown>
+                </flux:button.group>
+            </div>
         </div>
 
         <flux:modal name="add-to-playlist" class="min-w-2xl">
@@ -759,8 +931,11 @@ HTML;
                     <flux:separator text="Device(s)" />
                     <div class="mt-4 mb-4">
                         <flux:checkbox.group wire:model.live="checked_devices">
-                            @foreach(auth()->user()->devices as $device)
-                                <flux:checkbox label="{{ $device->name }}" value="{{ $device->id }}"/>
+                            @foreach($this->manageableDevices as $device)
+                                <flux:checkbox
+                                    label="{{ $device->name }}{{ $device->user_id === null ? ' (shared)' : '' }}"
+                                    value="{{ $device->id }}"
+                                />
                             @endforeach
                         </flux:checkbox.group>
                     </div>
@@ -770,7 +945,7 @@ HTML;
                         <div class="mt-4 mb-4 space-y-6">
                             @foreach($checked_devices as $deviceId)
                                 @php
-                                    $device = auth()->user()->devices->find($deviceId);
+                                    $device = $this->manageableDevices->find($deviceId);
                                 @endphp
                                 <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4">
                                     <div class="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3">
@@ -968,6 +1143,19 @@ HTML;
                                     name="name" autofocus/>
                     </div>
 
+                    @if(auth()->user()->isAdmin())
+                        <div class="mb-4">
+                            <flux:select label="Owner" wire:change="reassignPlugin($event.target.value)">
+                                <flux:select.option value="" :selected="$plugin->user_id === null">— Unowned —</flux:select.option>
+                                @foreach ($this->availableUsers as $u)
+                                    <flux:select.option value="{{ $u->id }}" :selected="$plugin->user_id === $u->id">
+                                        {{ $u->name }}
+                                    </flux:select.option>
+                                @endforeach
+                            </flux:select>
+                        </div>
+                    @endif
+
                     @php
                         $authorField = null;
                         if (isset($configuration_template['custom_fields'])) {
@@ -1058,8 +1246,17 @@ HTML;
                     @if($data_strategy === 'polling')
                     <flux:label>Polling URL</flux:label>
 
-                    <div x-data="{ subTab: 'settings' }" class="mt-2 mb-4">
+                    <div x-data="{ subTab: 'urls' }" class="mt-2 mb-4">
                         <div class="flex">
+                            <button
+                                @click="subTab = 'urls'"
+                                class="tab-button"
+                                :class="subTab === 'urls' ? 'is-active' : ''"
+                            >
+                                <flux:icon.link class="size-4"/>
+                                URLs
+                            </button>
+
                             <button
                                 @click="subTab = 'settings'"
                                 class="tab-button"
@@ -1068,19 +1265,21 @@ HTML;
                                 <flux:icon.cog-6-tooth class="size-4"/>
                                 Settings
                             </button>
-
+                            @if(app(ServerlessTransformService::class)->isEnabled())
                             <button
-                                @click="subTab = 'preview'"
+                                @click="subTab = 'transform'"
                                 class="tab-button"
-                                :class="subTab === 'preview' ? 'is-active' : ''"
+                                :class="subTab === 'transform' ? 'is-active' : ''"
                             >
-                                <flux:icon.eye class="size-4" />
-                                Preview URL
+                                <flux:icon.code-bracket class="size-4"/>
+                                Transform
                             </button>
+                            @endif
                         </div>
 
                         <div class="flex-col p-4 bg-transparent rounded-tl-none styled-container">
-                            <div x-show="subTab === 'settings'">
+                            {{-- URLs tab --}}
+                            <div x-show="subTab === 'urls'">
                                 <flux:field>
                                     <flux:description>Enter the URL(s) to poll for data:</flux:description>
                                     <flux:textarea
@@ -1092,63 +1291,90 @@ HTML;
                                         {!! 'Hint: Supports multiple requests via line break separation. You can also use configuration variables with <a href="https://help.usetrmnl.com/en/articles/12689499-dynamic-polling-urls">Liquid syntax</a>. ' !!}
                                     </flux:description>
                                 </flux:field>
+
+                                <div class="mt-3">
+                                    <flux:field>
+                                        <flux:description>Preview computed URLs here (readonly):</flux:description>
+                                        <flux:textarea
+                                            readonly
+                                            placeholder="Nothing to show..."
+                                            rows="3"
+                                        >
+                                            {{ $this->parsed_urls }}
+                                        </flux:textarea>
+                                    </flux:field>
+                                </div>
+
+                                <flux:button icon="cloud-arrow-down" wire:click="updateData" class="w-full mt-4">
+                                    Fetch data now
+                                </flux:button>
                             </div>
 
-                            <div x-show="subTab === 'preview'" x-cloak>
-                                <flux:field>
-                                    <flux:description>Preview computed URLs here (readonly):</flux:description>
+                            {{-- Settings tab --}}
+                            <div x-show="subTab === 'settings'" x-cloak>
+                                <div class="mb-4">
+                                    <flux:radio.group wire:model.live="polling_verb" label="Polling Verb" variant="segmented">
+                                        <flux:radio value="get" label="GET"/>
+                                        <flux:radio value="post" label="POST"/>
+                                    </flux:radio.group>
+                                </div>
+
+                                <div class="mb-4">
                                     <flux:textarea
-                                        readonly
-                                        placeholder="Nothing to show..."
-                                        rows="5"
-                                    >
-                                        {{ $this->parsed_urls }}
-                                    </flux:textarea>
-                                </flux:field>
-                            </div>
+                                        label="Polling Headers (one per line, format: Header: Value)"
+                                        wire:model="polling_header"
+                                        id="polling_header"
+                                        class="block mt-1 w-full font-mono"
+                                        name="polling_header"
+                                        rows="3"
+                                        placeholder="Authorization: Bearer ey.*******&#10;Content-Type: application/json"
+                                    />
+                                </div>
 
-                            <flux:button icon="cloud-arrow-down" wire:click="updateData" class="w-full mt-4">
-                                Fetch data now
-                            </flux:button>
+                                @if($polling_verb === 'post')
+                                <div class="mb-4">
+                                    <flux:textarea
+                                        label="Polling Body (e.g. for GraphQL queries)"
+                                        wire:model="polling_body"
+                                        id="polling_body"
+                                        class="block mt-1 w-full font-mono"
+                                        name="polling_body"
+                                        rows="6"
+                                    />
+                                </div>
+                                @endif
+
+                                <div class="mb-4">
+                                    <flux:input label="Data is stale after minutes" wire:model="data_stale_minutes"
+                                                id="data_stale_minutes"
+                                                class="block mt-1 w-full" type="number" name="data_stale_minutes"/>
+                                </div>
+
+                            {{-- Transform tab --}}
+                            @if(app(ServerlessTransformService::class)->isEnabled())
+                            <div x-show="subTab === 'transform'" x-cloak>
+                                <div class="mb-4">
+                                    <flux:checkbox
+                                        :checked="$transform_code !== null"
+                                        wire:click="{{ $transform_code === null ? 'enableTransform' : 'disableTransform' }}"
+                                        label="Enable transform"
+                                        description="Run a serverless function to reshape the polled data before rendering."
+                                    />
+                                </div>
+
+                                @if($transform_code !== null)
+                                <div>
+                                    <flux:radio.group wire:model.live="transform_language" label="Language" variant="segmented">
+                                        <flux:radio value="python" label="Python"/>
+                                        <flux:radio value="node" label="Node"/>
+                                        <flux:radio value="php" label="PHP"/>
+                                    </flux:radio.group>
+                                </div>
+                                @endif
+                            </div>
+                            @endif
                         </div>
                     </div>
-
-                        <div class="mb-4">
-                            <flux:radio.group wire:model.live="polling_verb" label="Polling Verb" variant="segmented">
-                                <flux:radio value="get" label="GET"/>
-                                <flux:radio value="post" label="POST"/>
-                            </flux:radio.group>
-                        </div>
-
-                        <div class="mb-4">
-                            <flux:textarea
-                                label="Polling Headers (one per line, format: Header: Value)"
-                                wire:model="polling_header"
-                                id="polling_header"
-                                class="block mt-1 w-full font-mono"
-                                name="polling_header"
-                                rows="3"
-                                placeholder="Authorization: Bearer ey.*******&#10;Content-Type: application/json"
-                            />
-                        </div>
-
-                        @if($polling_verb === 'post')
-                        <div class="mb-4">
-                            <flux:textarea
-                                label="Polling Body (e.g. for GraphQL queries)"
-                                wire:model="polling_body"
-                                id="polling_body"
-                                class="block mt-1 w-full font-mono"
-                                name="polling_body"
-                                rows="6"
-                            />
-                        </div>
-                        @endif
-                        <div class="mb-4">
-                            <flux:input label="Data is stale after minutes" wire:model="data_stale_minutes"
-                                        id="data_stale_minutes"
-                                        class="block mt-1 w-full" type="number" name="data_stale_minutes" autofocus/>
-                        </div>
                     @elseif($data_strategy === 'webhook')
                         <div class="mb-4">
                             <flux:field>
@@ -1194,6 +1420,9 @@ HTML;
                     @isset($this->data_payload_updated_at)
                         <flux:badge icon="clock" size="sm" variant="pill" class="ml-2">{{ $this->data_payload_updated_at?->diffForHumans() ?? 'Never' }}</flux:badge>
                     @endisset
+                    @if($transform_error !== null)
+                        <flux:badge icon="exclamation-triangle" size="sm" variant="pill" color="red" class="ml-2" :title="$transform_error">Transform error</flux:badge>
+                    @endif
                 </div>
                 <flux:error name="data_payload"/>
                 <flux:field>
@@ -1238,7 +1467,7 @@ HTML;
         </div>
         <flux:separator class="my-5"/>
         <div>
-            <h3 class="text-xl font-semibold dark:text-gray-100">Markup</h3>
+            <h3 class="text-xl font-semibold dark:text-gray-100">Code</h3>
             @if($plugin->render_markup_view)
                 <div>
                     Edit view
@@ -1281,107 +1510,153 @@ HTML;
 
                 </div>
             @else
-            <div class="flex items-center gap-6 mb-4 mt-4">
-                <div class="flex-1 flex items-center">
-                    <span class="pr-2">Template language</span>
-                    <flux:radio.group wire:model.live="markup_language" variant="segmented">
-                        <flux:radio value="blade" label="Blade"/>
-                        <flux:radio value="liquid" label="Liquid"/>
-                    </flux:radio.group>
+                <div class="flex items-center gap-6 mb-4 mt-4">
+                    <div class="flex-1 flex items-center">
+                        <span class="pr-2">Template language</span>
+                        <flux:radio.group wire:model.live="markup_language" variant="segmented">
+                            <flux:radio value="blade" label="Blade"/>
+                            <flux:radio value="liquid" label="Liquid"/>
+                        </flux:radio.group>
+                    </div>
+                    <div class="text-accent flex items-center gap-2">
+                        <span class="pr-2">Getting started</span>
+                        <flux:button wire:click="renderExample('layoutTitle')" class="text-xl">Responsive Layout with Title Bar</flux:button>
+                        <flux:button wire:click="renderExample('layout')" class="text-xl">Responsive Layout</flux:button>
+                    </div>
                 </div>
-                <div class="text-accent flex items-center gap-2">
-                    <span class="pr-2">Getting started</span>
-                    <flux:button wire:click="renderExample('layoutTitle')" class="text-xl">Responsive Layout with Title Bar</flux:button>
-                    <flux:button wire:click="renderExample('layout')" class="text-xl">Responsive Layout</flux:button>
-                </div>
-            </div>
             @endif
         </div>
         @if(!$plugin->render_markup_view)
-            <form wire:submit="saveMarkup">
-                <div class="mb-4">
-                    <div>
-                        <div class="flex items-end">
-                            @foreach($active_tabs as $tab)
-                                <button
-                                    type="button"
-                                    wire:click="switchTab('{{ $tab }}')"
-                                    class="tab-button {{ $active_tab === $tab ? 'is-active' : '' }}"
-                                    wire:key="tab-{{ $tab }}"
-                                >
-                                    {{ $this->getLayoutLabel($tab) }}
-                                </button>
-                            @endforeach
+            <div class="mb-4">
+                <div>
+                    <div class="flex items-end">
+                        @foreach($active_tabs as $tab)
+                            <button
+                                type="button"
+                                wire:click="switchTab('{{ $tab }}')"
+                                class="tab-button {{ $active_tab === $tab ? 'is-active' : '' }}"
+                                wire:key="tab-{{ $tab }}"
+                            >
+                                {{ $this->getLayoutLabel($tab) }}
+                            </button>
+                        @endforeach
 
-                            <flux:dropdown>
-                                <flux:button icon="plus" variant="ghost" size="sm" class="m-0.5"></flux:button>
-                                <flux:menu>
-                                    @foreach($this->getAvailableLayouts() as $layout => $label)
-                                        <flux:menu.item wire:click="toggleLayoutTab('{{ $layout }}')">
-                                            <div class="flex items-center gap-2">
-                                                @if(in_array($layout, $active_tabs, true))
-                                                    <flux:icon.check class="size-4" />
-                                                @else
-                                                    <span class="inline-block w-4 h-4"></span>
-                                                @endif
-                                                <span>{{ $label }}</span>
-                                            </div>
-                                        </flux:menu.item>
-                                    @endforeach
-                                </flux:menu>
-                            </flux:dropdown>
-                        </div>
+                        @if($transform_code !== null && app(ServerlessTransformService::class)->isEnabled())
+                            <button
+                                type="button"
+                                wire:click="switchTab('transform')"
+                                class="tab-button {{ $active_tab === 'transform' ? 'is-active' : '' }}"
+                            >
+                                Transform
+                            </button>
+                        @endif
 
-                        <div class="flex-col p-4 bg-transparent rounded-tl-none styled-container">
-                            <flux:field>
-                                @php
-                                    $textareaId = 'code-' . $plugin->id;
-                                @endphp
-                                <flux:label>{{ $markup_language === 'liquid' ? 'Liquid Code' : 'Blade Code' }}</flux:label>
-                                <flux:textarea
-                                    wire:model="markup_code"
-                                    id="{{ $textareaId }}"
-                                    placeholder="Enter your HTML code here..."
-                                    rows="25"
-                                    hidden
-                                />
-                                <div
-                                    x-data="codeEditorFormComponent({
-                                        isDisabled: false,
-                                        language: @js($markup_language === 'liquid' ? 'liquid' : 'html'),
-                                        state: $wire.entangle('markup_code'),
-                                        textareaId: @js($textareaId)
-                                    })"
-                                    wire:ignore
-                                    wire:key="cm-{{ $textareaId }}"
-                                    class="min-h-[300px] h-[300px] overflow-hidden resize-y"
-                                >
-                                    <!-- Loading state -->
-                                    <div x-show="isLoading" class="flex items-center justify-center h-full">
-                                        <div class="flex items-center space-x-2">
-                                            <flux:icon.loading />
+                        <flux:dropdown>
+                            <flux:button icon="plus" variant="ghost" size="sm" class="m-0.5"></flux:button>
+                            <flux:menu>
+                                @foreach($this->getAvailableLayouts() as $layout => $label)
+                                    <flux:menu.item wire:click="toggleLayoutTab('{{ $layout }}')">
+                                        <div class="flex items-center gap-2">
+                                            @if(in_array($layout, $active_tabs, true))
+                                                <flux:icon.check class="size-4" />
+                                            @else
+                                                <span class="inline-block w-4 h-4"></span>
+                                            @endif
+                                            <span>{{ $label }}</span>
                                         </div>
-                                    </div>
+                                    </flux:menu.item>
+                                @endforeach
+                            </flux:menu>
+                        </flux:dropdown>
+                    </div>
 
-                                    <!-- Editor container -->
-                                    <div x-show="!isLoading" x-ref="editor" class="h-full"></div>
+                    <div class="flex-col p-4 bg-transparent rounded-tl-none styled-container">
+                        @if($active_tab === 'transform')
+                            {{-- Transform code editor --}}
+                            @php $transformTextareaId = 'transform-' . $plugin->id; @endphp
+                            <flux:textarea wire:model="transform_code" id="{{ $transformTextareaId }}" rows="20" hidden/>
+                            <div
+                                x-data="codeEditorFormComponent({
+                                    isDisabled: false,
+                                    language: @js(match($transform_language) { 'node' => 'javascript', 'php' => 'php', default => 'python' }),
+                                    state: $wire.entangle('transform_code'),
+                                    textareaId: @js($transformTextareaId)
+                                })"
+                                wire:ignore
+                                wire:key="cm-transform-{{ $plugin->id }}-{{ $transform_language }}"
+                                class="min-h-[300px] h-[300px] overflow-hidden resize-y mb-4"
+                            >
+                                <div x-show="isLoading" class="flex items-center justify-center h-full">
+                                    <flux:icon.loading />
                                 </div>
-                            </flux:field>
-                        </div>
+                                <div x-show="!isLoading" x-ref="editor" class="h-full"></div>
+                            </div>
+                        @else
+                            {{-- Markup code editor --}}
+                            <div>
+                                <flux:field>
+                                    @php
+                                        $textareaId = 'code-' . $plugin->id;
+                                    @endphp
+                                    <flux:label>{{ $markup_language === 'liquid' ? 'Liquid Code' : 'Blade Code' }}</flux:label>
+                                    <flux:textarea
+                                        wire:model="markup_code"
+                                        id="{{ $textareaId }}"
+                                        placeholder="Enter your HTML code here..."
+                                        rows="25"
+                                        hidden
+                                    />
+                                    <div
+                                        x-data="codeEditorFormComponent({
+                                            isDisabled: false,
+                                            language: @js($markup_language === 'liquid' ? 'liquid' : 'html'),
+                                            state: $wire.entangle('markup_code'),
+                                            textareaId: @js($textareaId)
+                                        })"
+                                        wire:ignore
+                                        wire:key="cm-{{ $textareaId }}"
+                                        class="min-h-[300px] h-[300px] overflow-hidden resize-y"
+                                    >
+                                        <div x-show="isLoading" class="flex items-center justify-center h-full">
+                                            <div class="flex items-center space-x-2">
+                                                <flux:icon.loading />
+                                            </div>
+                                        </div>
+                                        <div x-show="!isLoading" x-ref="editor" class="h-full"></div>
+                                    </div>
+                                </flux:field>
+                            </div>
+                        @endif
                     </div>
                 </div>
 
-                <div class="flex">
-                    <flux:button type="submit" variant="primary">
+                <div class="flex mt-4">
+                    <flux:button
+                        variant="primary"
+                        wire:click="{{ $active_tab === 'transform' ? 'saveTransform' : 'saveMarkup' }}"
+                    >
                         Save
                     </flux:button>
                 </div>
-            </form>
+
+                <div class="flex items-center gap-3 mt-4">
+                    <span class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Template language</span>
+                    <flux:select wire:model.live="markup_language" class="max-w-xs">
+                        <flux:select.option value="blade">Blade</flux:select.option>
+                        <flux:select.option value="liquid">Liquid</flux:select.option>
+                    </flux:select>
+                </div>
+
+                <div class="flex items-center gap-3 mt-3">
+                    <span class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Getting started</span>
+                    <flux:button size="sm" wire:click="renderExample('layoutTitle')">Responsive Layout with Title Bar</flux:button>
+                    <flux:button size="sm" wire:click="renderExample('layout')">Responsive Layout</flux:button>
+                    <span class="text-xs text-zinc-400 dark:text-zinc-500">These will replace the current template.</span>
+                </div>
         @endif
     </div>
+    </div>
 </div>
-
-
 
 @script
 <script>

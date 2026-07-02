@@ -12,6 +12,12 @@
             @if (config('app.version'))
                 <flux:navlist.item :href="route('settings.update')" wire:navigate>{{ __('Updates') }}</flux:navlist.item>
             @endif
+
+            @if (config('app.multi_user_mode') && auth()?->user()?->isAdmin())
+                <flux:navlist.group :heading="__('Admin')" class="mt-2">
+                    <flux:navlist.item :href="route('settings.admin.users')" wire:navigate>{{ __('Users') }}</flux:navlist.item>
+                </flux:navlist.group>
+            @endif
         </flux:navlist>
     </div>
 
