@@ -8,7 +8,7 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'confirmed'])->group(function () {
 
     Route::livewire('/dashboard', 'device-dashboard')->name('dashboard');
 
@@ -27,6 +27,9 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('plugins/type/{type}', 'plugins.type')->name('plugins.type');
     Route::livewire('plugins/type/{type}/{plugin}', 'plugins.type-instance')->name('plugins.type-instance');
     Route::livewire('playlists', 'playlists.index')->name('playlists.index');
+
+    // trmnlp redirects to /account after login
+    Route::redirect('/account', '/settings/api-tokens');
 
     Route::get('plugin_settings/{trmnlp_id}/edit', function (Request $request, string $trmnlp_id) {
         $plugin = Plugin::query()
