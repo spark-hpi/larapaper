@@ -55,7 +55,7 @@ class PluginImportService
      *
      * @throws Exception If the ZIP file is invalid or required files are missing
      */
-    public function importFromZip(UploadedFile $zipFile, User $user, ?string $zipEntryPath = null): Plugin
+    public function importFromZip(UploadedFile $zipFile, User $user, ?string $zipEntryPath = null, ?string $trmnlpId = null): Plugin
     {
         $temporaryDirectory = (new TemporaryDirectory)->deleteWhenDestroyed()->create();
         $tempDir = $temporaryDirectory->path();
@@ -85,7 +85,9 @@ class PluginImportService
 
         // Parse settings.yml
         $settingsYaml = File::get($filePaths['settingsYamlPath']);
-        $settings = Yaml::parse($settingsYaml);
+        // Split on the document-start marker so Symfony doesn't see two documents.
+        $yamlParts = preg_split('/^---[ \t]*\r?\n/m', $settingsYaml, 2);
+        $settings = Yaml::parse(count($yamlParts) > 1 ? $yamlParts[1] : $settingsYaml);
         $this->validateYAML($settings);
 
         // Determine markup language from the first available file
@@ -106,7 +108,7 @@ class PluginImportService
         if (isset($filePaths['fullLiquidPath']) && $filePaths['fullLiquidPath']) {
             $fullLiquid = File::get($filePaths['fullLiquidPath']);
             if ($markupLanguage === 'liquid') {
-                $fullLiquid = '<div class="view view--{{ size }}">'."\n".$fullLiquid."\n".'</div>';
+                $fullLiquid = $this->ensureLiquidViewWrapper($fullLiquid);
             }
         }
 
@@ -123,7 +125,7 @@ class PluginImportService
         if (isset($filePaths['halfHorizontalLiquidPath']) && $filePaths['halfHorizontalLiquidPath'] && File::exists($filePaths['halfHorizontalLiquidPath'])) {
             $halfHorizontalMarkup = File::get($filePaths['halfHorizontalLiquidPath']);
             if ($markupLanguage === 'liquid') {
-                $halfHorizontalMarkup = '<div class="view view--{{ size }}">'."\n".$halfHorizontalMarkup."\n".'</div>';
+                $halfHorizontalMarkup = $this->ensureLiquidViewWrapper($halfHorizontalMarkup);
             }
         }
 
@@ -131,7 +133,7 @@ class PluginImportService
         if (isset($filePaths['halfVerticalLiquidPath']) && $filePaths['halfVerticalLiquidPath'] && File::exists($filePaths['halfVerticalLiquidPath'])) {
             $halfVerticalMarkup = File::get($filePaths['halfVerticalLiquidPath']);
             if ($markupLanguage === 'liquid') {
-                $halfVerticalMarkup = '<div class="view view--{{ size }}">'."\n".$halfVerticalMarkup."\n".'</div>';
+                $halfVerticalMarkup = $this->ensureLiquidViewWrapper($halfVerticalMarkup);
             }
         }
 
@@ -139,7 +141,7 @@ class PluginImportService
         if (isset($filePaths['quadrantLiquidPath']) && $filePaths['quadrantLiquidPath'] && File::exists($filePaths['quadrantLiquidPath'])) {
             $quadrantMarkup = File::get($filePaths['quadrantLiquidPath']);
             if ($markupLanguage === 'liquid') {
-                $quadrantMarkup = '<div class="view view--{{ size }}">'."\n".$quadrantMarkup."\n".'</div>';
+                $quadrantMarkup = $this->ensureLiquidViewWrapper($quadrantMarkup);
             }
         }
 
@@ -156,17 +158,16 @@ class PluginImportService
             'custom_fields' => $settings['custom_fields'],
         ];
 
-        $plugin_updated = isset($settings['id'])
-                        && Plugin::where('user_id', $user->id)->where('trmnlp_id', $settings['id'])->exists();
-        // Create a new plugin
+        $effectiveTrmnlpId = $trmnlpId ?? $settings['id'] ?? (string) Uuid::v7();
+        $plugin_updated = Plugin::where('user_id', $user->id)->where('trmnlp_id', $effectiveTrmnlpId)->exists();
         $plugin = Plugin::updateOrCreate(
             [
-                'user_id' => $user->id, 'trmnlp_id' => $settings['id'] ?? Uuid::v7(),
+                'user_id' => $user->id, 'trmnlp_id' => $effectiveTrmnlpId,
             ],
             [
                 'user_id' => $user->id,
                 'name' => $settings['name'] ?? 'Imported Plugin',
-                'trmnlp_id' => $settings['id'] ?? Uuid::v7(),
+                'trmnlp_id' => $effectiveTrmnlpId,
                 'data_stale_minutes' => $settings['refresh_interval'] ?? 15,
                 'data_strategy' => $settings['strategy'] ?? 'static',
                 'polling_url' => $settings['polling_url'] ?? null,
@@ -183,6 +184,7 @@ class PluginImportService
                 'render_markup_shared' => $sharedMarkup,
                 'configuration_template' => $configurationTemplate,
                 'data_payload' => json_decode($settings['static_data'] ?? '{}', true),
+                'framework_version' => $settings['framework_version'] ?? null,
             ]);
 
         if (! $plugin_updated) {
@@ -253,7 +255,9 @@ class PluginImportService
 
         // Parse settings.yml
         $settingsYaml = File::get($filePaths['settingsYamlPath']);
-        $settings = Yaml::parse($settingsYaml);
+        // Split on the document-start marker so Symfony doesn't see two documents.
+        $yamlParts = preg_split('/^---[ \t]*\r?\n/m', $settingsYaml, 2);
+        $settings = Yaml::parse(count($yamlParts) > 1 ? $yamlParts[1] : $settingsYaml);
         $this->validateYAML($settings);
 
         // Determine markup language from the first available file
@@ -274,7 +278,7 @@ class PluginImportService
         if (isset($filePaths['fullLiquidPath']) && $filePaths['fullLiquidPath']) {
             $fullLiquid = File::get($filePaths['fullLiquidPath']);
             if ($markupLanguage === 'liquid') {
-                $fullLiquid = '<div class="view view--{{ size }}">'."\n".$fullLiquid."\n".'</div>';
+                $fullLiquid = $this->ensureLiquidViewWrapper($fullLiquid);
             }
         }
 
@@ -291,7 +295,7 @@ class PluginImportService
         if (isset($filePaths['halfHorizontalLiquidPath']) && $filePaths['halfHorizontalLiquidPath'] && File::exists($filePaths['halfHorizontalLiquidPath'])) {
             $halfHorizontalMarkup = File::get($filePaths['halfHorizontalLiquidPath']);
             if ($markupLanguage === 'liquid') {
-                $halfHorizontalMarkup = '<div class="view view--{{ size }}">'."\n".$halfHorizontalMarkup."\n".'</div>';
+                $halfHorizontalMarkup = $this->ensureLiquidViewWrapper($halfHorizontalMarkup);
             }
         }
 
@@ -299,7 +303,7 @@ class PluginImportService
         if (isset($filePaths['halfVerticalLiquidPath']) && $filePaths['halfVerticalLiquidPath'] && File::exists($filePaths['halfVerticalLiquidPath'])) {
             $halfVerticalMarkup = File::get($filePaths['halfVerticalLiquidPath']);
             if ($markupLanguage === 'liquid') {
-                $halfVerticalMarkup = '<div class="view view--{{ size }}">'."\n".$halfVerticalMarkup."\n".'</div>';
+                $halfVerticalMarkup = $this->ensureLiquidViewWrapper($halfVerticalMarkup);
             }
         }
 
@@ -307,7 +311,7 @@ class PluginImportService
         if (isset($filePaths['quadrantLiquidPath']) && $filePaths['quadrantLiquidPath'] && File::exists($filePaths['quadrantLiquidPath'])) {
             $quadrantMarkup = File::get($filePaths['quadrantLiquidPath']);
             if ($markupLanguage === 'liquid') {
-                $quadrantMarkup = '<div class="view view--{{ size }}">'."\n".$quadrantMarkup."\n".'</div>';
+                $quadrantMarkup = $this->ensureLiquidViewWrapper($quadrantMarkup);
             }
         }
 
@@ -361,6 +365,7 @@ class PluginImportService
                 'configuration_template' => $configurationTemplate,
                 'data_payload' => json_decode($settings['static_data'] ?? '{}', true),
                 'preferred_renderer' => $preferredRenderer,
+                'framework_version' => $settings['framework_version'] ?? null,
                 'icon_url' => $iconUrl,
             ]);
 
@@ -659,6 +664,20 @@ class PluginImportService
         }
 
         return $customFields;
+    }
+
+    /**
+     * Ensure liquid markup has a dynamic view wrapper for layout sizing.
+     */
+    private function ensureLiquidViewWrapper(string $markup): string
+    {
+        $viewDivPattern = '/<div\s+class=(["\'])[^"\']*\bview\s+view--[^"\']*\1\s*>/';
+
+        if (preg_match($viewDivPattern, $markup)) {
+            return (string) preg_replace($viewDivPattern, '<div class="view view--{{ size }}">', $markup, 1);
+        }
+
+        return '<div class="view view--{{ size }}">'."\n".$markup."\n".'</div>';
     }
 
     /**

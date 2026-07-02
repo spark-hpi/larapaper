@@ -3,7 +3,6 @@
 use App\Models\Device;
 use App\Models\DeviceModel;
 use App\Models\Plugin;
-use App\Services\Plugin\ServerlessTransformService;
 use App\Services\PluginExportService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
@@ -76,12 +75,6 @@ new class extends Component
     public array $active_tabs = [];
 
     public string $active_tab = 'full';
-
-    public ?string $transform_code = null;
-
-    public ?string $transform_language = 'python';
-
-    public ?string $transform_error = null;
 
     public bool $is_shared = false;
 
@@ -162,9 +155,6 @@ new class extends Component
         // Initialize screen settings from the model
         $this->no_bleed = (bool) ($this->plugin->no_bleed ?? false);
         $this->dark_mode = (bool) ($this->plugin->dark_mode ?? false);
-
-        $this->transform_code = $this->plugin->transform_code;
-        $this->transform_language = $this->plugin->transform_language ?? 'python';
 
         $this->fillformFields();
         $this->data_payload_updated_at = $this->plugin->data_payload_updated_at;
@@ -249,22 +239,13 @@ new class extends Component
 
     public function switchTab(string $layout): void
     {
-        $isMarkupTab = in_array($layout, $this->active_tabs, true);
-        $isTransformTab = $layout === 'transform'
-            && $this->transform_code !== null
-            && app(ServerlessTransformService::class)->isEnabled();
+        if (in_array($layout, $this->active_tabs, true)) {
+            // Save current tab's content before switching
+            if (isset($this->markup_layouts[$this->active_tab])) {
+                $this->markup_layouts[$this->active_tab] = $this->markup_code ?? '';
+            }
 
-        if (! $isMarkupTab && ! $isTransformTab) {
-            return;
-        }
-
-        // Save outgoing markup tab content (not when leaving the transform tab)
-        if ($this->active_tab !== 'transform' && isset($this->markup_layouts[$this->active_tab])) {
-            $this->markup_layouts[$this->active_tab] = $this->markup_code ?? '';
-        }
-
-        $this->active_tab = $layout;
-        if ($layout !== 'transform') {
+            $this->active_tab = $layout;
             $this->markup_code = $this->markup_layouts[$layout] ?? '';
         }
     }
@@ -300,7 +281,6 @@ new class extends Component
             'half_vertical' => 'Half Vertical',
             'quadrant' => 'Quadrant',
             'shared' => 'Shared',
-            'transform' => 'Transform',
             default => ucfirst($layout),
         };
     }
@@ -346,8 +326,6 @@ new class extends Component
             'device_active_until' => 'array',
             'no_bleed' => 'boolean',
             'dark_mode' => 'boolean',
-            'transform_code' => 'nullable|string',
-            'transform_language' => 'nullable|string|in:python,node,php',
         ];
     }
 
@@ -409,13 +387,6 @@ new class extends Component
 
                 $this->data_payload = json_encode($this->plugin->data_payload, JSON_PRETTY_PRINT);
                 $this->data_payload_updated_at = $this->plugin->data_payload_updated_at;
-
-                $payload = $this->plugin->data_payload;
-                if ($this->transform_code !== null && is_array($payload) && array_key_exists('error', $payload)) {
-                    $this->transform_error = (string) ($payload['error'] ?? 'Unknown transform error');
-                } else {
-                    $this->transform_error = null;
-                }
             } catch (Exception $e) {
                 $this->dispatch('data-update-error', message: $e->getMessage().$e->getPrevious()?->getMessage());
             }
@@ -773,50 +744,6 @@ HTML;
         abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
         $this->plugin->delete();
         $this->redirect(route('plugins.index'));
-    }
-
-    public function enableTransform(): void
-    {
-        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
-        if ($this->transform_code === null) {
-            $this->transform_code = '';
-            $this->transform_language ??= 'python';
-            $this->plugin->update([
-                'transform_code'     => '',
-                'transform_language' => $this->transform_language,
-            ]);
-        }
-    }
-
-    public function disableTransform(): void
-    {
-        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
-        $this->transform_code = null;
-        $this->plugin->update(['transform_code' => null, 'transform_language' => null]);
-        if ($this->active_tab === 'transform') {
-            $this->active_tab = 'full';
-            $this->markup_code = $this->markup_layouts['full'] ?? '';
-        }
-    }
-
-    public function updatedTransformLanguage(): void
-    {
-        if ($this->transform_code !== null) {
-            $this->plugin->update(['transform_language' => $this->transform_language]);
-        }
-    }
-
-    public function saveTransform(): void
-    {
-        abort_unless(auth()->user()->isAdmin() || auth()->user()->plugins->contains($this->plugin), 403);
-        $this->validate(['transform_code' => 'nullable|string', 'transform_language' => 'nullable|string|in:python,node,php']);
-
-        $this->plugin->update([
-            'transform_code'     => $this->transform_code,
-            'transform_language' => $this->transform_language,
-        ]);
-
-        Flux::toast(variant: 'success', text: 'Transform saved.');
     }
 
     #[On('config-updated')]
@@ -1265,16 +1192,6 @@ HTML;
                                 <flux:icon.cog-6-tooth class="size-4"/>
                                 Settings
                             </button>
-                            @if(app(ServerlessTransformService::class)->isEnabled())
-                            <button
-                                @click="subTab = 'transform'"
-                                class="tab-button"
-                                :class="subTab === 'transform' ? 'is-active' : ''"
-                            >
-                                <flux:icon.code-bracket class="size-4"/>
-                                Transform
-                            </button>
-                            @endif
                         </div>
 
                         <div class="flex-col p-4 bg-transparent rounded-tl-none styled-container">
@@ -1349,30 +1266,7 @@ HTML;
                                                 id="data_stale_minutes"
                                                 class="block mt-1 w-full" type="number" name="data_stale_minutes"/>
                                 </div>
-
-                            {{-- Transform tab --}}
-                            @if(app(ServerlessTransformService::class)->isEnabled())
-                            <div x-show="subTab === 'transform'" x-cloak>
-                                <div class="mb-4">
-                                    <flux:checkbox
-                                        :checked="$transform_code !== null"
-                                        wire:click="{{ $transform_code === null ? 'enableTransform' : 'disableTransform' }}"
-                                        label="Enable transform"
-                                        description="Run a serverless function to reshape the polled data before rendering."
-                                    />
-                                </div>
-
-                                @if($transform_code !== null)
-                                <div>
-                                    <flux:radio.group wire:model.live="transform_language" label="Language" variant="segmented">
-                                        <flux:radio value="python" label="Python"/>
-                                        <flux:radio value="node" label="Node"/>
-                                        <flux:radio value="php" label="PHP"/>
-                                    </flux:radio.group>
-                                </div>
-                                @endif
                             </div>
-                            @endif
                         </div>
                     </div>
                     @elseif($data_strategy === 'webhook')
@@ -1420,9 +1314,6 @@ HTML;
                     @isset($this->data_payload_updated_at)
                         <flux:badge icon="clock" size="sm" variant="pill" class="ml-2">{{ $this->data_payload_updated_at?->diffForHumans() ?? 'Never' }}</flux:badge>
                     @endisset
-                    @if($transform_error !== null)
-                        <flux:badge icon="exclamation-triangle" size="sm" variant="pill" color="red" class="ml-2" :title="$transform_error">Transform error</flux:badge>
-                    @endif
                 </div>
                 <flux:error name="data_payload"/>
                 <flux:field>
@@ -1541,16 +1432,6 @@ HTML;
                             </button>
                         @endforeach
 
-                        @if($transform_code !== null && app(ServerlessTransformService::class)->isEnabled())
-                            <button
-                                type="button"
-                                wire:click="switchTab('transform')"
-                                class="tab-button {{ $active_tab === 'transform' ? 'is-active' : '' }}"
-                            >
-                                Transform
-                            </button>
-                        @endif
-
                         <flux:dropdown>
                             <flux:button icon="plus" variant="ghost" size="sm" class="m-0.5"></flux:button>
                             <flux:menu>
@@ -1571,69 +1452,47 @@ HTML;
                     </div>
 
                     <div class="flex-col p-4 bg-transparent rounded-tl-none styled-container">
-                        @if($active_tab === 'transform')
-                            {{-- Transform code editor --}}
-                            @php $transformTextareaId = 'transform-' . $plugin->id; @endphp
-                            <flux:textarea wire:model="transform_code" id="{{ $transformTextareaId }}" rows="20" hidden/>
-                            <div
-                                x-data="codeEditorFormComponent({
-                                    isDisabled: false,
-                                    language: @js(match($transform_language) { 'node' => 'javascript', 'php' => 'php', default => 'python' }),
-                                    state: $wire.entangle('transform_code'),
-                                    textareaId: @js($transformTextareaId)
-                                })"
-                                wire:ignore
-                                wire:key="cm-transform-{{ $plugin->id }}-{{ $transform_language }}"
-                                class="min-h-[300px] h-[300px] overflow-hidden resize-y mb-4"
-                            >
-                                <div x-show="isLoading" class="flex items-center justify-center h-full">
-                                    <flux:icon.loading />
-                                </div>
-                                <div x-show="!isLoading" x-ref="editor" class="h-full"></div>
-                            </div>
-                        @else
-                            {{-- Markup code editor --}}
-                            <div>
-                                <flux:field>
-                                    @php
-                                        $textareaId = 'code-' . $plugin->id;
-                                    @endphp
-                                    <flux:label>{{ $markup_language === 'liquid' ? 'Liquid Code' : 'Blade Code' }}</flux:label>
-                                    <flux:textarea
-                                        wire:model="markup_code"
-                                        id="{{ $textareaId }}"
-                                        placeholder="Enter your HTML code here..."
-                                        rows="25"
-                                        hidden
-                                    />
-                                    <div
-                                        x-data="codeEditorFormComponent({
-                                            isDisabled: false,
-                                            language: @js($markup_language === 'liquid' ? 'liquid' : 'html'),
-                                            state: $wire.entangle('markup_code'),
-                                            textareaId: @js($textareaId)
-                                        })"
-                                        wire:ignore
-                                        wire:key="cm-{{ $textareaId }}"
-                                        class="min-h-[300px] h-[300px] overflow-hidden resize-y"
-                                    >
-                                        <div x-show="isLoading" class="flex items-center justify-center h-full">
-                                            <div class="flex items-center space-x-2">
-                                                <flux:icon.loading />
-                                            </div>
+                        {{-- Markup code editor --}}
+                        <div>
+                            <flux:field>
+                                @php
+                                    $textareaId = 'code-' . $plugin->id;
+                                @endphp
+                                <flux:label>{{ $markup_language === 'liquid' ? 'Liquid Code' : 'Blade Code' }}</flux:label>
+                                <flux:textarea
+                                    wire:model="markup_code"
+                                    id="{{ $textareaId }}"
+                                    placeholder="Enter your HTML code here..."
+                                    rows="25"
+                                    hidden
+                                />
+                                <div
+                                    x-data="codeEditorFormComponent({
+                                        isDisabled: false,
+                                        language: @js($markup_language === 'liquid' ? 'liquid' : 'html'),
+                                        state: $wire.entangle('markup_code'),
+                                        textareaId: @js($textareaId)
+                                    })"
+                                    wire:ignore
+                                    wire:key="cm-{{ $textareaId }}"
+                                    class="min-h-[300px] h-[300px] overflow-hidden resize-y"
+                                >
+                                    <div x-show="isLoading" class="flex items-center justify-center h-full">
+                                        <div class="flex items-center space-x-2">
+                                            <flux:icon.loading />
                                         </div>
-                                        <div x-show="!isLoading" x-ref="editor" class="h-full"></div>
                                     </div>
-                                </flux:field>
-                            </div>
-                        @endif
+                                    <div x-show="!isLoading" x-ref="editor" class="h-full"></div>
+                                </div>
+                            </flux:field>
+                        </div>
                     </div>
                 </div>
 
                 <div class="flex mt-4">
                     <flux:button
                         variant="primary"
-                        wire:click="{{ $active_tab === 'transform' ? 'saveTransform' : 'saveMarkup' }}"
+                        wire:click="saveMarkup"
                     >
                         Save
                     </flux:button>

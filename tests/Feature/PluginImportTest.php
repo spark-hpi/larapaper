@@ -14,6 +14,28 @@ beforeEach(function (): void {
     Storage::fake('local');
 });
 
+it('imports plugin with framework_version from settings', function (): void {
+    $user = User::factory()->create();
+
+    $settingsYaml = str_replace(
+        "name: Test Plugin\n",
+        "name: Test Plugin\nframework_version: 3.0.5\n",
+        getValidSettingsYaml()
+    );
+
+    $zipContent = createMockZipFile([
+        'src/settings.yml' => $settingsYaml,
+        'src/full.liquid' => getValidFullLiquid(),
+    ]);
+
+    $zipFile = UploadedFile::fake()->createWithContent('test-plugin.zip', $zipContent);
+
+    $pluginImportService = new PluginImportService();
+    $plugin = $pluginImportService->importFromZip($zipFile, $user);
+
+    expect($plugin->framework_version)->toBe('3.0.5');
+});
+
 it('imports plugin from valid zip file', function (): void {
     $user = User::factory()->create();
 
@@ -57,6 +79,58 @@ it('imports plugin with shared.liquid file', function (): void {
         ->and($plugin->render_markup)->toContain('<div class="view view--{{ size }}">')
         ->and($plugin->getMarkupForSize('full'))->toContain('{% comment %}Shared styles{% endcomment %}')
         ->and($plugin->getMarkupForSize('full'))->toContain('<div class="view view--{{ size }}">');
+});
+
+it('replaces existing view wrapper on liquid import instead of nesting', function (): void {
+    $user = User::factory()->create();
+
+    $fullLiquid = <<<'LIQUID'
+<div class="view view--full">
+  <h1>{{ data.title }}</h1>
+</div>
+LIQUID;
+
+    $zipContent = createMockZipFile([
+        'src/settings.yml' => getValidSettingsYaml(),
+        'src/full.liquid' => $fullLiquid,
+    ]);
+
+    $zipFile = UploadedFile::fake()->createWithContent('test-plugin.zip', $zipContent);
+
+    $pluginImportService = new PluginImportService();
+    $plugin = $pluginImportService->importFromZip($zipFile, $user);
+
+    expect($plugin->render_markup)->toBe(<<<'LIQUID'
+<div class="view view--{{ size }}">
+  <h1>{{ data.title }}</h1>
+</div>
+LIQUID
+    )->and($plugin->render_markup)->not->toContain('view--full')
+        ->and(mb_substr_count($plugin->render_markup, '<div class="view view--{{ size }}">'))->toBe(1);
+});
+
+it('wraps liquid markup without view wrapper on import', function (): void {
+    $user = User::factory()->create();
+
+    $zipContent = createMockZipFile([
+        'src/settings.yml' => getValidSettingsYaml(),
+        'src/full.liquid' => getValidFullLiquid(),
+    ]);
+
+    $zipFile = UploadedFile::fake()->createWithContent('test-plugin.zip', $zipContent);
+
+    $pluginImportService = new PluginImportService();
+    $plugin = $pluginImportService->importFromZip($zipFile, $user);
+
+    expect($plugin->render_markup)->toBe(<<<'LIQUID'
+<div class="view view--{{ size }}">
+<div class="plugin-content">
+  <h1>{{ data.title }}</h1>
+  <p>{{ data.description }}</p>
+</div>
+</div>
+LIQUID
+    );
 });
 
 it('imports plugin with files in root directory', function (): void {

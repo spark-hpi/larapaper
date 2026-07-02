@@ -29,6 +29,8 @@ class Device extends Model
     }
 
     protected $casts = [
+        'last_battery_charging' => 'boolean',
+        'last_usb_connected' => 'boolean',
         'battery_notification_sent' => 'boolean',
         'proxy_cloud' => 'boolean',
         'last_log_request' => 'json',
@@ -116,7 +118,7 @@ class Device extends Model
             return true;
         }
 
-        return $this->proxy_cloud_response && $this->proxy_cloud_response['update_firmware'];
+        return (bool) ($this->proxy_cloud_response['update_firmware'] ?? false);
     }
 
     public function getFirmwareUrlAttribute(): ?string
@@ -132,8 +134,8 @@ class Device extends Model
             }
         }
 
-        if ($this->proxy_cloud_response && $this->proxy_cloud_response['firmware_url']) {
-            return $this->proxy_cloud_response['firmware_url'];
+        if ($firmwareUrl = $this->proxy_cloud_response['firmware_url'] ?? null) {
+            return $firmwareUrl;
         }
 
         return null;
