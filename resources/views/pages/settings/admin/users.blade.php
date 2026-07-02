@@ -78,58 +78,90 @@ new class extends Component
         @include('partials.settings-heading')
 
         <x-pages::settings.layout heading="User Management" subheading="Confirm accounts and manage admin access.">
-            <div class="space-y-4">
+            <table class="min-w-full table-auto divide-y divide-zinc-800/10 dark:divide-white/20" data-flux-table>
+                <thead data-flux-columns>
+                <tr>
+                    <th class="py-3 px-3 first:pl-0 text-left text-sm font-medium text-zinc-800 dark:text-white" data-flux-column>Name</th>
+                    <th class="py-3 px-3 text-left text-sm font-medium text-zinc-800 dark:text-white" data-flux-column>Email</th>
+                    <th class="py-3 px-3 text-left text-sm font-medium text-zinc-800 dark:text-white" data-flux-column>Status</th>
+                    <th class="py-3 px-3 text-left text-sm font-medium text-zinc-800 dark:text-white" data-flux-column>Role</th>
+                    <th class="py-3 px-3 text-left text-sm font-medium text-zinc-800 dark:text-white" data-flux-column>Joined</th>
+                    <th class="py-3 px-3 last:pr-0 text-right text-sm font-medium text-zinc-800 dark:text-white" data-flux-column>
+                        <span class="sr-only">Actions</span>
+                    </th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-800/10 dark:divide-white/20" data-flux-rows>
                 @foreach ($users as $user)
-                    <div class="flex items-center justify-between p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg
-                                {{ $user->confirmed_at === null ? 'border-amber-400 dark:border-amber-500' : '' }}">
-                        <div>
-                            <div class="font-medium text-sm">{{ $user->name }}</div>
-                            <div class="text-xs text-zinc-500">{{ $user->email }}</div>
-                            <div class="flex gap-2 mt-1">
-                                @if ($user->confirmed_at === null)
-                                    <flux:badge color="amber" size="sm">Pending</flux:badge>
-                                @else
-                                    <flux:badge color="green" size="sm">Confirmed</flux:badge>
-                                @endif
-                                @if ($user->is_admin)
-                                    <flux:badge color="blue" size="sm">Admin</flux:badge>
-                                @endif
-                            </div>
-                        </div>
-                        <div class="flex gap-2">
+                    <tr data-flux-row wire:key="user-{{ $user->id }}">
+                        <td class="py-3 px-3 first:pl-0 text-sm text-zinc-800 dark:text-zinc-200 font-medium">
+                            {{ $user->name }}
+                            @if ($user->id === auth()->id())
+                                <span class="text-xs text-zinc-500 ml-1">(you)</span>
+                            @endif
+                        </td>
+                        <td class="py-3 px-3 text-sm text-zinc-500 dark:text-zinc-300">{{ $user->email }}</td>
+                        <td class="py-3 px-3 text-sm">
                             @if ($user->confirmed_at === null)
-                                <flux:button size="sm" variant="primary" wire:click="confirmUser({{ $user->id }})">
-                                    Confirm
-                                </flux:button>
+                                <flux:badge color="amber" size="sm">Pending</flux:badge>
                             @else
-                                <flux:button size="sm" variant="ghost" wire:click="revokeUser({{ $user->id }})"
-                                             wire:confirm="Revoke confirmation? This will block the user's access."
-                                             :disabled="$user->id === auth()->id()">
-                                    Revoke
-                                </flux:button>
+                                <flux:badge color="green" size="sm">Confirmed</flux:badge>
                             @endif
-
-                            @if (! $user->is_admin)
-                                <flux:button size="sm" variant="ghost" wire:click="makeAdmin({{ $user->id }})">
-                                    Make Admin
-                                </flux:button>
-                            @elseif ($user->id !== 1 && $user->id !== auth()->id())
-                                <flux:button size="sm" variant="ghost" wire:click="revokeAdmin({{ $user->id }})"
-                                             wire:confirm="Remove admin status from {{ $user->name }}?">
-                                    Remove Admin
-                                </flux:button>
+                        </td>
+                        <td class="py-3 px-3 text-sm">
+                            @if ($user->is_admin)
+                                <flux:badge color="blue" size="sm">Admin</flux:badge>
+                            @else
+                                <span class="text-zinc-500 dark:text-zinc-400">User</span>
                             @endif
-
-                            @if ($user->id !== auth()->id() && $user->id !== 1)
-                                <flux:button size="sm" variant="danger" wire:click="deleteUser({{ $user->id }})"
-                                             wire:confirm="Permanently delete {{ $user->name }}? This cannot be undone.">
-                                    Delete
-                                </flux:button>
-                            @endif
-                        </div>
-                    </div>
+                        </td>
+                        <td class="py-3 px-3 text-sm text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+                            {{ $user->created_at?->format('Y-m-d') }}
+                        </td>
+                        <td class="py-3 px-3 last:pr-0 text-sm text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                @if ($user->confirmed_at === null)
+                                    <flux:button size="sm" variant="primary" wire:click="confirmUser({{ $user->id }})">
+                                        Confirm
+                                    </flux:button>
+                                @endif
+                                <flux:dropdown>
+                                    <flux:button icon="ellipsis-horizontal" variant="ghost" size="sm"/>
+                                    <flux:menu>
+                                        @if ($user->confirmed_at !== null && $user->id !== auth()->id())
+                                            <flux:menu.item icon="no-symbol"
+                                                            wire:click="revokeUser({{ $user->id }})"
+                                                            wire:confirm="Revoke confirmation? This will block the user's access.">
+                                                Revoke Confirmation
+                                            </flux:menu.item>
+                                        @endif
+                                        @if (! $user->is_admin)
+                                            <flux:menu.item icon="shield-check" wire:click="makeAdmin({{ $user->id }})">
+                                                Make Admin
+                                            </flux:menu.item>
+                                        @elseif ($user->id !== 1 && $user->id !== auth()->id())
+                                            <flux:menu.item icon="shield-exclamation"
+                                                            wire:click="revokeAdmin({{ $user->id }})"
+                                                            wire:confirm="Remove admin status from {{ $user->name }}?">
+                                                Remove Admin
+                                            </flux:menu.item>
+                                        @endif
+                                        @if ($user->id !== auth()->id() && $user->id !== 1)
+                                            <flux:menu.separator/>
+                                            <flux:menu.item icon="trash" variant="danger"
+                                                            wire:click="deleteUser({{ $user->id }})"
+                                                            wire:confirm="Permanently delete {{ $user->name }}? This cannot be undone.">
+                                                Delete User
+                                            </flux:menu.item>
+                                        @endif
+                                    </flux:menu>
+                                </flux:dropdown>
+                            </div>
+                        </td>
+                    </tr>
                 @endforeach
-            </div>
+                </tbody>
+            </table>
         </x-pages::settings.layout>
     </div>
 </section>

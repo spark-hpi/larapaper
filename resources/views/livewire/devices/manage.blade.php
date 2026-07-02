@@ -2,6 +2,7 @@
 
 use App\Models\Device;
 use App\Models\DeviceModel;
+use Livewire\Attributes\Session;
 use Livewire\Component;
 
 new class extends Component
@@ -10,6 +11,7 @@ new class extends Component
 
     public $devices;
 
+    #[Session(key: 'devices.showAllDevices')]
     public bool $showAllDevices = false;
 
     public $showDeviceForm = false;

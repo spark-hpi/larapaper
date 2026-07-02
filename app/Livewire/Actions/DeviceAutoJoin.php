@@ -16,6 +16,8 @@ class DeviceAutoJoin extends Component
 
     public function updating($name, $value): void
     {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
         $this->validate([
             'deviceAutojoin' => 'boolean',
         ]);
@@ -31,6 +33,8 @@ class DeviceAutoJoin extends Component
 
     public function render(): \Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory
     {
-        return view('livewire.actions.device-auto-join');
+        return view('livewire.actions.device-auto-join', [
+            'canToggle' => (bool) auth()->user()?->isAdmin(),
+        ]);
     }
 }

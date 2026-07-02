@@ -9,8 +9,8 @@ use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
-test('device auto join component can be rendered', function (): void {
-    $user = User::factory()->create(['assign_new_devices' => false]);
+test('device auto join component can be rendered for admins', function (): void {
+    $user = User::factory()->create(['is_admin' => true, 'assign_new_devices' => false]);
 
     Livewire::actingAs($user)
         ->test(DeviceAutoJoin::class)
@@ -36,21 +36,29 @@ test('device auto join reflects global state: off when no user has it enabled', 
         ->assertSet('deviceAutojoin', false);
 });
 
-test('device auto join component is visible to all confirmed users', function (): void {
-    $firstUser = User::factory()->create(['id' => 1, 'assign_new_devices' => false]);
-    $otherUser = User::factory()->create(['id' => 2, 'assign_new_devices' => false]);
-
-    Livewire::actingAs($firstUser)
-        ->test(DeviceAutoJoin::class)
-        ->assertSee('Permit Auto-Join');
+test('device auto join toggle is hidden for non-admin users', function (): void {
+    User::factory()->create(['id' => 1, 'is_admin' => true]);
+    $otherUser = User::factory()->create(['id' => 2, 'is_admin' => false, 'assign_new_devices' => false]);
 
     Livewire::actingAs($otherUser)
         ->test(DeviceAutoJoin::class)
-        ->assertSee('Permit Auto-Join');
+        ->assertDontSee('Permit Auto-Join');
+});
+
+test('non-admin users cannot toggle auto-join', function (): void {
+    User::factory()->create(['id' => 1, 'is_admin' => true, 'assign_new_devices' => false]);
+    $otherUser = User::factory()->create(['id' => 2, 'is_admin' => false, 'assign_new_devices' => false]);
+
+    Livewire::actingAs($otherUser)
+        ->test(DeviceAutoJoin::class)
+        ->set('deviceAutojoin', true)
+        ->assertStatus(403);
+
+    expect($otherUser->fresh()->assign_new_devices)->toBeFalse();
 });
 
 test('turning on sets current user assign_new_devices', function (): void {
-    $user = User::factory()->create(['assign_new_devices' => false]);
+    $user = User::factory()->create(['is_admin' => true, 'assign_new_devices' => false]);
 
     Livewire::actingAs($user)
         ->test(DeviceAutoJoin::class)
@@ -61,7 +69,7 @@ test('turning on sets current user assign_new_devices', function (): void {
 });
 
 test('turning off clears assign_new_devices for all users', function (): void {
-    $userA = User::factory()->create(['assign_new_devices' => true]);
+    $userA = User::factory()->create(['is_admin' => true, 'assign_new_devices' => true]);
     $userB = User::factory()->create(['assign_new_devices' => true]);
 
     Livewire::actingAs($userA)
@@ -74,7 +82,7 @@ test('turning off clears assign_new_devices for all users', function (): void {
 });
 
 test('device auto join component renders correct view', function (): void {
-    $user = User::factory()->create();
+    $user = User::factory()->create(['is_admin' => true]);
 
     Livewire::actingAs($user)
         ->test(DeviceAutoJoin::class)
@@ -82,7 +90,7 @@ test('device auto join component renders correct view', function (): void {
 });
 
 test('device auto join component handles multiple updates correctly', function (): void {
-    $user = User::factory()->create(['assign_new_devices' => false]);
+    $user = User::factory()->create(['is_admin' => true, 'assign_new_devices' => false]);
 
     $component = Livewire::actingAs($user)
         ->test(DeviceAutoJoin::class)

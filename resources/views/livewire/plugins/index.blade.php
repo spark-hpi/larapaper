@@ -9,6 +9,7 @@ use App\Plugins\PluginRegistry;
 use App\Services\PluginImportService;
 use Illuminate\Support\Str;
 use Keepsuit\Liquid\Exceptions\LiquidException;
+use Livewire\Attributes\Session;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -37,6 +38,7 @@ new class extends Component
 
     public string $sortBy = 'date_asc';
 
+    #[Session(key: 'plugins.showAllPlugins')]
     public bool $showAllPlugins = false;
 
     public string $activeTab = 'mine'; // 'mine' | 'shared'
@@ -541,6 +543,12 @@ new class extends Component
                     x-show="searchTerm.length <= 1 || pluginName.includes(searchTerm.toLowerCase())"
                     class="styled-container flex flex-col">
                     @php $isOtherUsersShared = $activeTab === 'shared' && ($plugin['is_shared'] ?? false) && ($plugin['user_id'] ?? null) !== auth()->id(); @endphp
+                    @php
+                        $ownerName = $plugin['user']['name'] ?? null;
+                        $ownerId = $plugin['user_id'] ?? null;
+                        $showOwner = $ownerName && $ownerId && $ownerId !== auth()->id()
+                            && ($activeTab === 'shared' || ($activeTab === 'mine' && $showAllPlugins && auth()->user()->isAdmin()));
+                    @endphp
                     @if ($isOtherUsersShared)
                         <div class="block flex-1">
                     @else
@@ -554,7 +562,12 @@ new class extends Component
                                 <flux:icon name="{{$plugin['flux_icon_name'] ?? 'puzzle-piece'}}"
                                        class="text-4xl text-accent"/>
                             @endif
-                            <h3 class="text-lg font-medium dark:text-zinc-200">{{$plugin['name']}}</h3>
+                            <div class="flex-1">
+                                <h3 class="text-lg font-medium dark:text-zinc-200">{{$plugin['name']}}</h3>
+                                @if ($showOwner)
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">by {{ $ownerName }}</p>
+                                @endif
+                            </div>
                         </div>
                     @if ($isOtherUsersShared)
                         </div>
