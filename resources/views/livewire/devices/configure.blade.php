@@ -330,7 +330,8 @@ new class extends Component
             return;
         }
 
-        abort_unless($item->plugin->user_id === auth()->id(), 403);
+        $currentUser = auth()->user();
+        abort_unless($currentUser?->isAdmin() || $item->plugin->user_id === $currentUser?->id, 403);
 
         $item->plugin->clearCurrentImage();
 

@@ -149,6 +149,57 @@ test('devices configure clearPluginImageCache clears recipe plugin cache and sho
     expect($plugin->current_image_metadata)->toBeNull();
 });
 
+test('devices configure clearPluginImageCache allows admin to clear another user\'s plugin cache', function (): void {
+    $admin = User::factory()->create(['is_admin' => true]);
+    $owner = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $owner->id]);
+    $playlist = Playlist::factory()->create(['device_id' => $device->id]);
+    $plugin = Plugin::factory()->create([
+        'user_id' => $owner->id,
+        'plugin_type' => 'recipe',
+        'current_image' => 'cached-uuid',
+        'current_image_metadata' => ['width' => 800, 'height' => 480],
+    ]);
+    $item = PlaylistItem::factory()->create([
+        'playlist_id' => $playlist->id,
+        'plugin_id' => $plugin->id,
+    ]);
+
+    $this->actingAs($admin);
+
+    Livewire::test('devices.configure', ['device' => $device])
+        ->call('clearPluginImageCache', $item->id)
+        ->assertDispatched('toast-show');
+
+    $plugin->refresh();
+    expect($plugin->current_image)->toBeNull();
+    expect($plugin->current_image_metadata)->toBeNull();
+});
+
+test('devices configure clearPluginImageCache aborts when non-admin device owner does not own plugin', function (): void {
+    $deviceOwner = User::factory()->create();
+    $pluginOwner = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $deviceOwner->id]);
+    $playlist = Playlist::factory()->create(['device_id' => $device->id]);
+    $plugin = Plugin::factory()->create([
+        'user_id' => $pluginOwner->id,
+        'plugin_type' => 'recipe',
+        'current_image' => 'cached-uuid',
+    ]);
+    $item = PlaylistItem::factory()->create([
+        'playlist_id' => $playlist->id,
+        'plugin_id' => $plugin->id,
+    ]);
+
+    $this->actingAs($deviceOwner);
+
+    Livewire::test('devices.configure', ['device' => $device])
+        ->call('clearPluginImageCache', $item->id)
+        ->assertStatus(403);
+
+    expect($plugin->fresh()->current_image)->toBe('cached-uuid');
+});
+
 test('devices configure clearPluginImageCache does nothing when plugin is not type recipe', function (): void {
     $user = User::factory()->create();
     $device = Device::factory()->create(['user_id' => $user->id]);
