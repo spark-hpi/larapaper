@@ -216,3 +216,21 @@ test('user can toggle proxy cloud from the configure page', function (): void {
 
     expect($device->fresh()->proxy_cloud)->toBeFalse();
 });
+
+test('user cannot toggle proxy cloud for other users devices', function (): void {
+    $user = User::factory()->create();
+    actingAs($user);
+    $device = Device::factory()->create(['user_id' => $user->id]);
+
+    $otherUser = User::factory()->create();
+    $otherDevice = Device::factory()->create([
+        'user_id' => $otherUser->id,
+        'proxy_cloud' => false,
+    ]);
+
+    $response = Livewire::test('devices.configure', ['device' => $device])
+        ->call('toggleProxyCloud', $otherDevice->id);
+
+    $response->assertStatus(403);
+    expect($otherDevice->fresh()->proxy_cloud)->toBeFalse();
+});
