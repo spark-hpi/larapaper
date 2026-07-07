@@ -91,18 +91,6 @@ new class extends Component
         Flux::toast(variant: 'success', text: 'Device created successfully.');
     }
 
-    public function toggleProxyCloud(Device $device): void
-    {
-        abort_unless(auth()->user()->devices->contains($device), 403);
-        $device->update([
-            'proxy_cloud' => ! $device->proxy_cloud,
-        ]);
-
-        // if ($device->proxy_cloud) {
-        //     \App\Jobs\FetchProxyCloudResponses::dispatch();
-        // }
-    }
-
     public function pauseDevice($deviceId): void
     {
         $this->validate([
@@ -226,11 +214,7 @@ new class extends Component
                     </th>
                     <th class="py-3 px-3 first:pl-0 last:pr-0 text-left text-sm font-medium text-zinc-800 dark:text-white"
                         data-flux-column="">
-                        <div class="whitespace-nowrap flex group-[]/right-align:justify-end">Refresh</div>
-                    </th>
-                    <th class="py-3 px-3 first:pl-0 last:pr-0 text-left text-sm font-medium text-zinc-800 dark:text-white"
-                        data-flux-column="">
-                        <div class="whitespace-nowrap flex group-[]/right-align:justify-end">Actions</div>
+                        <div class="whitespace-nowrap flex group-[]/right-align:justify-end"></div>
                     </th>
                 </tr>
                 </thead>
@@ -253,16 +237,12 @@ new class extends Component
                                 {{ $device->mac_address }}
                             </div>
                         </td>
-                        <td class="py-3 px-3 first:pl-0 last:pr-0 text-sm whitespace-nowrap  text-zinc-500 dark:text-zinc-300"
-                        >
-                            {{ $device->default_refresh_interval }}
-                        </td>
                         <td class="py-3 px-3 first:pl-0 last:pr-0 text-sm whitespace-nowrap  font-medium text-zinc-800 dark:text-white"
                         >
                             <div class="flex items-center gap-4">
                                 <flux:button.group>
 
-                                <flux:button href="{{ route('devices.configure', $device) }}" wire:navigate icon="eye" iconVariant="outline">
+                                <flux:button href="{{ route('devices.configure', $device) }}" wire:navigate icon="pencil" iconVariant="outline">
                                 </flux:button>
                                 @if($device->isPauseActive())
                                     <flux:tooltip content="Device paused until: {{ $device->pause_until?->format('H:i') }}">
@@ -275,15 +255,6 @@ new class extends Component
                                     </flux:modal.trigger>
                                 @endif
                                 </flux:button.group>
-
-                                <flux:tooltip
-                                    content="Proxies images from the TRMNL Cloud service when no image is set (available in TRMNL DEV Edition only)."
-                                    position="bottom">
-                                    <flux:switch wire:click="toggleProxyCloud({{ $device->id }})"
-                                                 :checked="$device->proxy_cloud"
-                                                 :disabled="$device->mirror_device_id !== null"
-                                                 label="☁️ Proxy"/>
-                                </flux:tooltip>
                             </div>
                         </td>
                     </tr>

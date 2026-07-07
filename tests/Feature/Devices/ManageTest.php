@@ -66,40 +66,24 @@ test('device creation requires required fields', function (): void {
     ]);
 });
 
-test('user can toggle proxy cloud for their device', function (): void {
+test('device management page renders a pencil icon link to configure and an empty Actions header', function (): void {
     $user = User::factory()->create();
-    $this->actingAs($user);
+    // A distinct value (not the create-device modal's default of 900) so the
+    // assertion below can't accidentally match that unrelated hidden modal.
     $device = Device::factory()->create([
         'user_id' => $user->id,
-        'proxy_cloud' => false,
+        'default_refresh_interval' => 1234,
     ]);
 
-    $response = Livewire::test('devices.manage')
-        ->call('toggleProxyCloud', $device);
+    $response = $this->actingAs($user)->get('/devices');
 
-    $response->assertHasNoErrors();
-    expect($device->fresh()->proxy_cloud)->toBeTrue();
-
-    // Toggle back to false
-    $response = Livewire::test('devices.manage')
-        ->call('toggleProxyCloud', $device);
-
-    expect($device->fresh()->proxy_cloud)->toBeFalse();
-});
-
-test('user cannot toggle proxy cloud for other users devices', function (): void {
-    $user = User::factory()->create();
-    $this->actingAs($user);
-
-    $otherUser = User::factory()->create();
-    $device = Device::factory()->create([
-        'user_id' => $otherUser->id,
-        'proxy_cloud' => false,
-    ]);
-
-    $response = Livewire::test('devices.manage')
-        ->call('toggleProxyCloud', $device);
-
-    $response->assertStatus(403);
-    expect($device->fresh()->proxy_cloud)->toBeFalse();
+    $response->assertOk();
+    $response->assertDontSee('Actions');
+    // Precise tag match: the create-device modal still legitimately contains
+    // the word "Refresh" (label "Refresh Rate (seconds)"), so a bare
+    // assertDontSee('Refresh') would be a false failure.
+    $response->assertDontSee('>Refresh<', false);
+    $response->assertDontSee('1234');
+    $response->assertDontSee('☁️ Proxy');
+    $response->assertSee(route('devices.configure', $device), false);
 });
