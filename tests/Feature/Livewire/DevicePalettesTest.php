@@ -597,3 +597,15 @@ test('update from API runs job and refreshes device palettes', function (): void
     $devicePalettes = $component->get('devicePalettes');
     expect($devicePalettes->pluck('name')->toArray())->toContain('api-palette');
 });
+
+test('device palettes page renders an empty Actions column header', function (): void {
+    $user = User::factory()->create();
+    DevicePalette::create(['name' => 'palette-1', 'grays' => 2, 'framework_class' => '']);
+
+    $this->actingAs($user);
+
+    $response = $this->get(route('device-palettes.index'));
+
+    $response->assertOk();
+    $response->assertDontSee('Actions');
+});
