@@ -144,6 +144,14 @@ new class extends Component
         redirect()->route('devices');
     }
 
+    public function toggleProxyCloud(App\Models\Device $device): void
+    {
+        abort_unless(auth()->user()->devices->contains($device), 403);
+        $device->update([
+            'proxy_cloud' => ! $device->proxy_cloud,
+        ]);
+    }
+
     public function updatedDeviceModelId()
     {
         // Convert empty string to null for custom selection
@@ -416,6 +424,13 @@ new class extends Component
                             <span class="dark:text-zinc-200">{{$device->last_refreshed_at?->diffForHumans()}}</span>
                         </flux:tooltip>
                         <flux:separator vertical/>
+                        <flux:tooltip content="Refresh interval" position="bottom">
+                            <span class="dark:text-zinc-200 inline-flex items-center gap-1">
+                                <flux:icon.clock class="size-4"/>
+                                {{ $device->default_refresh_interval }}s
+                            </span>
+                        </flux:tooltip>
+                        <flux:separator vertical/>
                         <flux:tooltip content="MAC Address" position="bottom">
                             <span class="dark:text-zinc-200">{{$device->mac_address}}</span>
                         </flux:tooltip>
@@ -448,7 +463,16 @@ new class extends Component
                             </flux:tooltip>
                         @endif
                     </div>
-                    <div>
+                    <div class="flex items-center gap-3">
+                        <flux:tooltip
+                            content="Proxies images from the TRMNL Cloud service when no image is set (available in TRMNL DEV Edition only)."
+                            position="bottom">
+                            <flux:switch wire:click="toggleProxyCloud({{ $device->id }})"
+                                         :checked="$device->proxy_cloud"
+                                         :disabled="$device->mirror_device_id !== null"
+                                         label="☁️ Proxy"/>
+                        </flux:tooltip>
+
                         <flux:modal.trigger name="edit-device">
                             <flux:button icon="pencil-square" />
                         </flux:modal.trigger>
