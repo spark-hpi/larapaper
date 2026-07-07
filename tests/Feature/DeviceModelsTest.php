@@ -134,3 +134,13 @@ it('update from API runs job and refreshes device models', function (): void {
     $deviceModels = $component->get('deviceModels');
     expect($deviceModels->pluck('name')->toArray())->toContain('api-model');
 });
+
+it('renders an empty Actions column header on device models', function (): void {
+    $user = User::factory()->create();
+    DeviceModel::factory()->create();
+
+    $response = $this->actingAs($user)->get('/device-models');
+
+    $response->assertSuccessful();
+    $response->assertDontSee('Actions');
+});
