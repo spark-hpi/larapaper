@@ -285,7 +285,7 @@ new class extends Component
                     </flux:dropdown>
                 </flux:button.group>
             </div>
-            <flux:modal name="device-model-modal" class="md:w-96">
+            <flux:modal name="device-model-modal" class="md:w-[36rem]">
                 <div class="space-y-6">
                     <div>
                         <flux:heading size="lg">
