@@ -433,7 +433,7 @@ new class extends Component
                         @if($device->batteryPercent)
                             <flux:separator vertical/>
                             @if($device->last_battery_charging)
-                                <flux:tooltip content="{{ $device->batteryPercent }}%" position="bottom">
+                                <flux:tooltip content="Charging …" position="bottom">
                                     <flux:icon.battery-charging class="dark:text-zinc-200"/>
                                 </flux:tooltip>
                             @else
