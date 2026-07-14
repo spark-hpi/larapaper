@@ -3,7 +3,7 @@
 [![tests](https://github.com/usetrmnl/larapaper/actions/workflows/test.yml/badge.svg)](https://github.com/usetrmnl/larapaper/actions/workflows/test.yml)
 
 LaraPaper is a self-hostable implementation of a TRMNL server (BYOS), built with Laravel.
-It allows you to manage TRMNL devices, generate screens using **native plugins** (Screens API, Markup), **recipes** (150+ from the [OSS community catalog](https://bnussbau.github.io/trmnl-recipe-catalog/), 700+ from the [TRMNL catalog](https://trmnl.com/recipes), or your own), or the **API**, and can also act as a **proxy** for the native cloud service (Core). With over 250k downloads and 350+ stars, it’s the most popular community-driven BYOS.
+It allows you to manage TRMNL devices, generate screens using **native plugins** (Screens API, Screenshot, Image Webhook), **recipes** (150+ from the [OSS community catalog](https://bnussbau.github.io/trmnl-recipe-catalog/), 700+ from the [TRMNL catalog](https://trmnl.com/recipes), or your own), or the **API**, and can also act as a **proxy** for the native cloud service (Core). With over 250k downloads and 350+ stars, it’s the most popular community-driven BYOS.
 
 ![Screenshot](README_byos-screenshot.png)
 ![Screenshot](README_byos-screenshot-dark.png)
@@ -14,7 +14,7 @@ It allows you to manage TRMNL devices, generate screens using **native plugins**
 
 * 📡 Device Information – Display battery status, WiFi strength, firmware version, and more.
 * 🔍 Auto-Join – Automatically detects and adds devices from your local network.
-* 🖥️ Screen Generation – Supports Plugins (including Mashups), Recipes, API, Markup, or updates via Code.
+* 🖥️ Screen Generation – Supports Plugins (including Mashups), Recipes, API, Screenshot, Image Webhook, Markup, or updates via Code.
   * Support for TRMNL [Design Framework](https://trmnl.com/framework)
   * Compatible open-source recipes are available in the [community catalog](https://bnussbau.github.io/trmnl-recipe-catalog/)
   * Import from the [TRMNL community recipe catalog](https://trmnl.com/recipes)
