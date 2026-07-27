@@ -632,7 +632,7 @@ new class extends Component
                     @if($current_image_url)
                         <flux:separator class="mt-6 mb-6" text="Screen"/>
                         <div class="flex justify-center">
-                            <div class="relative origin-center -rotate-[{{ $device->rotate ?? 0 }}deg]">
+                            <div class="relative origin-center rotate-[{{ $device->preview_rotation }}deg]">
                                 <img src="{{ $current_image_url }}" class="max-h-[480px]" alt="Next Image"/>
                             </div>
                         </div>

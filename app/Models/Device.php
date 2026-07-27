@@ -69,6 +69,11 @@ class Device extends Model
         return round($percent);
     }
 
+    public function getPreviewRotationAttribute(): int
+    {
+        return (360 - ($this->deviceModel?->rotation ?? ($this->rotate ?? 0))) % 360;
+    }
+
     /**
      * Calculate battery voltage from percentage
      *
