@@ -53,7 +53,7 @@ dataset('multiday-window-cases', [
 
 dataset('test-nows', [
     'midnight' => '2026-03-10 00:00:00',
-    'noon'     => '2026-03-10 12:00:00',
+    'noon' => '2026-03-10 12:00:00',
 ]);
 
 dataset('special-cases', [

@@ -1378,7 +1378,7 @@ test('display endpoint logs telemetry data on update', function (): void {
         ->once()
         ->with('Device telemetry update', Mockery::on(function (array $context) use ($device): bool {
             return $context['device_id'] === $device->id
-                && ($context['last_rssi_level'] ?? null) == -70
+                && ($context['last_rssi_level'] ?? null) === '-70'
                 && ($context['last_firmware_version'] ?? null) === '1.0.0'
                 && ($context['last_battery_charging'] ?? null) === true
                 && ($context['last_usb_connected'] ?? null) === true
