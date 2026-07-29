@@ -500,3 +500,91 @@ it('generates BMP for legacy device with bmp3_1bit_srgb format', function (): vo
     expect($imageInfo[1])->toBe(480); // Height
     expect($imageInfo[2])->toBe(IMAGETYPE_BMP); // BMP type
 });
+
+it('returns the same uuid when the same markup is rendered twice for a device', function (): void {
+    $device = Device::factory()->create([
+        'width' => 800,
+        'height' => 480,
+        'rotate' => 0,
+        'image_format' => ImageFormat::PNG_8BIT_GRAYSCALE->value,
+    ]);
+
+    $markup = '<div style="background: white; color: black;">Stable content</div>';
+
+    $firstUuid = ImageGenerationService::generateImage($markup, $device->id);
+    $secondUuid = ImageGenerationService::generateImage($markup, $device->id);
+
+    $device->refresh();
+
+    expect($secondUuid)->toBe($firstUuid)
+        ->and($device->current_screen_image)->toBe($firstUuid);
+    Storage::disk('public')->assertExists("/images/generated/{$firstUuid}.png");
+});
+
+it('returns different uuids for different rendered content', function (): void {
+    $smallDevice = Device::factory()->create([
+        'width' => 800,
+        'height' => 480,
+        'rotate' => 0,
+        'image_format' => ImageFormat::AUTO->value,
+    ]);
+    $largeDevice = Device::factory()->create([
+        'width' => 1024,
+        'height' => 768,
+        'rotate' => 0,
+        'image_format' => ImageFormat::AUTO->value,
+    ]);
+
+    $markup = '<div>Test</div>';
+    $smallUuid = ImageGenerationService::generateImage($markup, $smallDevice->id);
+    $largeUuid = ImageGenerationService::generateImage($markup, $largeDevice->id);
+
+    expect($largeUuid)->not->toBe($smallUuid);
+    Storage::disk('public')->assertExists("/images/generated/{$smallUuid}.png");
+    Storage::disk('public')->assertExists("/images/generated/{$largeUuid}.png");
+});
+
+it('does not write a duplicate file when device image content is unchanged', function (): void {
+    $device = Device::factory()->create([
+        'width' => 800,
+        'height' => 480,
+        'rotate' => 0,
+        'image_format' => ImageFormat::PNG_8BIT_GRAYSCALE->value,
+    ]);
+
+    $markup = '<div>Stable</div>';
+    $uuid = ImageGenerationService::generateImage($markup, $device->id);
+    $path = "/images/generated/{$uuid}.png";
+    Storage::disk('public')->assertExists($path);
+
+    $originalMtime = filemtime(Storage::disk('public')->path($path));
+    sleep(1);
+
+    $secondUuid = ImageGenerationService::generateImage($markup, $device->id);
+
+    expect($secondUuid)->toBe($uuid);
+    $files = Storage::disk('public')->files('/images/generated');
+    $matching = array_filter($files, fn (string $file): bool => str_starts_with(basename($file), $uuid));
+    expect($matching)->toHaveCount(1);
+    clearstatcache();
+    expect(filemtime(Storage::disk('public')->path($path)))->toBe($originalMtime);
+});
+
+it('stores a new uuid when the existing image file is missing on disk', function (): void {
+    $device = Device::factory()->create([
+        'width' => 800,
+        'height' => 480,
+        'rotate' => 0,
+        'image_format' => ImageFormat::PNG_8BIT_GRAYSCALE->value,
+        'current_screen_image' => 'missing-on-disk-uuid',
+    ]);
+
+    $markup = '<div>Fresh content</div>';
+    $uuid = ImageGenerationService::generateImage($markup, $device->id);
+
+    $device->refresh();
+
+    expect($uuid)->not->toBe('missing-on-disk-uuid')
+        ->and($device->current_screen_image)->toBe($uuid);
+    Storage::disk('public')->assertExists("/images/generated/{$uuid}.png");
+});

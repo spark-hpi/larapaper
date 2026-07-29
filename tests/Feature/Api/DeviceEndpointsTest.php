@@ -629,6 +629,7 @@ test('plugin caches image until data is stale', function (): void {
 
     // third request after 75 seconds, should generate a new image
     $plugin->update(['data_payload_updated_at' => now()->addSeconds(-75)]);
+    EpaperPipeline::fake(seed: 'stale-regeneration');
     $thirdResponse = $this->withHeaders([
         'id' => $device->mac_address,
         'access-token' => $device->api_key,
@@ -700,6 +701,7 @@ test('plugins in playlist are rendered in order', function (): void {
     ]);
 
     // First request should show the first plugin
+    EpaperPipeline::fake(seed: 'plugin-1');
     $firstResponse = $this->withHeaders([
         'id' => $device->mac_address,
         'access-token' => $device->api_key,
@@ -717,6 +719,7 @@ test('plugins in playlist are rendered in order', function (): void {
     $this->travel(1)->seconds();
 
     // Second request should show the second plugin
+    EpaperPipeline::fake(seed: 'plugin-2');
     $secondResponse = $this->withHeaders([
         'id' => $device->mac_address,
         'access-token' => $device->api_key,

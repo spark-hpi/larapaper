@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5ab7cef21cbffa0dde789432f9e23803",
+    "content-hash": "1875a5bfaccfc7fefa7e6cf9e6c9dc08",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -214,16 +214,16 @@
         },
         {
             "name": "bnussbau/epaper-pipeline-php",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/bnussbau/epaper-pipeline-php.git",
-                "reference": "01a6bbf5a15ffe0c3a4eef82edf3adc246940121"
+                "reference": "030088c5a78e9e2ccf667f32a6618f53d8f208f3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/bnussbau/epaper-pipeline-php/zipball/01a6bbf5a15ffe0c3a4eef82edf3adc246940121",
-                "reference": "01a6bbf5a15ffe0c3a4eef82edf3adc246940121",
+                "url": "https://api.github.com/repos/bnussbau/epaper-pipeline-php/zipball/030088c5a78e9e2ccf667f32a6618f53d8f208f3",
+                "reference": "030088c5a78e9e2ccf667f32a6618f53d8f208f3",
                 "shasum": ""
             },
             "require": {
@@ -265,7 +265,7 @@
             ],
             "support": {
                 "issues": "https://github.com/bnussbau/epaper-pipeline-php/issues",
-                "source": "https://github.com/bnussbau/epaper-pipeline-php/tree/1.0.0"
+                "source": "https://github.com/bnussbau/epaper-pipeline-php/tree/1.1.0"
             },
             "funding": [
                 {
@@ -281,7 +281,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-05-12T05:42:32+00:00"
+            "time": "2026-07-29T16:02:43+00:00"
         },
         {
             "name": "bnussbau/laravel-trmnl-blade",

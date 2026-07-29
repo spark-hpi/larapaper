@@ -16,7 +16,7 @@
         "ext-imagick": "*",
         "ext-simplexml": "*",
         "ext-zip": "*",
-        "bnussbau/epaper-pipeline-php": "^1.0",
+        "bnussbau/epaper-pipeline-php": "^1.1",
         "bnussbau/laravel-trmnl-blade": "^3.1",
         "hammerstone/sidecar": "^0.8.0",
         "keepsuit/laravel-liquid": "^0.6",
