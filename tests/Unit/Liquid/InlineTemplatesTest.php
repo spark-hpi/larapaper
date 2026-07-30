@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Liquid;
-
 use App\Liquid\FileSystems\InlineTemplatesFileSystem;
 use App\Liquid\Filters\Data;
 use App\Liquid\Filters\Date;
@@ -16,36 +14,25 @@ use Keepsuit\Liquid\Environment;
 use Keepsuit\Liquid\Exceptions\LiquidException;
 use Keepsuit\Liquid\Extensions\StandardExtension;
 use Keepsuit\Liquid\Tags\RenderTag;
-use PHPUnit\Framework\TestCase;
 
-class InlineTemplatesTest extends TestCase
-{
-    protected Environment $environment;
+beforeEach(function (): void {
+    $this->fileSystem = new InlineTemplatesFileSystem();
+    $this->environment = new Environment(
+        fileSystem: $this->fileSystem,
+        extensions: [new StandardExtension()]
+    );
+    $this->environment->tagRegistry->register(TemplateTag::class);
+    $this->environment->tagRegistry->register(RenderTag::class);
+    $this->environment->filterRegistry->register(Data::class);
+    $this->environment->filterRegistry->register(Date::class);
+    $this->environment->filterRegistry->register(Localization::class);
+    $this->environment->filterRegistry->register(Numbers::class);
+    $this->environment->filterRegistry->register(StringMarkup::class);
+    $this->environment->filterRegistry->register(Uniqueness::class);
+});
 
-    protected InlineTemplatesFileSystem $fileSystem;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $this->fileSystem = new InlineTemplatesFileSystem();
-        $this->environment = new Environment(
-            fileSystem: $this->fileSystem,
-            extensions: [new StandardExtension()]
-        );
-        $this->environment->tagRegistry->register(TemplateTag::class);
-        $this->environment->tagRegistry->register(RenderTag::class);
-        $this->environment->filterRegistry->register(Data::class);
-        $this->environment->filterRegistry->register(Date::class);
-        $this->environment->filterRegistry->register(Localization::class);
-        $this->environment->filterRegistry->register(Numbers::class);
-        $this->environment->filterRegistry->register(StringMarkup::class);
-        $this->environment->filterRegistry->register(Uniqueness::class);
-    }
-
-    public function test_template_tag_registers_template(): void
-    {
-        $template = $this->environment->parseString(<<<'LIQUID'
+test('template tag registers template', function (): void {
+    $template = $this->environment->parseString(<<<'LIQUID'
 {% template session %}
 <div class="layout">
   <div class="columns">
@@ -60,32 +47,28 @@ class InlineTemplatesTest extends TestCase
 </div>
 {% endtemplate %}
 LIQUID
-        );
+    );
 
-        $context = $this->environment->newRenderContext(
-            data: [
-                'facts' => ['Fact 1', 'Fact 2', 'Fact 3'],
-                'randomNumber' => 1,
-                'size_mod' => '--large',
-            ]
-        );
+    $context = $this->environment->newRenderContext(
+        data: [
+            'facts' => ['Fact 1', 'Fact 2', 'Fact 3'],
+            'randomNumber' => 1,
+            'size_mod' => '--large',
+        ]
+    );
 
-        $result = $template->render($context);
+    $result = $template->render($context);
 
-        // Template tag should not output anything
-        $this->assertEquals('', $result);
+    expect($result)->toBe('');
+    expect($this->fileSystem->hasTemplate('session'))->toBeTrue();
 
-        // Template should be registered in the file system
-        $this->assertTrue($this->fileSystem->hasTemplate('session'));
+    $registeredTemplate = $this->fileSystem->readTemplateFile('session');
+    expect($registeredTemplate)->toContain('{{ facts[randomNumber] }}');
+    expect($registeredTemplate)->toContain('{{ size_mod }}');
+});
 
-        $registeredTemplate = $this->fileSystem->readTemplateFile('session');
-        $this->assertStringContainsString('{{ facts[randomNumber] }}', $registeredTemplate);
-        $this->assertStringContainsString('{{ size_mod }}', $registeredTemplate);
-    }
-
-    public function test_template_tag_with_render_tag(): void
-    {
-        $template = $this->environment->parseString(<<<'LIQUID'
+test('template tag with render tag', function (): void {
+    $template = $this->environment->parseString(<<<'LIQUID'
 {% template session %}
 <div class="layout">
   <div class="columns">
@@ -107,28 +90,25 @@ LIQUID
   size_mod: ""
 %}
 LIQUID
-        );
+    );
 
-        $context = $this->environment->newRenderContext(
-            data: [
-                'facts' => ['Fact 1', 'Fact 2', 'Fact 3'],
-                'randomNumber' => 1,
-                'trmnl' => ['plugin_settings' => ['instance_name' => 'Test']],
-            ]
-        );
+    $context = $this->environment->newRenderContext(
+        data: [
+            'facts' => ['Fact 1', 'Fact 2', 'Fact 3'],
+            'randomNumber' => 1,
+            'trmnl' => ['plugin_settings' => ['instance_name' => 'Test']],
+        ]
+    );
 
-        $result = $template->render($context);
+    $result = $template->render($context);
 
-        // Should render the template content
-        $this->assertStringContainsString('Fact 2', $result); // facts[1]
-        $this->assertStringContainsString('class="layout"', $result);
-        $this->assertStringContainsString('class="value text--center"', $result);
-    }
+    expect($result)->toContain('Fact 2');
+    expect($result)->toContain('class="layout"');
+    expect($result)->toContain('class="value text--center"');
+});
 
-    public function test_apply_liquid_replacements_converts_with_syntax(): void
-    {
-        // This test simulates the applyLiquidReplacements method from the Plugin model
-        $originalLiquid = <<<'LIQUID'
+test('apply liquid replacements converts with syntax', function (): void {
+    $originalLiquid = <<<'LIQUID'
 {% template session %}
 <div class="layout">
   <div class="columns">
@@ -151,25 +131,20 @@ LIQUID
 %}
 LIQUID;
 
-        // Apply the same replacement logic as in Plugin::applyLiquidReplacements
-        $convertedLiquid = preg_replace(
-            '/{%\s*render\s+([^}]+?)\s+with\s+/i',
-            '{% render $1, ',
-            $originalLiquid
-        );
+    $convertedLiquid = preg_replace(
+        '/{%\s*render\s+([^}]+?)\s+with\s+/i',
+        '{% render $1, ',
+        $originalLiquid
+    );
 
-        // Verify the conversion worked
-        $this->assertStringContainsString('{% render "session",', $convertedLiquid);
-        $this->assertStringNotContainsString('{% render "session" with', $convertedLiquid);
+    expect($convertedLiquid)->toContain('{% render "session",');
+    expect($convertedLiquid)->not->toContain('{% render "session" with');
+    expect($convertedLiquid)->toContain('trmnl: trmnl,');
+    expect($convertedLiquid)->toContain('facts: facts,');
+});
 
-        // Verify the rest of the content is preserved
-        $this->assertStringContainsString('trmnl: trmnl,', $convertedLiquid);
-        $this->assertStringContainsString('facts: facts,', $convertedLiquid);
-    }
-
-    public function test_template_tag_with_render_with_tag(): void
-    {
-        $originalLiquid = <<<'LIQUID'
+test('template tag with render with tag', function (): void {
+    $originalLiquid = <<<'LIQUID'
 {% template session %}
 <div class="layout">
   <div class="columns">
@@ -192,34 +167,31 @@ LIQUID;
 %}
 LIQUID;
 
-        // Apply the same replacement logic as in applyLiquidReplacements
-        $convertedLiquid = preg_replace(
-            '/{%\s*render\s+([^}]+?)\s+with\s+/i',
-            '{% render $1, ',
-            $originalLiquid
-        );
+    $convertedLiquid = preg_replace(
+        '/{%\s*render\s+([^}]+?)\s+with\s+/i',
+        '{% render $1, ',
+        $originalLiquid
+    );
 
-        $template = $this->environment->parseString($convertedLiquid);
+    $template = $this->environment->parseString($convertedLiquid);
 
-        $context = $this->environment->newRenderContext(
-            data: [
-                'facts' => ['Fact 1', 'Fact 2', 'Fact 3'],
-                'randomNumber' => 1,
-                'trmnl' => ['plugin_settings' => ['instance_name' => 'Test']],
-            ]
-        );
+    $context = $this->environment->newRenderContext(
+        data: [
+            'facts' => ['Fact 1', 'Fact 2', 'Fact 3'],
+            'randomNumber' => 1,
+            'trmnl' => ['plugin_settings' => ['instance_name' => 'Test']],
+        ]
+    );
 
-        $result = $template->render($context);
+    $result = $template->render($context);
 
-        // Should render the template content
-        $this->assertStringContainsString('Fact 2', $result); // facts[1]
-        $this->assertStringContainsString('class="layout"', $result);
-        $this->assertStringContainsString('class="value text--center"', $result);
-    }
+    expect($result)->toContain('Fact 2');
+    expect($result)->toContain('class="layout"');
+    expect($result)->toContain('class="value text--center"');
+});
 
-    public function test_template_tag_with_multiple_templates(): void
-    {
-        $template = $this->environment->parseString(<<<'LIQUID'
+test('template tag with multiple templates', function (): void {
+    $template = $this->environment->parseString(<<<'LIQUID'
 {% template session %}
 <div class="layout">
   <div class="columns">
@@ -256,30 +228,27 @@ LIQUID;
 %}
 </div>
 LIQUID
-        );
+    );
 
-        $context = $this->environment->newRenderContext(
-            data: [
-                'size' => 'full',
-                'facts' => ['Fact 1', 'Fact 2', 'Fact 3'],
-                'randomNumber' => 1,
-                'trmnl' => ['plugin_settings' => ['instance_name' => 'Test Plugin']],
-            ]
-        );
+    $context = $this->environment->newRenderContext(
+        data: [
+            'size' => 'full',
+            'facts' => ['Fact 1', 'Fact 2', 'Fact 3'],
+            'randomNumber' => 1,
+            'trmnl' => ['plugin_settings' => ['instance_name' => 'Test Plugin']],
+        ]
+    );
 
-        $result = $template->render($context);
+    $result = $template->render($context);
 
-        // Should render both templates
-        $this->assertStringContainsString('Fact 2', $result);
-        $this->assertStringContainsString('Test Plugin', $result);
-        $this->assertStringContainsString('Please try to enjoy each fact equally', $result);
-        $this->assertStringContainsString('class="view view--full"', $result);
-    }
+    expect($result)->toContain('Fact 2');
+    expect($result)->toContain('Test Plugin');
+    expect($result)->toContain('Please try to enjoy each fact equally');
+    expect($result)->toContain('class="view view--full"');
+});
 
-    public function test_template_tag_invalid_name(): void
-    {
-        $this->expectException(LiquidException::class);
-
+test('template tag invalid name', function (): void {
+    expect(function (): void {
         $template = $this->environment->parseString(<<<'LIQUID'
 {% template invalid-name %}
 <div>Content</div>
@@ -290,53 +259,50 @@ LIQUID
         $context = $this->environment->newRenderContext();
 
         $template->render($context);
-    }
+    })->toThrow(LiquidException::class);
+});
 
-    public function test_template_tag_without_file_system(): void
-    {
-        $template = $this->environment->parseString(<<<'LIQUID'
+test('template tag without file system', function (): void {
+    $template = $this->environment->parseString(<<<'LIQUID'
 {% template session %}
 <div>Content</div>
 {% endtemplate %}
 LIQUID
-        );
+    );
 
-        $context = $this->environment->newRenderContext();
+    $context = $this->environment->newRenderContext();
 
-        $result = $template->render($context);
+    $result = $template->render($context);
 
-        // Should not throw an error and should return empty string
-        $this->assertEquals('', $result);
-    }
+    expect($result)->toBe('');
+});
 
-    public function test_quotes_template_with_modulo_filter(): void
-    {
-        $template = $this->environment->parseString(<<<'LIQUID'
+test('quotes template with modulo filter', function (): void {
+    $template = $this->environment->parseString(<<<'LIQUID'
 {% assign quotes_array = quotes[trmnl.plugin_settings.custom_fields_values.language] %}
 {% assign random_index = 'now' | date: '%s' | modulo: quotes_array.size %}
 {{ quotes_array[random_index] }}
 LIQUID
-        );
+    );
 
-        $context = $this->environment->newRenderContext(
-            data: [
-                'quotes' => [
-                    'english' => ['Demo Quote'],
-                    'german' => ['Demo Zitat'],
-                ],
-                'trmnl' => [
-                    'plugin_settings' => [
-                        'custom_fields_values' => [
-                            'language' => 'english',
-                        ],
+    $context = $this->environment->newRenderContext(
+        data: [
+            'quotes' => [
+                'english' => ['Demo Quote'],
+                'german' => ['Demo Zitat'],
+            ],
+            'trmnl' => [
+                'plugin_settings' => [
+                    'custom_fields_values' => [
+                        'language' => 'english',
                     ],
                 ],
-            ]
-        );
+            ],
+        ]
+    );
 
-        $result = $template->render($context);
-        // Should render a quote from the english array
-        $this->assertStringContainsString('Demo Quote', $result);
-        $this->assertStringNotContainsString('Demo Zitat', $result);
-    }
-}
+    $result = $template->render($context);
+
+    expect($result)->toContain('Demo Quote');
+    expect($result)->not->toContain('Demo Zitat');
+});
