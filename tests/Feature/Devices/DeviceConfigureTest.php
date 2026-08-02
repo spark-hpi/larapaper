@@ -177,6 +177,7 @@ test('devices configure clearPluginImageCache allows admin to clear another user
 });
 
 test('devices configure clearPluginImageCache aborts when non-admin device owner does not own plugin', function (): void {
+    User::factory()->create(); // consume id=1 (auto-admin slot)
     $deviceOwner = User::factory()->create();
     $pluginOwner = User::factory()->create();
     $device = Device::factory()->create(['user_id' => $deviceOwner->id]);
