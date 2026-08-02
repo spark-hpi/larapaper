@@ -16,7 +16,7 @@ return [
     |
     */
 
-    'driver' => env('TOGGLE_DRIVER', 'config'),
+    'driver' => env('TOGGLE_DRIVER', 'database'),
 
     /*
     |--------------------------------------------------------------------------
@@ -74,7 +74,8 @@ return [
     */
 
     'flags' => [
-        // 'example-flag' => env('TOGGLE_EXAMPLE_FLAG', false),
+        'mcp' => env('TOGGLE_MCP', false),
+
     ],
 
     /*

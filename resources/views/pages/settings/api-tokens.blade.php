@@ -9,6 +9,8 @@ use Livewire\Component;
 new #[Title('API Tokens')] class extends Component {
     public string $tokenName = '';
 
+    public string $tokenType = 'api';
+
     #[Locked]
     public array $tokens = [];
 
@@ -38,6 +40,7 @@ new #[Title('API Tokens')] class extends Component {
             ->map(fn ($token) => [
                 'id' => $token->id,
                 'name' => $token->name,
+                'abilities' => $token->abilities ?? [],
                 'created_at' => $token->created_at->diffForHumans(),
                 'last_used_at' => $token->last_used_at?->diffForHumans(),
             ])
@@ -46,12 +49,20 @@ new #[Title('API Tokens')] class extends Component {
 
     public function createToken(): void
     {
-        $this->validate(['tokenName' => 'required|string|max:255']);
+        $this->validate([
+            'tokenName' => 'required|string|max:255',
+            'tokenType' => 'required|string|in:api,mcp',
+        ]);
 
-        $token = Auth::user()->createToken($this->tokenName);
+        $abilities = $this->tokenType === 'mcp'
+            ? ['mcp']
+            : ['*'];
+
+        $token = Auth::user()->createToken($this->tokenName, $abilities);
 
         $this->newTokenValue = $token->plainTextToken;
         $this->tokenName = '';
+        $this->tokenType = 'api';
         $this->showNewTokenModal = true;
         $this->loadTokens();
     }
@@ -108,6 +119,12 @@ new #[Title('API Tokens')] class extends Component {
                     required
                     autofocus
                 />
+                @toggle('mcp')
+                    <flux:radio.group wire:model="tokenType" :label="__('Token type')" variant="segmented">
+                        <flux:radio value="api" :label="__('API')" />
+                        <flux:radio value="mcp" :label="__('MCP')" />
+                    </flux:radio.group>
+                @endtoggle
                 <div>
                     <flux:button variant="primary" type="submit">
                         {{ __('Create token') }}
@@ -129,6 +146,13 @@ new #[Title('API Tokens')] class extends Component {
                                     </div>
                                     <div class="space-y-0.5">
                                         <p class="font-medium tracking-tight">{{ $token['name'] }}</p>
+                                        @if (count($token['abilities']) > 0)
+                                            <div class="flex flex-wrap gap-1.5 mt-1">
+                                                @foreach ($token['abilities'] as $ability)
+                                                    <flux:badge size="sm" color="zinc">{{ $ability }}</flux:badge>
+                                                @endforeach
+                                            </div>
+                                        @endif
                                         <p class="text-zinc-500 dark:text-zinc-400 text-xs">
                                             {{ __('Created :time', ['time' => $token['created_at']]) }}
                                             @if ($token['last_used_at'])
