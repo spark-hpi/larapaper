@@ -1104,6 +1104,7 @@ HTML;
                     $dataPayloadMaxWireBytes = Plugin::maxDataPayloadBytesForRecipeStaticField();
                 @endphp
                 <form
+                    id="plugin-settings-form"
                     class="mb-6"
                     x-data="{
                         localPayloadError: null,
@@ -1443,7 +1444,8 @@ HTML;
                                 isDisabled: @js($data_strategy !== 'static'),
                                 language: 'json',
                                 state: $wire.entangle('data_payload'),
-                                textareaId: @js($textareaId)
+                                textareaId: @js($textareaId),
+                                onSave: () => document.getElementById('plugin-settings-form')?.requestSubmit()
                             })"
                         wire:ignore
                         wire:key="cm-{{ $textareaId }}"
@@ -1568,7 +1570,8 @@ HTML;
                                     isDisabled: false,
                                     language: @js(match($transform_language) { 'node' => 'javascript', 'php' => 'php', default => 'python' }),
                                     state: $wire.entangle('transform_code'),
-                                    textareaId: @js($transformTextareaId)
+                                    textareaId: @js($transformTextareaId),
+                                    onSave: () => $wire.saveTransform()
                                 })"
                                 wire:ignore
                                 wire:key="cm-transform-{{ $plugin->id }}-{{ $transform_language }}"
@@ -1599,7 +1602,8 @@ HTML;
                                             isDisabled: false,
                                             language: @js($markup_language === 'liquid' ? 'liquid' : 'html'),
                                             state: $wire.entangle('markup_code'),
-                                            textareaId: @js($textareaId)
+                                            textareaId: @js($textareaId),
+                                            onSave: () => $wire.saveMarkup()
                                         })"
                                         wire:ignore
                                         wire:key="cm-{{ $textareaId }}"
