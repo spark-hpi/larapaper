@@ -15,7 +15,6 @@ pkgs.mkShell {
     nodejs_24
     ruby_4_0
 
-    claude-code
     bubblewrap
   ];
 }
