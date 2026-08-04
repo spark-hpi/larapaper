@@ -1601,6 +1601,29 @@ test('device returns sleep.png and correct refresh time when paused', function (
     expect($json['refresh_rate'])->toBeLessThanOrEqual(3600); // ~60 min
 });
 
+test('device paused for long period returns refresh rate capped at 24 hours', function (): void {
+    $device = Device::factory()->create([
+        'mac_address' => '00:11:22:33:44:55',
+        'api_key' => 'test-api-key',
+        'pause_until' => now()->addDays(7),
+    ]);
+
+    $response = $this->withHeaders([
+        'id' => $device->mac_address,
+        'access-token' => $device->api_key,
+        'rssi' => -70,
+        'battery_voltage' => 3.8,
+        'fw-version' => '1.0.0',
+    ])->get('/api/display');
+
+    $response->assertOk();
+    $json = $response->json();
+
+    expect($json['filename'])->toMatch('/^[a-f0-9-]+\.png$/');
+    expect($json['image_url'])->toContain('images/generated/');
+    expect($json['refresh_rate'])->toBeLessThanOrEqual(86400);
+});
+
 test('screens endpoint accepts nullable file_name', function (): void {
     Queue::fake();
 

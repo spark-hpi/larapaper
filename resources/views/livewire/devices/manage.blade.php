@@ -2,6 +2,9 @@
 
 use App\Models\Device;
 use App\Models\DeviceModel;
+use Carbon\Carbon;
+use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 new class extends Component
@@ -28,7 +31,11 @@ new class extends Component
 
     public $deviceModels;
 
-    public ?int $pause_duration;
+    public ?int $pause_duration = null;
+
+    public ?string $pause_until_date = null;
+
+    public ?string $pause_until_time = null;
 
     protected $rules = [
         'mac_address' => 'required',
@@ -40,7 +47,7 @@ new class extends Component
 
     public function mount()
     {
-        $this->devices = auth()->user()->devices;
+        $this->devices = auth()->user()->devices()->with('deviceModel')->get();
         $this->deviceModels = DeviceModel::orderBy('label')->get()->sortBy(function ($deviceModel) {
             // Put TRMNL models at the top, then sort alphabetically within each group
             $isTrmnl = str_starts_with($deviceModel->label, 'TRMNL');
@@ -51,11 +58,24 @@ new class extends Component
         return view('livewire.devices.manage');
     }
 
-    public function updatedDeviceModelId(): void
+    #[Computed]
+    public function timezone(): string
     {
-        // Convert empty string to null for custom selection
-        if (empty($this->device_model_id)) {
+        return auth()->user()->preferredTimezone();
+    }
+
+    public function updated(string $property): void
+    {
+        if ($property === 'device_model_id' && empty($this->device_model_id)) {
             $this->device_model_id = null;
+        }
+
+        if ($property === 'pause_duration' && $this->pause_duration !== null) {
+            $this->pause_until_date = $this->pause_until_time = null;
+        }
+
+        if (in_array($property, ['pause_until_date', 'pause_until_time'], true) && $this->{$property}) {
+            $this->pause_duration = null;
         }
     }
 
@@ -87,7 +107,7 @@ new class extends Component
         $this->reset();
         Flux::modal('create-device')->close();
 
-        $this->devices = auth()->user()->devices;
+        $this->devices = auth()->user()->devices()->with('deviceModel')->get();
         Flux::toast(variant: 'success', text: 'Device created successfully.');
     }
 
@@ -103,18 +123,47 @@ new class extends Component
         // }
     }
 
-    public function pauseDevice($deviceId): void
+    public function pauseDevice(int $deviceId): void
     {
-        $this->validate([
-            'pause_duration' => 'required|integer',
-        ]);
         $device = auth()->user()->devices()->findOrFail($deviceId);
-        $pauseUntil = now()->addMinutes($this->pause_duration);
-        $device->update(['pause_until' => $pauseUntil]);
-        $this->reset('pause_duration');
+        $device->update(['pause_until' => $this->resolvePauseUntil()]);
+        $this->reset('pause_duration', 'pause_until_date', 'pause_until_time');
         Flux::modal('pause-device-'.$deviceId)->close();
-        $this->devices = auth()->user()->devices;
-        Flux::toast(variant: 'success', text: 'Device paused until '.$pauseUntil->format('H:i'));
+        $this->devices = auth()->user()->devices()->with('deviceModel')->get();
+
+        $pauseUntil = $device->pause_until->timezone($this->timezone);
+        Flux::toast(variant: 'success', text: "Device paused until {$pauseUntil} {$this->timezone}");
+    }
+
+    public function unpauseDevice(int $deviceId): void
+    {
+        $device = auth()->user()->devices()->findOrFail($deviceId);
+        $device->update(['pause_until' => null]);
+        Flux::modal('unpause-device-'.$deviceId)->close();
+        $this->devices = auth()->user()->devices()->with('deviceModel')->get();
+        Flux::toast(variant: 'success', text: 'Pause cleared. Wake your device manually to resume.');
+    }
+
+    private function resolvePauseUntil(): Carbon
+    {
+        if (filled($this->pause_until_date) && filled($this->pause_until_time)) {
+            $now = now($this->timezone);
+            $pauseUntil = Carbon::parse("{$this->pause_until_date} {$this->pause_until_time}", $this->timezone);
+
+            if ($pauseUntil->lte($now) || $pauseUntil->gt($now->copy()->addDays(Device::MAX_PAUSE_DAYS))) {
+                throw ValidationException::withMessages([
+                    'pause_until_date' => $pauseUntil->lte($now)
+                        ? 'The pause time must be in the future.'
+                        : 'The pause time cannot be more than '.Device::MAX_PAUSE_DAYS.' days in the future.',
+                ]);
+            }
+
+            return $pauseUntil->utc();
+        }
+
+        $this->validate(['pause_duration' => 'required|integer']);
+
+        return now()->addMinutes((int) $this->pause_duration);
     }
 }
 
@@ -265,9 +314,11 @@ new class extends Component
                                 <flux:button href="{{ route('devices.configure', $device) }}" wire:navigate icon="eye" iconVariant="outline">
                                 </flux:button>
                                 @if($device->isPauseActive())
-                                    <flux:tooltip content="Device paused until: {{ $device->pause_until?->format('H:i') }}">
-                                        <flux:button icon="pause-circle"/>
-                                    </flux:tooltip>
+                                    <flux:modal.trigger name="unpause-device-{{ $device->id }}">
+                                        <flux:tooltip content="Device paused until: {{ $device->pause_until->diffForHumans() }}">
+                                            <flux:button icon="pause-circle"/>
+                                        </flux:tooltip>
+                                    </flux:modal.trigger>
                                 @else
                                     <flux:modal.trigger name="pause-device-{{ $device->id }}">
                                         <flux:button icon="pause-circle" iconVariant="outline">
@@ -314,6 +365,26 @@ new class extends Component
                             <flux:radio value="480" label="480 min"/>
                         </flux:radio.group>
                     </div>
+
+                    <flux:separator text="or" class="my-4"/>
+
+                    <div class="mb-4 grid grid-cols-2 gap-4">
+                        <flux:input
+                            type="date"
+                            label="Date"
+                            wire:model.live="pause_until_date"
+                            min="{{ now($this->timezone)->toDateString() }}"
+                            max="{{ now($this->timezone)->addDays(\App\Models\Device::MAX_PAUSE_DAYS)->toDateString() }}"
+                        />
+                        <flux:input
+                            type="time"
+                            label="Time"
+                            wire:model.live="pause_until_time"
+                        />
+                    </div>
+                    <flux:text class="text-sm text-zinc-500 mb-4">Timezone: {{ $this->timezone }}.</flux:text>
+                    <flux:error name="pause_until_date"/>
+
                     <div class="flex">
                         <flux:spacer/>
                         <flux:modal.close>
@@ -322,6 +393,37 @@ new class extends Component
                         <flux:button type="submit" variant="primary">Save</flux:button>
                     </div>
                 </form>
+            </div>
+        </flux:modal>
+
+        <flux:modal name="unpause-device-{{ $device->id }}">
+            <div class="space-y-6">
+                <div>
+                    <flux:heading size="lg">Pause Active</flux:heading>
+                </div>
+
+                <flux:callout variant="info" icon="pause-circle">
+                    <flux:callout.heading>Paused until {{ $device->pause_until?->timezone($this->timezone) }} {{ $this->timezone }}</flux:callout.heading>
+                    <flux:callout.text>
+                        @if($device->usesTouchBar())
+                            To exit pause early, click "End pause" and press the touch bar in the middle of your device.
+                        @else
+                            To exit pause early, click "End pause" and press the physical screen button on your device.
+                        @endif
+                    </flux:callout.text>
+                    <x-slot name="actions">
+                        <flux:button wire:click="unpauseDevice({{ $device->id }})" variant="primary">
+                            End pause
+                        </flux:button>
+                    </x-slot>
+                </flux:callout>
+
+                <div class="flex">
+                    <flux:spacer/>
+                    <flux:modal.close>
+                        <flux:button variant="ghost">Close</flux:button>
+                    </flux:modal.close>
+                </div>
             </div>
         </flux:modal>
     @endforeach

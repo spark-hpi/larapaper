@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\Device;
+use App\Models\DeviceModel;
 use App\Models\User;
+use Carbon\Carbon;
 
 uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
 
@@ -102,4 +104,110 @@ test('user cannot toggle proxy cloud for other users devices', function (): void
 
     $response->assertStatus(403);
     expect($device->fresh()->proxy_cloud)->toBeFalse();
+});
+
+test('user can pause device with preset duration', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    Carbon::setTestNow('2026-08-04 12:00:00');
+
+    Livewire::test('devices.manage')
+        ->set('pause_duration', 60)
+        ->call('pauseDevice', $device->id)
+        ->assertHasNoErrors();
+
+    expect($device->fresh()->pause_until?->equalTo(now()->addMinutes(60)))->toBeTrue();
+});
+
+test('user can pause device with custom date and time in user timezone', function (): void {
+    $user = User::factory()->create(['timezone' => 'Europe/Berlin']);
+    $device = Device::factory()->create(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    Carbon::setTestNow(Carbon::parse('2026-08-04 10:00:00', 'UTC'));
+
+    Livewire::test('devices.manage')
+        ->set('pause_until_date', '2026-08-10')
+        ->set('pause_until_time', '14:30')
+        ->call('pauseDevice', $device->id)
+        ->assertHasNoErrors();
+
+    expect($device->fresh()->pause_until?->utc()->format('Y-m-d H:i'))->toBe('2026-08-10 12:30');
+});
+
+test('custom pause rejects datetime more than 30 days in the future', function (): void {
+    $user = User::factory()->create(['timezone' => 'UTC']);
+    $device = Device::factory()->create(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    Carbon::setTestNow('2026-08-04 12:00:00');
+
+    Livewire::test('devices.manage')
+        ->set('pause_until_date', '2026-09-10')
+        ->set('pause_until_time', '14:30')
+        ->call('pauseDevice', $device->id)
+        ->assertHasErrors(['pause_until_date']);
+
+    expect($device->fresh()->pause_until)->toBeNull();
+});
+
+test('custom pause rejects datetime in the past', function (): void {
+    $user = User::factory()->create(['timezone' => 'UTC']);
+    $device = Device::factory()->create(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    Carbon::setTestNow('2026-08-04 12:00:00');
+
+    Livewire::test('devices.manage')
+        ->set('pause_until_date', '2026-08-04')
+        ->set('pause_until_time', '08:00')
+        ->call('pauseDevice', $device->id)
+        ->assertHasErrors(['pause_until_date']);
+
+    expect($device->fresh()->pause_until)->toBeNull();
+});
+
+test('user can end pause early', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'pause_until' => now()->addHour(),
+    ]);
+    $this->actingAs($user);
+
+    Livewire::test('devices.manage')
+        ->call('unpauseDevice', $device->id)
+        ->assertHasNoErrors();
+
+    expect($device->fresh()->pause_until)->toBeNull();
+});
+
+test('unpause modal shows touch bar instructions for v2 devices', function (): void {
+    $user = User::factory()->create();
+    $deviceModel = DeviceModel::query()->where('name', 'v2')->firstOrFail();
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'device_model_id' => $deviceModel->id,
+        'pause_until' => now()->addHour(),
+    ]);
+    $this->actingAs($user);
+
+    Livewire::test('devices.manage')
+        ->assertSee('touch bar in the middle')
+        ->assertDontSee('physical screen button');
+});
+
+test('unpause modal shows screen button instructions for non-v2 devices', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'pause_until' => now()->addHour(),
+    ]);
+    $this->actingAs($user);
+
+    Livewire::test('devices.manage')
+        ->assertSee('physical screen button')
+        ->assertDontSee('touch bar in the middle');
 });

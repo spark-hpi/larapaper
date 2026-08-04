@@ -18,6 +18,10 @@ class Device extends Model
 {
     use HasFactory;
 
+    public const MAX_PAUSE_DAYS = 30;
+
+    public const MAX_PAUSE_REFRESH_SECONDS = 86400; // 24 hours
+
     protected $guarded = ['id'];
 
     /**
@@ -319,5 +323,10 @@ class Device extends Model
     public function isPauseActive(): bool
     {
         return $this->pause_until && $this->pause_until->isFuture();
+    }
+
+    public function usesTouchBar(): bool
+    {
+        return $this->deviceModel?->name === 'v2';
     }
 }
