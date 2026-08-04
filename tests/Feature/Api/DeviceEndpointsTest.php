@@ -526,10 +526,15 @@ test('current_screen endpoint requires valid device credentials', function (): v
 
 test('authenticated user can fetch their devices', function (): void {
     $user = User::factory()->create();
+    $lastRefreshedAt = now()->subMinutes(5);
     $devices = Device::factory()->count(2)->create([
         'user_id' => $user->id,
         'last_battery_voltage' => 3.72,
         'last_rssi_level' => -63,
+        'last_refreshed_at' => $lastRefreshedAt,
+        'sleep_mode_enabled' => true,
+        'sleep_mode_from' => '19:45',
+        'sleep_mode_to' => '04:45',
     ]);
 
     Sanctum::actingAs($user);
@@ -546,10 +551,19 @@ test('authenticated user can fetch their devices', function (): void {
                     'mac_address',
                     'battery_voltage',
                     'rssi',
+                    'last_ping_at',
+                    'percent_charged',
+                    'wifi_strength',
+                    'hardware_last_ping_at',
+                    'sleep_mode_enabled',
+                    'sleep_start_time',
+                    'sleep_end_time',
                 ],
             ],
         ])
         ->assertJsonCount(2, 'data');
+
+    $expectedLastPingAt = $devices[0]->fresh()->last_refreshed_at?->toIso8601ZuluString();
 
     // Verify the first device's data
     $response->assertJson([
@@ -561,6 +575,13 @@ test('authenticated user can fetch their devices', function (): void {
                 'mac_address' => $devices[0]->mac_address,
                 'battery_voltage' => 3.72,
                 'rssi' => -63,
+                'last_ping_at' => $expectedLastPingAt,
+                'percent_charged' => 60,
+                'wifi_strength' => 2,
+                'hardware_last_ping_at' => $expectedLastPingAt,
+                'sleep_mode_enabled' => true,
+                'sleep_start_time' => 1185,
+                'sleep_end_time' => 285,
             ],
         ],
     ]);
