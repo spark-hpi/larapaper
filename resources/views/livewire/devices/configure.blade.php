@@ -1,11 +1,14 @@
 <?php
 
+use App\Enums\FirmwareModel;
 use App\Jobs\FirmwareDownloadJob;
+use App\Jobs\FirmwarePollJob;
 use App\Models\DeviceModel;
 use App\Models\Firmware;
 use App\Models\Playlist;
 use App\Models\PlaylistItem;
 use App\Models\Plugin;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 
 new class extends Component
@@ -71,6 +74,8 @@ new class extends Component
     // Firmware properties
     public $firmwares;
 
+    public $selected_firmware_model;
+
     public $selected_firmware_id;
 
     public $download_firmware;
@@ -101,8 +106,8 @@ new class extends Component
             return $isTrmnl ? '0'.$deviceModel->label : '1'.$deviceModel->label;
         });
         $this->playlists = $device->playlists()->with('items.plugin')->orderBy('created_at')->get();
-        $this->firmwares = Firmware::orderBy('latest', 'desc')->orderBy('created_at', 'desc')->get();
-        $this->selected_firmware_id = $this->firmwares->where('latest', true)->first()?->id;
+        $this->selected_firmware_model = FirmwareModel::forDevice($device)->value;
+        $this->refreshFirmwareList();
         $this->sleep_mode_enabled = $device->sleep_mode_enabled ?? false;
         $this->sleep_mode_from = optional($device->sleep_mode_from)->format('H:i');
         $this->sleep_mode_to = optional($device->sleep_mode_to)->format('H:i');
@@ -371,16 +376,54 @@ new class extends Component
         $this->refresh_time = $playlist->refresh_time;
     }
 
+    public function updatedSelectedFirmwareModel(): void
+    {
+        $this->selectLatestFirmwareForModel();
+    }
+
+    public function checkFirmwareUpdates(): void
+    {
+        abort_unless(auth()->user()->devices->contains($this->device), 403);
+
+        FirmwarePollJob::dispatchSync();
+
+        $this->refreshFirmwareList();
+    }
+
+    private function refreshFirmwareList(): void
+    {
+        $this->firmwares = Firmware::query()->orderedForSelection()->get();
+        $this->selectLatestFirmwareForModel();
+    }
+
+    private function selectLatestFirmwareForModel(): void
+    {
+        $this->selected_firmware_id = $this->firmwares
+            ->where('model', $this->selected_firmware_model)
+            ->where('latest', true)
+            ->first()?->id;
+    }
+
     public function updateFirmware()
     {
         abort_unless(auth()->user()->devices->contains($this->device), 403);
 
         $this->validate([
+            'selected_firmware_model' => ['required', Rule::enum(FirmwareModel::class)],
             'selected_firmware_id' => 'required|exists:firmware,id',
         ]);
 
+        $firmware = Firmware::findOrFail($this->selected_firmware_id);
+        $selectedModel = FirmwareModel::from($this->selected_firmware_model);
+
+        if ($firmware->model !== $selectedModel) {
+            $this->addError('selected_firmware_id', 'The selected firmware does not match the selected device model.');
+
+            return;
+        }
+
         if ($this->download_firmware) {
-            FirmwareDownloadJob::dispatchSync(Firmware::find($this->selected_firmware_id));
+            FirmwareDownloadJob::dispatchSync($firmware);
         }
 
         $this->device->update([
@@ -566,9 +609,31 @@ new class extends Component
                         </div>
 
                         <form wire:submit="updateFirmware">
+                            <flux:callout variant="warning" icon="exclamation-triangle" class="mb-4">
+                                <flux:callout.heading>TRMNL devices only</flux:callout.heading>
+                                <flux:callout.text>OTA firmware updates are currently available only for TRMNL devices. Applying firmware to other device models may break your device.</flux:callout.text>
+                            </flux:callout>
+
+                            <flux:button
+                                variant="subtle"
+                                icon="arrow-path"
+                                wire:click="checkFirmwareUpdates"
+                                class="mb-4 w-full"
+                            >
+                                Check for new firmware versions
+                            </flux:button>
+
+                            <div class="mb-4">
+                                <flux:select label="Device Model" wire:model.live="selected_firmware_model" required>
+                                    @foreach(FirmwareModel::cases() as $firmwareModel)
+                                        <flux:select.option value="{{ $firmwareModel->value }}">{{ $firmwareModel->label() }}</flux:select.option>
+                                    @endforeach
+                                </flux:select>
+                            </div>
+
                             <div class="mb-4">
                                 <flux:select label="Firmware Version" wire:model="selected_firmware_id" required>
-                                    @foreach($firmwares as $firmware)
+                                    @foreach($firmwares->where('model', $selected_firmware_model) as $firmware)
                                         <flux:select.option value="{{ $firmware->id }}">
                                             {{ $firmware->version_tag }} {{ $firmware->latest ? '(Latest)' : '' }}
                                         </flux:select.option>

@@ -2,12 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Enums\FirmwareModel;
 use App\Models\Device;
+use App\Models\Firmware;
 use App\Models\Playlist;
 use App\Models\PlaylistItem;
 use App\Models\Plugin;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
@@ -170,4 +173,41 @@ test('devices configure clearPluginImageCache does nothing when plugin is not ty
         ->assertNotDispatched('toast-show');
 
     expect($plugin->fresh()->current_image)->toBe('webhook-uuid');
+});
+
+test('check firmware updates polls for new firmware and refreshes list', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $user->id]);
+
+    Http::preventStrayRequests();
+    $baseUrl = config('services.trmnl.base_url');
+
+    Http::fake([
+        $baseUrl.'/api/firmware/latest' => Http::response([
+            'model' => 'trmnl',
+            'version' => '2.0.0',
+            'url' => 'https://example.com/firmware.bin',
+        ], 200),
+    ]);
+
+    Firmware::factory()->trmnl()->latest()->create([
+        'version_tag' => '1.0.0',
+    ]);
+
+    $this->actingAs($user);
+
+    $component = Livewire::test('devices.configure', ['device' => $device])
+        ->set('selected_firmware_model', FirmwareModel::Trmnl->value)
+        ->call('checkFirmwareUpdates');
+
+    $latestFirmware = Firmware::query()
+        ->where('version_tag', '2.0.0')
+        ->forModel(FirmwareModel::Trmnl)
+        ->first();
+
+    expect($latestFirmware)->not->toBeNull()
+        ->and($latestFirmware->latest)->toBeTrue()
+        ->and(Firmware::where('version_tag', '1.0.0')->first()->latest)->toBeFalse();
+
+    $component->assertSet('selected_firmware_id', $latestFirmware->id);
 });

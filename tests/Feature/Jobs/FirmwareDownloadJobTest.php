@@ -39,7 +39,7 @@ test('it downloads firmware and updates storage location', function (): void {
 
     (new FirmwareDownloadJob($firmware))->handle();
 
-    expect($firmware->fresh()->storage_location)->toBe('firmwares/FW1.0.0.bin');
+    expect($firmware->fresh()->storage_location)->toBe('firmwares/trmnl/FW1.0.0.bin');
 });
 
 test('it handles connection exception gracefully', function (): void {
@@ -100,7 +100,7 @@ test('it handles firmware with special characters in version tag', function (): 
 
     (new FirmwareDownloadJob($firmware))->handle();
 
-    expect($firmware->fresh()->storage_location)->toBe('firmwares/FW1.0.0-beta.bin');
+    expect($firmware->fresh()->storage_location)->toBe('firmwares/trmnl/FW1.0.0-beta.bin');
 });
 
 test('it handles firmware with long version tag', function (): void {
@@ -115,7 +115,7 @@ test('it handles firmware with long version tag', function (): void {
 
     (new FirmwareDownloadJob($firmware))->handle();
 
-    expect($firmware->fresh()->storage_location)->toBe('firmwares/FW1.0.0.1234.5678.90.bin');
+    expect($firmware->fresh()->storage_location)->toBe('firmwares/trmnl/FW1.0.0.1234.5678.90.bin');
 });
 
 test('it creates firmwares directory even when it already exists', function (): void {
@@ -135,7 +135,7 @@ test('it creates firmwares directory even when it already exists', function (): 
     (new FirmwareDownloadJob($firmware))->handle();
 
     // Should still work fine
-    expect($firmware->fresh()->storage_location)->toBe('firmwares/FW1.0.0.bin');
+    expect($firmware->fresh()->storage_location)->toBe('firmwares/trmnl/FW1.0.0.bin');
 });
 
 test('it handles http error response', function (): void {

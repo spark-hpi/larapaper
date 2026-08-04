@@ -22,31 +22,29 @@ class FirmwareDownloadJob implements ShouldQueue
 
     public function handle(): void
     {
-        if (! Storage::disk('public')->exists('firmwares')) {
-            Storage::disk('public')->makeDirectory('firmwares');
+        $disk = Storage::disk('public');
+
+        if (! $disk->exists('firmwares')) {
+            $disk->makeDirectory('firmwares');
         }
 
         try {
-            $filename = "FW{$this->firmware->version_tag}.bin";
+            $path = $this->firmware->storagePath();
             $response = Http::get($this->firmware->url);
 
             if (! $response->successful()) {
                 throw new Exception('HTTP request failed with status: '.$response->status());
             }
 
-            // Save the response content to file
-            Storage::disk('public')->put("firmwares/$filename", $response->body());
+            $disk->put($path, $response->body());
 
-            // Only update storage location if download was successful
             $this->firmware->update([
-                'storage_location' => "firmwares/$filename",
+                'storage_location' => $path,
             ]);
         } catch (ConnectionException $e) {
             Log::error('Firmware download failed: '.$e->getMessage());
-            // Don't update storage_location on failure
         } catch (Exception $e) {
             Log::error('An unexpected error occurred: '.$e->getMessage());
-            // Don't update storage_location on failure
         }
     }
 }

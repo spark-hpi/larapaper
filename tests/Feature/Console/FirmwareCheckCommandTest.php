@@ -56,7 +56,7 @@ test('firmware check command runs with download flag', function (): void {
 
     // Verify that the firmware was downloaded (storage_location should be set)
     $firmware = App\Models\Firmware::where('version_tag', '1.0.0')->first();
-    expect($firmware->storage_location)->toBe('firmwares/FW1.0.0.bin');
+    expect($firmware->storage_location)->toBe('firmwares/trmnl/FW1.0.0.bin');
 });
 
 test('firmware check command can run successfully', function (): void {
