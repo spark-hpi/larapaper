@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d5f5ff74ee80b9c01b471f67555c5606",
+    "content-hash": "dad53afe134d9933749ada4792ea357f",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -285,16 +285,16 @@
         },
         {
             "name": "bnussbau/laravel-trmnl-blade",
-            "version": "3.1.8",
+            "version": "3.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/bnussbau/trmnl-blade.git",
-                "reference": "869094dc56792f2765fb18610477c759791235e2"
+                "reference": "f8ea5ef76ee15cfcc888616f444176ac9fd450ae"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/bnussbau/trmnl-blade/zipball/869094dc56792f2765fb18610477c759791235e2",
-                "reference": "869094dc56792f2765fb18610477c759791235e2",
+                "url": "https://api.github.com/repos/bnussbau/trmnl-blade/zipball/f8ea5ef76ee15cfcc888616f444176ac9fd450ae",
+                "reference": "f8ea5ef76ee15cfcc888616f444176ac9fd450ae",
                 "shasum": ""
             },
             "require": {
@@ -349,7 +349,7 @@
             ],
             "support": {
                 "issues": "https://github.com/bnussbau/trmnl-blade/issues",
-                "source": "https://github.com/bnussbau/trmnl-blade/tree/3.1.8"
+                "source": "https://github.com/bnussbau/trmnl-blade/tree/3.2.0"
             },
             "funding": [
                 {
@@ -365,7 +365,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-07-27T07:09:00+00:00"
+            "time": "2026-08-08T10:51:43+00:00"
         },
         {
             "name": "brick/math",
