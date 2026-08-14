@@ -3,9 +3,6 @@
 declare(strict_types=1);
 
 use Database\Seeders\ExampleRecipesSeeder;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-
-uses(RefreshDatabase::class);
 
 test('example recipes seeder command calls seeder with correct user id', function (): void {
     $seeder = Mockery::mock(ExampleRecipesSeeder::class);
@@ -22,8 +19,8 @@ test('example recipes seeder command calls seeder with correct user id', functio
 test('example recipes seeder command has correct signature', function (): void {
     $command = $this->app->make(App\Console\Commands\ExampleRecipesSeederCommand::class);
 
-    expect($command->getName())->toBe('recipes:seed');
-    expect($command->getDescription())->toBe('Seed example recipes');
+    expect($command->getName())->toBe('recipes:seed')
+        ->and($command->getDescription())->toBe('Seed example recipes');
 });
 
 test('example recipes seeder command prompts for missing input', function (): void {

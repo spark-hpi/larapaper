@@ -4,8 +4,6 @@ use App\Models\Device;
 use Bnussbau\EpaperPipeline\EpaperPipeline;
 use Illuminate\Support\Facades\Storage;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 beforeEach(function (): void {
     EpaperPipeline::fake();
     Storage::fake('public');

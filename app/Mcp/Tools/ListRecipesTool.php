@@ -3,6 +3,7 @@
 namespace App\Mcp\Tools;
 
 use App\Mcp\Concerns\ResolvesUserRecipes;
+use App\Models\Plugin;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -21,7 +22,7 @@ class ListRecipesTool extends Tool
         $recipes = $this->userRecipesQuery($request->user())
             ->orderBy('name')
             ->get()
-            ->map(fn ($plugin) => $this->recipeSummaryPayload($plugin))
+            ->map(fn (Plugin $plugin): array => $this->recipeSummaryPayload($plugin))
             ->values()
             ->all();
 

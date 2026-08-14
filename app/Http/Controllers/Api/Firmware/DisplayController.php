@@ -13,9 +13,9 @@ use Illuminate\Support\Facades\Storage;
 class DisplayController extends Controller
 {
     public function __construct(
-        private ResolveDeviceByApiKey $resolveDevice,
-        private UpdateDeviceTelemetry $updateTelemetry,
-        private RunDeviceDisplayCycle $runDisplayCycle,
+        private readonly ResolveDeviceByApiKey $resolveDevice,
+        private readonly UpdateDeviceTelemetry $updateTelemetry,
+        private readonly RunDeviceDisplayCycle $runDisplayCycle,
     ) {}
 
     public function __invoke(Request $request): JsonResponse

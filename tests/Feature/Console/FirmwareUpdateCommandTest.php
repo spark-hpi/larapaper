@@ -43,8 +43,8 @@ test('firmware update command updates all devices when all is selected', functio
 
     $device1->refresh();
     $device2->refresh();
-    expect($device1->update_firmware_id)->toBe($firmware->id);
-    expect($device2->update_firmware_id)->toBe($firmware->id);
+    expect($device1->update_firmware_id)->toBe($firmware->id)
+        ->and($device2->update_firmware_id)->toBe($firmware->id);
 });
 
 test('firmware update command aborts when no devices selected', function (): void {

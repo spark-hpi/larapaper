@@ -19,7 +19,7 @@ class PluginRenderTag extends RenderTag
      *
      * @var list<string>
      */
-    private const PARENT_CONTEXT_KEYS = ['trmnl', 'size', 'data', 'config'];
+    private const array PARENT_CONTEXT_KEYS = ['trmnl', 'size', 'data', 'config'];
 
     protected function buildPartialContext(RenderContext $rootContext, string $templateName, array $variables = []): RenderContext
     {

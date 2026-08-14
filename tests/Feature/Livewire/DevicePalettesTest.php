@@ -6,8 +6,6 @@ use App\Models\DevicePalette;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 test('device palettes page can be rendered', function (): void {
     $user = User::factory()->create();
 
@@ -64,11 +62,11 @@ test('can create a new device palette', function (): void {
     expect(DevicePalette::where('name', 'test-palette')->exists())->toBeTrue();
 
     $palette = DevicePalette::where('name', 'test-palette')->first();
-    expect($palette->description)->toBe('Test Palette Description');
-    expect($palette->grays)->toBe(16);
-    expect($palette->colors)->toBe(['#FF0000', '#00FF00']);
-    expect($palette->framework_class)->toBe('TestFramework');
-    expect($palette->source)->toBe('manual');
+    expect($palette->description)->toBe('Test Palette Description')
+        ->and($palette->grays)->toBe(16)
+        ->and($palette->colors)->toBe(['#FF0000', '#00FF00'])
+        ->and($palette->framework_class)->toBe('TestFramework')
+        ->and($palette->source)->toBe('manual');
 });
 
 test('can create a grayscale-only palette without colors', function (): void {
@@ -85,8 +83,8 @@ test('can create a grayscale-only palette without colors', function (): void {
     $component->assertHasNoErrors();
 
     $palette = DevicePalette::where('name', 'grayscale-palette')->first();
-    expect($palette->colors)->toBeNull();
-    expect($palette->grays)->toBe(256);
+    expect($palette->colors)->toBeNull()
+        ->and($palette->grays)->toBe(256);
 });
 
 test('can open modal to edit existing device palette', function (): void {
@@ -136,10 +134,10 @@ test('can update an existing device palette', function (): void {
     $component->assertHasNoErrors();
 
     $palette->refresh();
-    expect($palette->name)->toBe('updated-palette');
-    expect($palette->description)->toBe('Updated Description');
-    expect($palette->grays)->toBe(16);
-    expect($palette->colors)->toBe(['#0000FF']);
+    expect($palette->name)->toBe('updated-palette')
+        ->and($palette->description)->toBe('Updated Description')
+        ->and($palette->grays)->toBe(16)
+        ->and($palette->colors)->toBe(['#0000FF']);
 });
 
 test('can delete a device palette', function (): void {
@@ -254,8 +252,8 @@ test('removing color reindexes array', function (): void {
         ->call('removeColor', 0);
 
     $colors = $component->get('colors');
-    expect($colors)->toBe(['#00FF00', '#0000FF']);
-    expect(array_keys($colors))->toBe([0, 1]);
+    expect($colors)->toBe(['#00FF00', '#0000FF'])
+        ->and(array_keys($colors))->toBe([0, 1]);
 });
 
 test('can open modal in view-only mode for api-sourced palette', function (): void {
@@ -542,8 +540,8 @@ test('component refreshes palette list after creating', function (): void {
         ->call('saveDevicePalette');
 
     $palettes = $component->get('devicePalettes');
-    expect($palettes)->toHaveCount($initialCount + 3);
-    expect(DevicePalette::count())->toBe($initialCount + 3);
+    expect($palettes)->toHaveCount($initialCount + 3)
+        ->and(DevicePalette::count())->toBe($initialCount + 3);
 });
 
 test('component refreshes palette list after deleting', function (): void {
@@ -568,8 +566,8 @@ test('component refreshes palette list after deleting', function (): void {
         ->call('deleteDevicePalette', $palette1->id);
 
     $palettes = $component->get('devicePalettes');
-    expect($palettes)->toHaveCount($initialCount + 1);
-    expect(DevicePalette::count())->toBe($initialCount + 1);
+    expect($palettes)->toHaveCount($initialCount + 1)
+        ->and(DevicePalette::count())->toBe($initialCount + 1);
 });
 
 test('update from API runs job and refreshes device palettes', function (): void {

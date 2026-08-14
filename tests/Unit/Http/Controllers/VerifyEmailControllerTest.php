@@ -18,8 +18,8 @@ test('verify email controller marks user verified and dispatches event', functio
     $response = (new VerifyEmailController)($request);
 
     Event::assertDispatched(Verified::class);
-    expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
-    expect($response->isRedirect())->toBeTrue();
+    expect($user->fresh()->hasVerifiedEmail())->toBeTrue()
+        ->and($response->isRedirect())->toBeTrue();
 });
 
 test('verify email controller redirects without event when already verified', function (): void {

@@ -10,6 +10,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -18,13 +19,13 @@ class CheckVersionUpdateJob
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    private const CACHE_KEY = 'latest_release';
+    private const string CACHE_KEY = 'latest_release';
 
-    private const BACKOFF_KEY = 'github_api_backoff';
+    private const string BACKOFF_KEY = 'github_api_backoff';
 
-    private const BACKOFF_MINUTES = 10;
+    private const int BACKOFF_MINUTES = 10;
 
-    private const CACHE_TTL = 86400;
+    private const int CACHE_TTL = 86400;
 
     public function __construct(private bool $forceRefresh = false) {}
 
@@ -69,12 +70,12 @@ class CheckVersionUpdateJob
         }
     }
 
-    private function isInBackoffPeriod(?\Illuminate\Support\Carbon $backoffUntil): bool
+    private function isInBackoffPeriod(?Carbon $backoffUntil): bool
     {
-        return $backoffUntil !== null && now()->isBefore($backoffUntil);
+        return $backoffUntil instanceof Carbon && now()->isBefore($backoffUntil);
     }
 
-    private function rateLimitResponse(\Illuminate\Support\Carbon $backoffUntil): array
+    private function rateLimitResponse(Carbon $backoffUntil): array
     {
         return [
             'latest_version' => null,
@@ -95,7 +96,7 @@ class CheckVersionUpdateJob
         ];
     }
 
-    private function fetchOrUseCache(?array $cachedResponse, bool $enablePrereleases, ?\Illuminate\Support\Carbon $backoffUntil): ?array
+    private function fetchOrUseCache(?array $cachedResponse, bool $enablePrereleases, ?Carbon $backoffUntil): ?array
     {
         if ($cachedResponse && ! $this->forceRefresh) {
             return $cachedResponse;
@@ -125,11 +126,7 @@ class CheckVersionUpdateJob
             ]);
 
             return $cachedResponse;
-        } catch (ConnectionException $e) {
-            Log::debug('Failed to fetch releases: '.$e->getMessage());
-
-            return $cachedResponse ?? null;
-        } catch (Exception $e) {
+        } catch (ConnectionException|Exception $e) {
             Log::debug('Failed to fetch releases: '.$e->getMessage());
 
             return $cachedResponse ?? null;

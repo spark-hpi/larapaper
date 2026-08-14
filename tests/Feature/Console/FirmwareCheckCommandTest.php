@@ -2,17 +2,14 @@
 
 declare(strict_types=1);
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
-
-uses(RefreshDatabase::class);
 
 test('firmware check command has correct signature', function (): void {
     $command = $this->app->make(App\Console\Commands\FirmwareCheckCommand::class);
 
-    expect($command->getName())->toBe('trmnl:firmware:check');
-    expect($command->getDescription())->toBe('Checks for the latest firmware and downloads it if flag --download is passed.');
+    expect($command->getName())->toBe('trmnl:firmware:check')
+        ->and($command->getDescription())->toBe('Checks for the latest firmware and downloads it if flag --download is passed.');
 });
 
 test('firmware check command runs without errors', function (): void {

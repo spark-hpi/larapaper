@@ -87,7 +87,7 @@ test('screenshot instance cannot add to playlist without valid url', function ()
         ->call('addToPlaylist')
         ->assertHasErrors(['configuration.url']);
 
-    expect($playlist->fresh()->items)->toHaveCount(0);
+    expect($playlist->fresh()->items)->toBeEmpty();
 });
 
 test('screenshot instance can add to playlist when url is valid', function (): void {
@@ -108,8 +108,8 @@ test('screenshot instance can add to playlist when url is valid', function (): v
         ->call('addToPlaylist')
         ->assertHasNoErrors();
 
-    expect($playlist->fresh()->items)->toHaveCount(1);
-    expect($playlist->fresh()->items->first()->plugin_id)->toBe($plugin->id);
+    expect($playlist->fresh()->items)->toHaveCount(1)
+        ->and($playlist->fresh()->items->first()->plugin_id)->toBe($plugin->id);
 });
 
 test('screenshot instance persists valid http or https url', function (): void {

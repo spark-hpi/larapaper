@@ -5,10 +5,7 @@ use App\Models\Playlist;
 use App\Models\PlaylistItem;
 use App\Models\Plugin;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
-
-uses(RefreshDatabase::class);
 
 test('playlist scheduling works correctly for time ranges spanning midnight', function (): void {
     // Create a user and device
@@ -56,33 +53,33 @@ test('playlist scheduling works correctly for time ranges spanning midnight', fu
     Carbon::setTestNow(Carbon::create(2024, 1, 1, 4, 0, 0));
 
     $nextItem = $device->getNextPlaylistItem();
-    expect($nextItem)->not->toBeNull();
-    expect($nextItem->plugin->name)->toBe('Morning Plugin');
-    expect($nextItem->playlist->name)->toBe('Early Morning Playlist');
+    expect($nextItem)->not->toBeNull()
+        ->and($nextItem->plugin->name)->toBe('Morning Plugin')
+        ->and($nextItem->playlist->name)->toBe('Early Morning Playlist');
 
     // Test at 2:00 AM - should get playlist1 (Day until Deep Night Playlist)
     Carbon::setTestNow(Carbon::create(2024, 1, 1, 10, 0, 0));
 
     $nextItem = $device->getNextPlaylistItem();
-    expect($nextItem)->not->toBeNull();
-    expect($nextItem->plugin->name)->toBe('Day & Deep Night Plugin');
-    expect($nextItem->playlist->name)->toBe('Day until Deep Night Playlist');
+    expect($nextItem)->not->toBeNull()
+        ->and($nextItem->plugin->name)->toBe('Day & Deep Night Plugin')
+        ->and($nextItem->playlist->name)->toBe('Day until Deep Night Playlist');
 
     // Test at 5:00 AM - should get playlist2 (Early Morning Playlist)
     Carbon::setTestNow(Carbon::create(2024, 1, 1, 8, 0, 0));
 
     $nextItem = $device->getNextPlaylistItem();
-    expect($nextItem)->not->toBeNull();
-    expect($nextItem->plugin->name)->toBe('Morning Plugin');
-    expect($nextItem->playlist->name)->toBe('Early Morning Playlist');
+    expect($nextItem)->not->toBeNull()
+        ->and($nextItem->plugin->name)->toBe('Morning Plugin')
+        ->and($nextItem->playlist->name)->toBe('Early Morning Playlist');
 
     // Test at 11:00 PM - should get playlist1 (Day until Deep Night Playlist)
     Carbon::setTestNow(Carbon::create(2024, 1, 1, 23, 0, 0));
 
     $nextItem = $device->getNextPlaylistItem();
-    expect($nextItem)->not->toBeNull();
-    expect($nextItem->plugin->name)->toBe('Day & Deep Night Plugin');
-    expect($nextItem->playlist->name)->toBe('Day until Deep Night Playlist');
+    expect($nextItem)->not->toBeNull()
+        ->and($nextItem->plugin->name)->toBe('Day & Deep Night Plugin')
+        ->and($nextItem->playlist->name)->toBe('Day until Deep Night Playlist');
 });
 
 test('playlist isActiveNow handles midnight spanning correctly', function (): void {

@@ -37,7 +37,7 @@ class DeviceResource extends JsonResource
 
     private function minutesSinceMidnight(?DateTimeInterface $time): ?int
     {
-        if ($time === null) {
+        if (! $time instanceof DateTimeInterface) {
             return null;
         }
 

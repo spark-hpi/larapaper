@@ -67,7 +67,7 @@ test('IcalResponseParser filters multiday events correctly within the time windo
     string $dtEnd,
     bool $shouldBeIncluded,
     string $now
-) {
+): void {
     Carbon::setTestNow(Carbon::parse($now, 'UTC'));
 
     // Build ICS content for the given multiday event
@@ -100,8 +100,8 @@ ICS;
     $events = $plugin->data_payload['ical'] ?? [];
 
     if ($shouldBeIncluded) {
-        expect($events)->toHaveCount(1);
-        expect($events[0]['SUMMARY'])->toBe('Multiday');
+        expect($events)->toHaveCount(1)
+            ->and($events[0]['SUMMARY'])->toBe('Multiday');
     } else {
         expect($events)->toBeEmpty();
     }

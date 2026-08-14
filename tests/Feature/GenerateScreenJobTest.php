@@ -8,8 +8,6 @@ use App\Models\User;
 use Bnussbau\EpaperPipeline\EpaperPipeline;
 use Illuminate\Support\Facades\Storage;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 beforeEach(function (): void {
     EpaperPipeline::fake();
     Storage::fake('public');
@@ -75,8 +73,8 @@ test('it copies plugin current image to device for processed image plugins witho
     $job = new GenerateScreenJob($device->id, $plugin->id, '<div>ignored</div>');
     $job->handle();
 
-    expect($device->fresh()->current_screen_image)->toBe('webhook-ready-uuid');
-    expect($plugin->fresh()->current_image)->toBe('webhook-ready-uuid');
+    expect($device->fresh()->current_screen_image)->toBe('webhook-ready-uuid')
+        ->and($plugin->fresh()->current_image)->toBe('webhook-ready-uuid');
 });
 
 test('it skips device update for processed image plugin when current image is missing', function (): void {
@@ -110,11 +108,9 @@ test('it saves current_image_metadata for recipe plugins', function (): void {
     $job->handle();
 
     $plugin->refresh();
-    expect($plugin->current_image)->not->toBeNull();
-    expect($plugin->current_image_metadata)->toBeArray();
-    expect($plugin->current_image_metadata)->toHaveKeys(['width', 'height', 'rotation', 'palette_id', 'mime_type']);
-    expect($plugin->current_image_metadata['width'])->toBe(800);
-    expect($plugin->current_image_metadata['height'])->toBe(480);
-    expect($plugin->current_image_metadata['mime_type'])->toBe('image/png');
-    expect($plugin->data_payload_updated_at)->not->toBeNull();
+    expect($plugin->current_image)->not->toBeNull()
+        ->and($plugin->current_image_metadata)->toBeArray()
+        ->toHaveKeys(['width', 'height', 'rotation', 'palette_id', 'mime_type'])
+        ->toMatchArray(['width' => 800, 'height' => 480, 'mime_type' => 'image/png'])
+        ->and($plugin->data_payload_updated_at)->not->toBeNull();
 });

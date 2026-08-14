@@ -4,11 +4,8 @@ use App\Enums\DeviceSensorKind;
 use App\Enums\DeviceSensorSource;
 use App\Models\Device;
 use App\Models\DeviceSensor;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 
-uses(RefreshDatabase::class);
-
-test('display endpoint ingests HTTP_SENSORS header into device_sensors table', function () {
+test('display endpoint ingests HTTP_SENSORS header into device_sensors table', function (): void {
     $device = Device::factory()->create([
         'api_key' => 'test-key',
     ]);
@@ -28,13 +25,13 @@ test('display endpoint ingests HTTP_SENSORS header into device_sensors table', f
         ->where('kind', DeviceSensorKind::CARBON_DIOXIDE)
         ->first();
 
-    expect($co2)->not->toBeNull();
-    expect($co2->value)->toBe(405.0);
-    expect($co2->unit)->toBe('ppm');
-    expect($co2->source)->toBe(DeviceSensorSource::DEVICE);
+    expect($co2)->not->toBeNull()
+        ->and($co2->value)->toBe(405.0)
+        ->and($co2->unit)->toBe('ppm')
+        ->and($co2->source)->toBe(DeviceSensorSource::DEVICE);
 });
 
-test('display endpoint skips malformed sensor records but still succeeds', function () {
+test('display endpoint skips malformed sensor records but still succeeds', function (): void {
     $device = Device::factory()->create([
         'api_key' => 'test-key-2',
     ]);

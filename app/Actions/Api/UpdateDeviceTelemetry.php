@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 
 class UpdateDeviceTelemetry
 {
-    public function __construct(private DeviceSensorService $sensorService) {}
+    public function __construct(private readonly DeviceSensorService $sensorService) {}
 
     /**
      * Apply telemetry headers (rssi, battery, firmware, sensors) from a

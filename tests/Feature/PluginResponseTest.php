@@ -66,11 +66,10 @@ test('plugin parses RSS XML responses and wraps under rss key', function (): voi
 
     $plugin->refresh();
 
-    expect($plugin->data_payload)->toHaveKey('rss');
-    expect($plugin->data_payload['rss'])->toHaveKey('@attributes');
-    expect($plugin->data_payload['rss'])->toHaveKey('channel');
-    expect($plugin->data_payload['rss']['channel']['title'])->toBe('Test RSS Feed');
-    expect($plugin->data_payload['rss']['channel']['item'])->toHaveCount(2);
+    expect($plugin->data_payload)->toHaveKey('rss')
+        ->and($plugin->data_payload['rss'])->toHaveKeys(['@attributes', 'channel'])
+        ->and($plugin->data_payload['rss']['channel']['title'])->toBe('Test RSS Feed')
+        ->and($plugin->data_payload['rss']['channel']['item'])->toHaveCount(2);
 });
 
 test('plugin parses namespaces XML responses and wraps under root key', function (): void {
@@ -95,9 +94,9 @@ test('plugin parses namespaces XML responses and wraps under root key', function
 
     $plugin->refresh();
 
-    expect($plugin->data_payload)->toHaveKey('cake');
-    expect($plugin->data_payload['cake'])->toHaveKey('icing');
-    expect($plugin->data_payload['cake']['icing']['ontop'])->toBe('Cherry');
+    expect($plugin->data_payload)->toHaveKey('cake')
+        ->and($plugin->data_payload['cake'])->toHaveKey('icing')
+        ->and($plugin->data_payload['cake']['icing']['ontop'])->toBe('Cherry');
 });
 
 test('plugin parses JSON-parsable response body as JSON', function (): void {
@@ -184,8 +183,7 @@ test('plugin handles multiple URLs with mixed content types', function (): void 
 
     $plugin->refresh();
 
-    expect($plugin->data_payload)->toHaveKey('IDX_0');
-    expect($plugin->data_payload)->toHaveKey('IDX_1');
+    expect($plugin->data_payload)->toHaveKeys(['IDX_0', 'IDX_1']);
 
     // First URL should be JSON
     expect($plugin->data_payload['IDX_0'])->toBe($jsonResponse);
@@ -213,11 +211,9 @@ test('plugin handles POST requests with XML responses', function (): void {
 
     $plugin->refresh();
 
-    expect($plugin->data_payload)->toHaveKey('response');
-    expect($plugin->data_payload['response'])->toHaveKey('status');
-    expect($plugin->data_payload['response'])->toHaveKey('data');
-    expect($plugin->data_payload['response']['status'])->toBe('success');
-    expect($plugin->data_payload['response']['data'])->toBe('test');
+    expect($plugin->data_payload)->toHaveKey('response')
+        ->and($plugin->data_payload['response'])->toHaveKeys(['status', 'data'])
+        ->toMatchArray(['status' => 'success', 'data' => 'test']);
 });
 
 test('plugin parses iCal responses and filters to recent window', function (): void {
@@ -266,12 +262,12 @@ ICS;
 
     $ical = $plugin->data_payload['ical'];
 
-    expect($ical)->toHaveCount(2);
-    expect($ical[0]['SUMMARY'])->toBe('Past within window');
-    expect($ical[1]['SUMMARY'])->toBe('Upcoming within window');
-    expect(collect($ical)->pluck('SUMMARY'))->not->toContain('Far future');
-    expect($ical[0]['DTSTART'])->toBe('2025-01-10T09:00:00+00:00');
-    expect($ical[1]['DTSTART'])->toBe('2025-01-20T09:00:00+00:00');
+    expect($ical)->toHaveCount(2)
+        ->and($ical[0]['SUMMARY'])->toBe('Past within window')
+        ->and($ical[1]['SUMMARY'])->toBe('Upcoming within window')
+        ->and(collect($ical)->pluck('SUMMARY'))->not->toContain('Far future')
+        ->and($ical[0]['DTSTART'])->toBe('2025-01-10T09:00:00+00:00')
+        ->and($ical[1]['DTSTART'])->toBe('2025-01-20T09:00:00+00:00');
 
     Carbon::setTestNow();
 });
@@ -305,10 +301,9 @@ ICS;
     $plugin->updateDataPayload();
     $plugin->refresh();
 
-    expect($plugin->data_payload)->toHaveKey('ical');
-    expect($plugin->data_payload['ical'])->toHaveCount(1);
-    expect($plugin->data_payload['ical'][0]['SUMMARY'])->toBe('Detected by body');
-    expect($plugin->data_payload['ical'][0]['DTSTART'])->toBe('2025-01-16T09:00:00+00:00');
+    expect($plugin->data_payload)->toHaveKey('ical')
+        ->and($plugin->data_payload['ical'])->toHaveCount(1)
+        ->and($plugin->data_payload['ical'][0])->toMatchArray(['SUMMARY' => 'Detected by body', 'DTSTART' => '2025-01-16T09:00:00+00:00']);
 
     Carbon::setTestNow();
 });
@@ -332,6 +327,6 @@ test('polling response exceeding wire size limit stores error placeholder', func
     $plugin->updateDataPayload();
     $plugin->refresh();
 
-    expect($plugin->data_payload)->toBe(Plugin::oversizedDataPayloadErrorPayload());
-    expect($plugin->data_payload_updated_at)->not->toBeNull();
+    expect($plugin->data_payload)->toBe(Plugin::oversizedDataPayloadErrorPayload())
+        ->and($plugin->data_payload_updated_at)->not->toBeNull();
 });

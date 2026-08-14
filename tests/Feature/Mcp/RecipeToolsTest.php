@@ -12,8 +12,6 @@ use App\Models\User;
 use Laravel\Sanctum\Sanctum;
 use OffloadProject\Toggle\Facades\Toggle;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 beforeEach(function (): void {
     Toggle::enable('mcp');
 });

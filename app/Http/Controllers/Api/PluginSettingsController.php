@@ -28,7 +28,7 @@ class PluginSettingsController extends Controller
         $plugins = Plugin::where('user_id', $request->user()->id)
             ->orderBy('name')
             ->get()
-            ->map(fn (Plugin $plugin) => [
+            ->map(fn (Plugin $plugin): array => [
                 'id' => $plugin->trmnlp_id,
                 'name' => $plugin->name,
                 'plugin_id' => null,

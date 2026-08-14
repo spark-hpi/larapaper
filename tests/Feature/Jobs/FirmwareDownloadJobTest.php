@@ -21,7 +21,7 @@ test('it creates firmwares directory if it does not exist', function (): void {
         'https://example.com/firmware.bin' => Http::response('fake firmware content', 200),
     ]);
 
-    (new FirmwareDownloadJob($firmware))->handle();
+    new FirmwareDownloadJob($firmware)->handle();
 
     expect(Storage::disk('public')->exists('firmwares'))->toBeTrue();
 });
@@ -37,7 +37,7 @@ test('it downloads firmware and updates storage location', function (): void {
         'storage_location' => null,
     ]);
 
-    (new FirmwareDownloadJob($firmware))->handle();
+    new FirmwareDownloadJob($firmware)->handle();
 
     expect($firmware->fresh()->storage_location)->toBe('firmwares/trmnl/FW1.0.0.bin');
 });
@@ -59,7 +59,7 @@ test('it handles connection exception gracefully', function (): void {
         ->once()
         ->with('Firmware download failed: Connection failed');
 
-    (new FirmwareDownloadJob($firmware))->handle();
+    new FirmwareDownloadJob($firmware)->handle();
 
     // Storage location should not be updated on failure
     expect($firmware->fresh()->storage_location)->toBeNull();
@@ -82,7 +82,7 @@ test('it handles general exception gracefully', function (): void {
         ->once()
         ->with('An unexpected error occurred: Unexpected error');
 
-    (new FirmwareDownloadJob($firmware))->handle();
+    new FirmwareDownloadJob($firmware)->handle();
 
     // Storage location should not be updated on failure
     expect($firmware->fresh()->storage_location)->toBeNull();
@@ -98,7 +98,7 @@ test('it handles firmware with special characters in version tag', function (): 
         'version_tag' => '1.0.0-beta',
     ]);
 
-    (new FirmwareDownloadJob($firmware))->handle();
+    new FirmwareDownloadJob($firmware)->handle();
 
     expect($firmware->fresh()->storage_location)->toBe('firmwares/trmnl/FW1.0.0-beta.bin');
 });
@@ -113,7 +113,7 @@ test('it handles firmware with long version tag', function (): void {
         'version_tag' => '1.0.0.1234.5678.90',
     ]);
 
-    (new FirmwareDownloadJob($firmware))->handle();
+    new FirmwareDownloadJob($firmware)->handle();
 
     expect($firmware->fresh()->storage_location)->toBe('firmwares/trmnl/FW1.0.0.1234.5678.90.bin');
 });
@@ -132,7 +132,7 @@ test('it creates firmwares directory even when it already exists', function (): 
     // Directory already exists from beforeEach
     expect(Storage::disk('public')->exists('firmwares'))->toBeTrue();
 
-    (new FirmwareDownloadJob($firmware))->handle();
+    new FirmwareDownloadJob($firmware)->handle();
 
     // Should still work fine
     expect($firmware->fresh()->storage_location)->toBe('firmwares/trmnl/FW1.0.0.bin');
@@ -153,7 +153,7 @@ test('it handles http error response', function (): void {
         ->once()
         ->with(Mockery::type('string'));
 
-    (new FirmwareDownloadJob($firmware))->handle();
+    new FirmwareDownloadJob($firmware)->handle();
 
     // Storage location should not be updated on failure
     expect($firmware->fresh()->storage_location)->toBeNull();

@@ -13,8 +13,8 @@ use Illuminate\Support\Facades\Storage;
 class CurrentScreenController extends Controller
 {
     public function __construct(
-        private ResolveDeviceByApiKey $resolveDevice,
-        private DeviceImageResolver $imageResolver,
+        private readonly ResolveDeviceByApiKey $resolveDevice,
+        private readonly DeviceImageResolver $imageResolver,
     ) {}
 
     public function __invoke(Request $request): JsonResponse

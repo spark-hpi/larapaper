@@ -59,12 +59,12 @@ LIQUID
 
     $result = $template->render($context);
 
-    expect($result)->toBe('');
-    expect($this->fileSystem->hasTemplate('session'))->toBeTrue();
+    expect($result)->toBe('')
+        ->and($this->fileSystem->hasTemplate('session'))->toBeTrue();
 
     $registeredTemplate = $this->fileSystem->readTemplateFile('session');
-    expect($registeredTemplate)->toContain('{{ facts[randomNumber] }}');
-    expect($registeredTemplate)->toContain('{{ size_mod }}');
+    expect($registeredTemplate)->toContain('{{ facts[randomNumber] }}')
+        ->toContain('{{ size_mod }}');
 });
 
 test('template tag with render tag', function (): void {
@@ -102,9 +102,9 @@ LIQUID
 
     $result = $template->render($context);
 
-    expect($result)->toContain('Fact 2');
-    expect($result)->toContain('class="layout"');
-    expect($result)->toContain('class="value text--center"');
+    expect($result)->toContain('Fact 2')
+        ->toContain('class="layout"')
+        ->toContain('class="value text--center"');
 });
 
 test('apply liquid replacements converts with syntax', function (): void {
@@ -137,10 +137,9 @@ LIQUID;
         $originalLiquid
     );
 
-    expect($convertedLiquid)->toContain('{% render "session",');
-    expect($convertedLiquid)->not->toContain('{% render "session" with');
-    expect($convertedLiquid)->toContain('trmnl: trmnl,');
-    expect($convertedLiquid)->toContain('facts: facts,');
+    expect($convertedLiquid)->toContain('{% render "session",')->not->toContain('{% render "session" with')
+        ->toContain('trmnl: trmnl,')
+        ->toContain('facts: facts,');
 });
 
 test('template tag with render with tag', function (): void {
@@ -185,9 +184,9 @@ LIQUID;
 
     $result = $template->render($context);
 
-    expect($result)->toContain('Fact 2');
-    expect($result)->toContain('class="layout"');
-    expect($result)->toContain('class="value text--center"');
+    expect($result)->toContain('Fact 2')
+        ->toContain('class="layout"')
+        ->toContain('class="value text--center"');
 });
 
 test('template tag with multiple templates', function (): void {
@@ -241,10 +240,10 @@ LIQUID
 
     $result = $template->render($context);
 
-    expect($result)->toContain('Fact 2');
-    expect($result)->toContain('Test Plugin');
-    expect($result)->toContain('Please try to enjoy each fact equally');
-    expect($result)->toContain('class="view view--full"');
+    expect($result)->toContain('Fact 2')
+        ->toContain('Test Plugin')
+        ->toContain('Please try to enjoy each fact equally')
+        ->toContain('class="view view--full"');
 });
 
 test('template tag invalid name', function (): void {
@@ -303,6 +302,5 @@ LIQUID
 
     $result = $template->render($context);
 
-    expect($result)->toContain('Demo Quote');
-    expect($result)->not->toContain('Demo Zitat');
+    expect($result)->toContain('Demo Quote')->not->toContain('Demo Zitat');
 });

@@ -52,7 +52,7 @@ class Firmware extends Model
     {
         return self::query()
             ->latestVersion()
-            ->when($model !== null, fn (Builder $query) => $query->forModel($model))
+            ->when($model instanceof FirmwareModel, fn (Builder $query) => $query->forModel($model))
             ->first();
     }
 

@@ -284,7 +284,7 @@ class Plugin extends Model
     }
 
     /** Bytes reserved below livewire.payload.max_size for other component state in the request. */
-    private const WIRE_HEADROOM_BYTES = 512;
+    private const int WIRE_HEADROOM_BYTES = 512;
 
     /** Extra reserve for the recipe form body (markup, views, other properties). */
     private const RECIPE_STATIC_FIELD_RESERVE_BYTES = 1024 * 1024;
@@ -471,7 +471,7 @@ class Plugin extends Model
         $contentType = $headers['Content-Type'] ?? 'application/json';
 
         $isPost = $this->polling_verb === 'post';
-        $responses = Http::pool(function (Pool $pool) use ($urls, $headers, $resolvedBody, $contentType, $isPost) {
+        $responses = Http::pool(function (Pool $pool) use ($urls, $headers, $resolvedBody, $contentType, $isPost): array {
             $requests = [];
             foreach ($urls as $url) {
                 $request = $pool->withHeaders($headers)->timeout(10);
@@ -952,7 +952,7 @@ class Plugin extends Model
 
         // Prepend shared markup if it exists
         if ($markup && $this->render_markup_shared) {
-            $markup = $this->render_markup_shared."\n".$markup;
+            return $this->render_markup_shared."\n".$markup;
         }
 
         return $markup;

@@ -3,9 +3,6 @@
 use App\Jobs\CleanupDeviceLogsJob;
 use App\Models\Device;
 use App\Models\DeviceLog;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-
-uses(RefreshDatabase::class);
 
 test('it keeps only the 50 most recent logs per device', function (): void {
     // Create two devices

@@ -13,8 +13,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 class PluginArchiveController extends Controller
 {
     public function __construct(
-        private PluginExportService $exporter,
-        private PluginImportService $importer,
+        private readonly PluginExportService $exporter,
+        private readonly PluginImportService $importer,
     ) {}
 
     public function export(string $trmnlp_id): BinaryFileResponse

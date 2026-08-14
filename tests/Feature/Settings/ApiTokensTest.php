@@ -2,7 +2,6 @@
 
 use App\Models\User;
 use Livewire\Livewire;
-
 use OffloadProject\Toggle\Facades\Toggle;
 
 beforeEach(function (): void {

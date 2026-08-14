@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Storage;
 
 class SetupController extends Controller
 {
-    public function __construct(private ResolveDeviceByMacAddress $resolveDevice) {}
+    public function __construct(private readonly ResolveDeviceByMacAddress $resolveDevice) {}
 
     public function __invoke(Request $request): JsonResponse
     {

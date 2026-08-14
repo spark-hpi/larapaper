@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 // @php-cs-fixer-ignore final_public_method_for_abstract_class
 
 namespace App\Plugins;

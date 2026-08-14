@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Log;
 
 class RunDeviceDisplayCycle
 {
-    public function __construct(private DeviceImageResolver $imageResolver) {}
+    public function __construct(private readonly DeviceImageResolver $imageResolver) {}
 
     /**
      * Resolve the image path and refresh-time override for the current display

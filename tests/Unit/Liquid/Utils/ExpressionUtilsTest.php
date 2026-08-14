@@ -94,9 +94,9 @@ test('parseCondition handles simple expression', function (): void {
 test('evaluateCondition handles comparison with numbers', function (): void {
     $condition = ExpressionUtils::parseCondition('n >= 3');
 
-    expect(ExpressionUtils::evaluateCondition($condition, 'n', 5))->toBeTrue();
-    expect(ExpressionUtils::evaluateCondition($condition, 'n', 2))->toBeFalse();
-    expect(ExpressionUtils::evaluateCondition($condition, 'n', 3))->toBeTrue();
+    expect(ExpressionUtils::evaluateCondition($condition, 'n', 5))->toBeTrue()
+        ->and(ExpressionUtils::evaluateCondition($condition, 'n', 2))->toBeFalse()
+        ->and(ExpressionUtils::evaluateCondition($condition, 'n', 3))->toBeTrue();
 });
 
 test('evaluateCondition handles comparison with strings', function (): void {
@@ -154,8 +154,8 @@ test('resolveValue returns object when expression matches variable', function ()
 test('resolveValue resolves property access for arrays', function (): void {
     $object = ['name' => 'Alice', 'age' => 25];
 
-    expect(ExpressionUtils::resolveValue('user.name', 'user', $object))->toBe('Alice');
-    expect(ExpressionUtils::resolveValue('user.age', 'user', $object))->toBe(25);
+    expect(ExpressionUtils::resolveValue('user.name', 'user', $object))->toBe('Alice')
+        ->and(ExpressionUtils::resolveValue('user.age', 'user', $object))->toBe(25);
 });
 
 test('resolveValue resolves property access for objects', function (): void {
@@ -163,8 +163,8 @@ test('resolveValue resolves property access for objects', function (): void {
     $object->name = 'Alice';
     $object->age = 25;
 
-    expect(ExpressionUtils::resolveValue('user.name', 'user', $object))->toBe('Alice');
-    expect(ExpressionUtils::resolveValue('user.age', 'user', $object))->toBe(25);
+    expect(ExpressionUtils::resolveValue('user.name', 'user', $object))->toBe('Alice')
+        ->and(ExpressionUtils::resolveValue('user.age', 'user', $object))->toBe(25);
 });
 
 test('resolveValue returns null for non-existent properties', function (): void {
@@ -174,28 +174,28 @@ test('resolveValue returns null for non-existent properties', function (): void 
 });
 
 test('resolveValue parses numeric values', function (): void {
-    expect(ExpressionUtils::resolveValue('123', 'user', []))->toBe(123);
-    expect(ExpressionUtils::resolveValue('45.67', 'user', []))->toBe(45.67);
+    expect(ExpressionUtils::resolveValue('123', 'user', []))->toBe(123)
+        ->and(ExpressionUtils::resolveValue('45.67', 'user', []))->toBe(45.67);
 });
 
 test('resolveValue parses boolean values', function (): void {
-    expect(ExpressionUtils::resolveValue('true', 'user', []))->toBeTrue();
-    expect(ExpressionUtils::resolveValue('false', 'user', []))->toBeFalse();
-    expect(ExpressionUtils::resolveValue('TRUE', 'user', []))->toBeTrue();
-    expect(ExpressionUtils::resolveValue('FALSE', 'user', []))->toBeFalse();
+    expect(ExpressionUtils::resolveValue('true', 'user', []))->toBeTrue()
+        ->and(ExpressionUtils::resolveValue('false', 'user', []))->toBeFalse()
+        ->and(ExpressionUtils::resolveValue('TRUE', 'user', []))->toBeTrue()
+        ->and(ExpressionUtils::resolveValue('FALSE', 'user', []))->toBeFalse();
 });
 
 test('resolveValue parses null value', function (): void {
-    expect(ExpressionUtils::resolveValue('null', 'user', []))->toBeNull();
-    expect(ExpressionUtils::resolveValue('NULL', 'user', []))->toBeNull();
+    expect(ExpressionUtils::resolveValue('null', 'user', []))->toBeNull()
+        ->and(ExpressionUtils::resolveValue('NULL', 'user', []))->toBeNull();
 });
 
 test('resolveValue removes quotes from strings', function (): void {
-    expect(ExpressionUtils::resolveValue('"hello"', 'user', []))->toBe('hello');
-    expect(ExpressionUtils::resolveValue("'world'", 'user', []))->toBe('world');
+    expect(ExpressionUtils::resolveValue('"hello"', 'user', []))->toBe('hello')
+        ->and(ExpressionUtils::resolveValue("'world'", 'user', []))->toBe('world');
 });
 
 test('resolveValue returns expression as-is for unquoted strings', function (): void {
-    expect(ExpressionUtils::resolveValue('hello', 'user', []))->toBe('hello');
-    expect(ExpressionUtils::resolveValue('world', 'user', []))->toBe('world');
+    expect(ExpressionUtils::resolveValue('hello', 'user', []))->toBe('hello')
+        ->and(ExpressionUtils::resolveValue('world', 'user', []))->toBe('world');
 });

@@ -9,6 +9,7 @@ use App\Models\DevicePalette;
 use App\Models\Plugin;
 use App\Models\User;
 use App\Plugins\Enums\PluginOutput;
+use App\Plugins\PluginHandler;
 use Bnussbau\EpaperPipeline\EpaperPipeline;
 use Bnussbau\EpaperPipeline\Stages\BrowserStage;
 use Bnussbau\EpaperPipeline\Stages\ImageStage;
@@ -62,8 +63,8 @@ class ImageGenerationService
     /**
      * Generate an image from markup using a DeviceModel through BrowserStage + ImageStage.
      *
-     * When $plugin resolves to a {@see \App\Plugins\PluginHandler}, its
-     * {@see \App\Plugins\PluginHandler::configureBrowserStage()} hook runs so native
+     * When $plugin resolves to a {@see PluginHandler}, its
+     * {@see PluginHandler::configureBrowserStage()} hook runs so native
      * plugins can bind the stage to a URL or other source without this service
      * encoding plugin-specific behavior.
      *
@@ -103,7 +104,7 @@ class ImageGenerationService
 
             $browserStage = new BrowserStage($browsershotInstance);
             $handler = $plugin?->handler();
-            if ($handler !== null) {
+            if ($handler instanceof PluginHandler) {
                 $handler->configureBrowserStage($browserStage, $markup, $plugin);
             } else {
                 $browserStage->html($markup);
@@ -153,7 +154,7 @@ class ImageGenerationService
             }
 
             try {
-                (new EpaperPipeline())->pipe($browserStage)
+                new EpaperPipeline()->pipe($browserStage)
                     ->pipe($imageStage)
                     ->process();
 
@@ -621,7 +622,7 @@ class ImageGenerationService
             }
 
             try {
-                (new EpaperPipeline())->pipe($browserStage)
+                new EpaperPipeline()->pipe($browserStage)
                     ->pipe($imageStage)
                     ->process();
 

@@ -44,7 +44,7 @@ class XmlResponseParser implements ResponseParser
         return $array;
     }
 
-    public function simplexml_load_string_strip_namespaces($xml_response)
+    public function simplexml_load_string_strip_namespaces($xml_response): false|SimpleXMLElement
     {
         $xml = simplexml_load_string($xml_response);
         if ($xml === false) {
@@ -52,15 +52,11 @@ class XmlResponseParser implements ResponseParser
         }
 
         $namespaces = array_keys($xml->getDocNamespaces(true));
-        $namespaces = array_filter($namespaces, function ($name) {
-            return ! empty($name);
-        });
+        $namespaces = array_filter($namespaces, fn ($name): bool => ! empty($name));
         if (count($namespaces) === 0) {
             return $xml;
         }
-        $namespaces = array_map(function ($ns) {
-            return "$ns:";
-        }, $namespaces);
+        $namespaces = array_map(fn ($ns): string => "$ns:", $namespaces);
 
         $xml_no_namespaces = str_replace(
             array_merge(['xmlns='], $namespaces),

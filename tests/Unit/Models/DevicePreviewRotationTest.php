@@ -25,8 +25,8 @@ test('preview rotation uses device model rotation when present', function (): vo
     ]);
     $device->setRelation('deviceModel', $deviceModel);
 
-    expect($device->deviceModel?->rotation ?? ($device->rotate ?? 0))->toBe(0);
-    expect($device->preview_rotation)->toBe(0);
+    expect($device->deviceModel?->rotation ?? ($device->rotate ?? 0))->toBe(0)
+        ->and($device->preview_rotation)->toBe(0);
 });
 
 test('preview rotation uses device model rotation over device rotate', function (): void {
@@ -37,6 +37,6 @@ test('preview rotation uses device model rotation over device rotate', function 
     ]);
     $device->setRelation('deviceModel', $deviceModel);
 
-    expect($device->deviceModel?->rotation ?? ($device->rotate ?? 0))->toBe(90);
-    expect($device->preview_rotation)->toBe(270);
+    expect($device->deviceModel?->rotation ?? ($device->rotate ?? 0))->toBe(90)
+        ->and($device->preview_rotation)->toBe(270);
 });

@@ -5,9 +5,6 @@ declare(strict_types=1);
 use App\Models\Device;
 use App\Models\DeviceModel;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-
-uses(RefreshDatabase::class);
 
 test('dashboard shows device image with correct rotation', function (): void {
     $user = User::factory()->create();

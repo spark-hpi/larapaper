@@ -148,7 +148,7 @@ class GenerateDefaultImagesCommand extends Command
                 // ->offsetY($deviceModel->offset_y)
                 ->outputPath($outputPath);
 
-            (new EpaperPipeline())->pipe($browserStage)
+            new EpaperPipeline()->pipe($browserStage)
                 ->pipe($imageStage)
                 ->process();
 

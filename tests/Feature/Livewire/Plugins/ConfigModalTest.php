@@ -2,10 +2,7 @@
 
 use App\Models\Plugin;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
-
-uses(RefreshDatabase::class);
 
 test('config modal correctly loads multi_string defaults into UI boxes', function (): void {
     $user = User::factory()->create();

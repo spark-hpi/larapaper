@@ -9,13 +9,10 @@ use App\Models\Playlist;
 use App\Models\PlaylistItem;
 use App\Models\Plugin;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
-
-uses(RefreshDatabase::class);
 
 test('configure view displays last_refreshed_at timestamp', function (): void {
     $user = User::factory()->create();
@@ -80,7 +77,7 @@ test('configure update requires sleep mode times when sleep mode is enabled', fu
 
     Livewire::test('devices.configure', ['device' => $device])
         ->set('sleep_mode_enabled', true)
-        ->set('sleep_mode_from', null)
+        ->set('sleep_mode_from')
         ->set('sleep_mode_to', '06:00')
         ->call('updateDevice')
         ->assertHasErrors(['sleep_mode_from' => ['required_if']]);
@@ -121,9 +118,9 @@ test('sortPlaylistItem reorders playlist items by zero-based position', function
     Livewire::test('devices.configure', ['device' => $device])
         ->call('sortPlaylistItem', $second->id, 0);
 
-    expect(PlaylistItem::query()->find($second->id)?->order)->toBe(0);
-    expect(PlaylistItem::query()->find($first->id)?->order)->toBe(1);
-    expect(PlaylistItem::query()->find($third->id)?->order)->toBe(2);
+    expect(PlaylistItem::query()->find($second->id)?->order)->toBe(0)
+        ->and(PlaylistItem::query()->find($first->id)?->order)->toBe(1)
+        ->and(PlaylistItem::query()->find($third->id)?->order)->toBe(2);
 });
 
 test('devices configure clearPluginImageCache clears recipe plugin cache and shows toast', function (): void {
@@ -148,8 +145,8 @@ test('devices configure clearPluginImageCache clears recipe plugin cache and sho
         ->assertDispatched('toast-show');
 
     $plugin->refresh();
-    expect($plugin->current_image)->toBeNull();
-    expect($plugin->current_image_metadata)->toBeNull();
+    expect($plugin->current_image)->toBeNull()
+        ->and($plugin->current_image_metadata)->toBeNull();
 });
 
 test('devices configure clearPluginImageCache does nothing when plugin is not type recipe', function (): void {

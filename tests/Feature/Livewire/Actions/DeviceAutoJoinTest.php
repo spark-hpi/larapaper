@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 use App\Livewire\Actions\DeviceAutoJoin;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
-
-uses(RefreshDatabase::class);
 
 test('device auto join component can be rendered', function (): void {
     $user = User::factory()->create(['assign_new_devices' => false]);
@@ -94,8 +91,8 @@ test('device auto join component works with authenticated user', function (): vo
     $component = Livewire::actingAs($user)
         ->test(DeviceAutoJoin::class);
 
-    expect($component->instance()->deviceAutojoin)->toBeTrue();
-    expect($component->instance()->isFirstUser)->toBe($user->id === 1);
+    expect($component->instance()->deviceAutojoin)->toBeTrue()
+        ->and($component->instance()->isFirstUser)->toBe($user->id === 1);
 });
 
 test('device auto join component handles multiple updates correctly', function (): void {

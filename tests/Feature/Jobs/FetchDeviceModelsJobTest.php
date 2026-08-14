@@ -4,11 +4,8 @@ declare(strict_types=1);
 
 use App\Jobs\FetchDeviceModelsJob;
 use App\Models\DeviceModel;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-
-uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     DeviceModel::truncate();
@@ -63,18 +60,18 @@ test('fetch device models job handles successful api response', function (): voi
     $job->handle();
 
     $deviceModel = DeviceModel::where('name', 'test-model')->first();
-    expect($deviceModel)->not->toBeNull();
-    expect($deviceModel->label)->toBe('Test Model');
-    expect($deviceModel->description)->toBe('A test device model');
-    expect($deviceModel->width)->toBe(800);
-    expect($deviceModel->height)->toBe(480);
-    expect($deviceModel->colors)->toBe(4);
-    expect($deviceModel->bit_depth)->toBe(2);
-    expect($deviceModel->scale_factor)->toBe(1.0);
-    expect($deviceModel->rotation)->toBe(0);
-    expect($deviceModel->mime_type)->toBe('image/png');
-    expect($deviceModel->offset_x)->toBe(0);
-    expect($deviceModel->offset_y)->toBe(0);
+    expect($deviceModel)->not->toBeNull()
+        ->and($deviceModel->label)->toBe('Test Model')
+        ->and($deviceModel->description)->toBe('A test device model')
+        ->and($deviceModel->width)->toBe(800)
+        ->and($deviceModel->height)->toBe(480)
+        ->and($deviceModel->colors)->toBe(4)
+        ->and($deviceModel->bit_depth)->toBe(2)
+        ->and($deviceModel->scale_factor)->toBe(1.0)
+        ->and($deviceModel->rotation)->toBe(0)
+        ->and($deviceModel->mime_type)->toBe('image/png')
+        ->and($deviceModel->offset_x)->toBe(0)
+        ->and($deviceModel->offset_y)->toBe(0);
     // expect($deviceModel->kind)->toBe('trmnl');
     expect($deviceModel->source)->toBe('api');
 });
@@ -129,8 +126,8 @@ test('fetch device models job handles multiple device models', function (): void
     $job = new FetchDeviceModelsJob();
     $job->handle();
 
-    expect(DeviceModel::where('name', 'model-1')->exists())->toBeTrue();
-    expect(DeviceModel::where('name', 'model-2')->exists())->toBeTrue();
+    expect(DeviceModel::where('name', 'model-1')->exists())->toBeTrue()
+        ->and(DeviceModel::where('name', 'model-2')->exists())->toBeTrue();
 });
 
 test('fetch device models job handles empty data array', function (): void {
@@ -302,20 +299,20 @@ test('fetch device models job handles device model with partial data', function 
     $job->handle();
 
     $deviceModel = DeviceModel::where('name', 'minimal-model')->first();
-    expect($deviceModel)->not->toBeNull();
-    expect($deviceModel->label)->toBe('');
-    expect($deviceModel->description)->toBe('');
-    expect($deviceModel->width)->toBe(0);
-    expect($deviceModel->height)->toBe(0);
-    expect($deviceModel->colors)->toBe(0);
-    expect($deviceModel->bit_depth)->toBe(0);
-    expect($deviceModel->scale_factor)->toBe(1.0);
-    expect($deviceModel->rotation)->toBe(0);
-    expect($deviceModel->mime_type)->toBe('');
-    expect($deviceModel->offset_x)->toBe(0);
-    expect($deviceModel->offset_y)->toBe(0);
-    expect($deviceModel->kind)->toBeNull();
-    expect($deviceModel->source)->toBe('api');
+    expect($deviceModel)->not->toBeNull()
+        ->and($deviceModel->label)->toBe('')
+        ->and($deviceModel->description)->toBe('')
+        ->and($deviceModel->width)->toBe(0)
+        ->and($deviceModel->height)->toBe(0)
+        ->and($deviceModel->colors)->toBe(0)
+        ->and($deviceModel->bit_depth)->toBe(0)
+        ->and($deviceModel->scale_factor)->toBe(1.0)
+        ->and($deviceModel->rotation)->toBe(0)
+        ->and($deviceModel->mime_type)->toBe('')
+        ->and($deviceModel->offset_x)->toBe(0)
+        ->and($deviceModel->offset_y)->toBe(0)
+        ->and($deviceModel->kind)->toBeNull()
+        ->and($deviceModel->source)->toBe('api');
 });
 
 test('fetch device models job updates existing device model', function (): void {
@@ -362,11 +359,11 @@ test('fetch device models job updates existing device model', function (): void 
     $job->handle();
 
     $existingModel->refresh();
-    expect($existingModel->label)->toBe('Updated Label');
-    expect($existingModel->description)->toBe('Updated description');
-    expect($existingModel->width)->toBe(800);
-    expect($existingModel->height)->toBe(600);
-    expect($existingModel->source)->toBe('api');
+    expect($existingModel->label)->toBe('Updated Label')
+        ->and($existingModel->description)->toBe('Updated description')
+        ->and($existingModel->width)->toBe(800)
+        ->and($existingModel->height)->toBe(600)
+        ->and($existingModel->source)->toBe('api');
 });
 
 test('fetch device models job handles processing exception for individual model', function (): void {

@@ -39,8 +39,8 @@ it('exports plugin to zip file in correct format', function (): void {
     $exporter = app(PluginExportService::class);
     $response = $exporter->exportToZip($plugin, $user);
 
-    expect($response)->toBeInstanceOf(Symfony\Component\HttpFoundation\BinaryFileResponse::class);
-    expect($response->getFile()->getFilename())->toContain('test-plugin-123.zip');
+    expect($response)->toBeInstanceOf(Symfony\Component\HttpFoundation\BinaryFileResponse::class)
+        ->and($response->getFile()->getFilename())->toContain('test-plugin-123.zip');
 });
 
 it('exports plugin with polling configuration', function (): void {
@@ -114,13 +114,13 @@ it('exports and imports plugin maintaining all data', function (): void {
 
     // Verify the imported plugin has the same data
     expect($importedPlugin->name)->toBe('Round Trip Plugin');
-    expect($importedPlugin->trmnlp_id)->toBe('round-trip-789');
-    expect($importedPlugin->data_stale_minutes)->toBe(45);
-    expect($importedPlugin->data_strategy)->toBe('static');
-    expect($importedPlugin->markup_language)->toBe('liquid');
-    expect($importedPlugin->render_markup)->toContain('Hello {{ config.name }}!');
-    expect($importedPlugin->configuration_template['custom_fields'])->toHaveCount(2);
-    expect($importedPlugin->data_payload)->toBe(['items' => [1, 2, 3]]);
+    expect($importedPlugin->trmnlp_id)->toBe('round-trip-789')
+        ->and($importedPlugin->data_stale_minutes)->toBe(45)
+        ->and($importedPlugin->data_strategy)->toBe('static')
+        ->and($importedPlugin->markup_language)->toBe('liquid')
+        ->and($importedPlugin->render_markup)->toContain('Hello {{ config.name }}!')
+        ->and($importedPlugin->configuration_template['custom_fields'])->toHaveCount(2)
+        ->and($importedPlugin->data_payload)->toBe(['items' => [1, 2, 3]]);
 });
 
 it('handles blade templates correctly', function (): void {
@@ -246,9 +246,9 @@ it('exports render_markup_view blade file as full.blade.php', function (): void 
         $zip = new ZipArchive();
         $zip->open($zipPath);
 
-        expect($zip->locateName('full.blade.php'))->not->toBeFalse();
-        expect($zip->locateName('full.liquid'))->toBeFalse();
-        expect($zip->getFromName('full.blade.php'))->toBe($testContent);
+        expect($zip->locateName('full.blade.php'))->not->toBeFalse()
+            ->and($zip->locateName('full.liquid'))->toBeFalse()
+            ->and($zip->getFromName('full.blade.php'))->toBe($testContent);
 
         $zip->close();
     } finally {
@@ -286,9 +286,9 @@ it('exports render_markup_view liquid file as full.liquid', function (): void {
         $zip = new ZipArchive();
         $zip->open($zipPath);
 
-        expect($zip->locateName('full.liquid'))->not->toBeFalse();
-        expect($zip->locateName('full.blade.php'))->toBeFalse();
-        expect($zip->getFromName('full.liquid'))->toBe('<div>Exported Liquid Content</div>');
+        expect($zip->locateName('full.liquid'))->not->toBeFalse()
+            ->and($zip->locateName('full.blade.php'))->toBeFalse()
+            ->and($zip->getFromName('full.liquid'))->toBe('<div>Exported Liquid Content</div>');
 
         $zip->close();
     } finally {
@@ -317,9 +317,9 @@ it('exports zip with files in root directory', function (): void {
 
     // Check that files are in the root, not in src/
     expect($zip->locateName('settings.yml'))->not->toBeFalse();
-    expect($zip->locateName('full.liquid'))->not->toBeFalse();
-    expect($zip->locateName('src/settings.yml'))->toBeFalse();
-    expect($zip->locateName('src/full.liquid'))->toBeFalse();
+    expect($zip->locateName('full.liquid'))->not->toBeFalse()
+        ->and($zip->locateName('src/settings.yml'))->toBeFalse()
+        ->and($zip->locateName('src/full.liquid'))->toBeFalse();
 
     $zip->close();
 });

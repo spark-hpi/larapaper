@@ -15,8 +15,6 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 beforeEach(function (): void {
     EpaperPipeline::fake();
     Storage::fake('public');
@@ -220,9 +218,8 @@ test('device can submit logs', function (): void {
         ->assertJson(['status' => '200']);
 
     expect($device->fresh()->last_log_request)
-        ->toBe($logData);
-
-    expect($device->logs()->count())->toBe(1);
+        ->toBe($logData)
+        ->and($device->logs()->count())->toBe(1);
 });
 
 test('device can submit logs in revised format', function (): void {
@@ -246,9 +243,8 @@ test('device can submit logs in revised format', function (): void {
         ->assertJson(['status' => '200']);
 
     expect($device->fresh()->last_log_request)
-        ->toBe($logData);
-
-    expect($device->logs()->count())->toBe(1);
+        ->toBe($logData)
+        ->and($device->logs()->count())->toBe(1);
 });
 
 // test('authenticated user can update device display', function () {
@@ -1400,14 +1396,12 @@ test('display endpoint logs telemetry data on update', function (): void {
 
     Log::shouldHaveReceived('debug')
         ->once()
-        ->with('Device telemetry update', Mockery::on(function (array $context) use ($device): bool {
-            return $context['device_id'] === $device->id
-                && ($context['last_rssi_level'] ?? null) === '-70'
-                && ($context['last_firmware_version'] ?? null) === '1.0.0'
-                && ($context['last_battery_charging'] ?? null) === true
-                && ($context['last_usb_connected'] ?? null) === true
-                && isset($context['last_refreshed_at']);
-        }));
+        ->with('Device telemetry update', Mockery::on(fn (array $context): bool => $context['device_id'] === $device->id
+            && ($context['last_rssi_level'] ?? null) === '-70'
+            && ($context['last_firmware_version'] ?? null) === '1.0.0'
+            && ($context['last_battery_charging'] ?? null) === true
+            && ($context['last_usb_connected'] ?? null) === true
+            && isset($context['last_refreshed_at'])));
 });
 
 test('display endpoint updates last_refreshed_at timestamp for mirrored devices', function (): void {
@@ -1597,8 +1591,8 @@ test('device returns sleep.png and correct refresh time when paused', function (
 
     // The filename should be a UUID-based PNG file since we're generating from template
     expect($json['filename'])->toMatch('/^[a-f0-9-]+\.png$/');
-    expect($json['image_url'])->toContain('images/generated/');
-    expect($json['refresh_rate'])->toBeLessThanOrEqual(3600); // ~60 min
+    expect($json['image_url'])->toContain('images/generated/')
+        ->and($json['refresh_rate'])->toBeLessThanOrEqual(3600); // ~60 min
 });
 
 test('device paused for long period returns refresh rate capped at 24 hours', function (): void {
@@ -1619,9 +1613,9 @@ test('device paused for long period returns refresh rate capped at 24 hours', fu
     $response->assertOk();
     $json = $response->json();
 
-    expect($json['filename'])->toMatch('/^[a-f0-9-]+\.png$/');
-    expect($json['image_url'])->toContain('images/generated/');
-    expect($json['refresh_rate'])->toBeLessThanOrEqual(86400);
+    expect($json['filename'])->toMatch('/^[a-f0-9-]+\.png$/')
+        ->and($json['image_url'])->toContain('images/generated/')
+        ->and($json['refresh_rate'])->toBeLessThanOrEqual(86400);
 });
 
 test('screens endpoint accepts nullable file_name', function (): void {

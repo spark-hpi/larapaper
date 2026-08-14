@@ -11,8 +11,6 @@ use App\Plugins\ScreenshotPlugin;
 use Bnussbau\EpaperPipeline\EpaperPipeline;
 use Illuminate\Support\Facades\Storage;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 beforeEach(function (): void {
     EpaperPipeline::fake();
     Storage::fake('public');
@@ -45,12 +43,11 @@ test('GenerateScreenJob runs BrowserStage with URL and updates plugin metadata',
 
     $plugin->refresh();
 
-    expect($plugin->current_image)->not->toBeNull();
-    expect($plugin->current_image_metadata)->toBeArray();
-    expect($plugin->current_image_metadata)->toHaveKeys(['width', 'height', 'rotation', 'palette_id', 'mime_type']);
-    expect($plugin->current_image_metadata['width'])->toBe(800);
-    expect($plugin->current_image_metadata['height'])->toBe(480);
-    expect($plugin->data_payload_updated_at)->not->toBeNull();
+    expect($plugin->current_image)->not->toBeNull()
+        ->and($plugin->current_image_metadata)->toBeArray()
+        ->toHaveKeys(['width', 'height', 'rotation', 'palette_id', 'mime_type'])
+        ->toMatchArray(['width' => 800, 'height' => 480])
+        ->and($plugin->data_payload_updated_at)->not->toBeNull();
 
     Storage::disk('public')->assertExists('/images/generated/'.$plugin->current_image.'.png');
 });

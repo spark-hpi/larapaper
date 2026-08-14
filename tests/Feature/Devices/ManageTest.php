@@ -5,8 +5,6 @@ use App\Models\DeviceModel;
 use App\Models\User;
 use Carbon\Carbon;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 test('device management page can be rendered', function (): void {
     $user = User::factory()->create();
 
@@ -41,12 +39,12 @@ test('user can create a new device', function (): void {
     expect(Device::count())->toBe(1);
 
     $device = Device::first();
-    expect($device->name)->toBe($deviceData['name']);
-    expect($device->mac_address)->toBe($deviceData['mac_address']);
-    expect($device->api_key)->toBe($deviceData['api_key']);
-    expect($device->default_refresh_interval)->toBe($deviceData['default_refresh_interval']);
-    expect($device->friendly_id)->toBe($deviceData['friendly_id']);
-    expect($device->user_id)->toBe($user->id);
+    expect($device->name)->toBe($deviceData['name'])
+        ->and($device->mac_address)->toBe($deviceData['mac_address'])
+        ->and($device->api_key)->toBe($deviceData['api_key'])
+        ->and($device->default_refresh_interval)->toBe($deviceData['default_refresh_interval'])
+        ->and($device->friendly_id)->toBe($deviceData['friendly_id'])
+        ->and($device->user_id)->toBe($user->id);
 });
 
 test('device creation requires required fields', function (): void {
