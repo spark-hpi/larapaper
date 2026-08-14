@@ -363,7 +363,7 @@ class extends Component
         </div>
 
         <div wire:loading.remove wire:target="previewRecipe">
-            @if($previewingRecipe && !empty($previewData))
+            @if($previewingRecipe && ! empty($previewData))
                 <div>
                     <flux:heading size="lg" class="mb-2">Preview {{ $previewData['name'] ?? 'Recipe' }}</flux:heading>
                 </div>

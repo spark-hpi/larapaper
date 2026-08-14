@@ -79,9 +79,10 @@ new class extends Component
 ?>
 
 <div class="py-12">
-    <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-semibold dark:text-gray-100">{{ $this->handler->name() }}
+    <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+        <div class="mb-6 flex items-center justify-between">
+            <h2 class="text-2xl font-semibold dark:text-gray-100">
+                {{ $this->handler->name() }}
                 <flux:badge size="sm" class="ml-2">Plugin</flux:badge>
             </h2>
             <flux:modal.trigger name="create-instance">
@@ -98,20 +99,27 @@ new class extends Component
 
                 <form wire:submit="createInstance">
                     <div class="mb-4">
-                        <flux:input label="Name" wire:model="name" id="name" class="block mt-1 w-full" type="text"
-                                    name="name" autofocus/>
+                        <flux:input
+                            label="Name"
+                            wire:model="name"
+                            id="name"
+                            class="mt-1 block w-full"
+                            type="text"
+                            name="name"
+                            autofocus
+                        />
                     </div>
 
                     <div class="flex">
-                        <flux:spacer/>
+                        <flux:spacer />
                         <flux:button type="submit" variant="primary">Create Instance</flux:button>
                     </div>
                 </form>
             </div>
         </flux:modal>
 
-        @if(empty($instances))
-            <div class="text-center py-12">
+        @if (empty($instances))
+            <div class="py-12 text-center">
                 <flux:callout>
                     <flux:heading size="sm">No instances yet</flux:heading>
                     <flux:text>Create your first {{ $this->handler->name() }} instance to get started.</flux:text>
@@ -119,58 +127,70 @@ new class extends Component
             </div>
         @else
             <table
-                class="min-w-full table-auto text-zinc-800 divide-y divide-zinc-800/10 dark:divide-white/20"
-                data-flux-table="">
+                class="min-w-full table-auto divide-y divide-zinc-800/10 text-zinc-800 dark:divide-white/20"
+                data-flux-table=""
+            >
                 <thead data-flux-columns="">
-                <tr>
-                    <th class="py-3 px-3 first:pl-0 last:pr-0 text-left text-sm font-medium text-zinc-800 dark:text-white"
-                        data-flux-column="">
-                        <div class="whitespace-nowrap flex">Name</div>
-                    </th>
-                    <th class="py-3 px-3 first:pl-0 last:pr-0 text-right text-sm font-medium text-zinc-800 dark:text-white"
-                        data-flux-column="">
-                        <div class="whitespace-nowrap flex justify-end">Actions</div>
-                    </th>
-                </tr>
+                    <tr>
+                        <th
+                            class="px-3 py-3 text-left text-sm font-medium text-zinc-800 first:pl-0 last:pr-0 dark:text-white"
+                            data-flux-column=""
+                        >
+                            <div class="flex whitespace-nowrap">Name</div>
+                        </th>
+                        <th
+                            class="px-3 py-3 text-right text-sm font-medium text-zinc-800 first:pl-0 last:pr-0 dark:text-white"
+                            data-flux-column=""
+                        >
+                            <div class="flex justify-end whitespace-nowrap">Actions</div>
+                        </th>
+                    </tr>
                 </thead>
 
                 <tbody class="divide-y divide-zinc-800/10 dark:divide-white/20" data-flux-rows="">
-                @foreach($instances as $instance)
-                    <tr data-flux-row="">
-                        <td class="py-3 px-3 first:pl-0 last:pr-0 text-sm whitespace-nowrap text-zinc-500 dark:text-zinc-300">
-                            {{ $instance['name'] }}
-                        </td>
-                        <td class="py-3 px-3 first:pl-0 last:pr-0 text-sm whitespace-nowrap font-medium text-zinc-800 dark:text-white text-right">
-                            <div class="flex items-center justify-end">
-                                <flux:button.group>
-                                    <flux:button href="{{ route('plugins.type-instance', ['type' => $type, 'plugin' => $instance['id']]) }}" wire:navigate icon="pencil" iconVariant="outline">
-                                    </flux:button>
-                                    <flux:modal.trigger name="delete-instance-{{ $instance['id'] }}">
-                                        <flux:button icon="trash" iconVariant="outline">
+                    @foreach ($instances as $instance)
+                        <tr data-flux-row="">
+                            <td class="px-3 py-3 text-sm whitespace-nowrap text-zinc-500 first:pl-0 last:pr-0 dark:text-zinc-300">
+                                {{ $instance['name'] }}
+                            </td>
+                            <td class="px-3 py-3 text-right text-sm font-medium whitespace-nowrap text-zinc-800 first:pl-0 last:pr-0 dark:text-white">
+                                <div class="flex items-center justify-end">
+                                    <flux:button.group>
+                                        <flux:button
+                                            href="{{ route('plugins.type-instance', ['type' => $type, 'plugin' => $instance['id']]) }}"
+                                            wire:navigate
+                                            icon="pencil"
+                                            iconVariant="outline"
+                                        >
                                         </flux:button>
-                                    </flux:modal.trigger>
-                                </flux:button.group>
-                            </div>
-                        </td>
-                    </tr>
-                @endforeach
+                                        <flux:modal.trigger name="delete-instance-{{ $instance['id'] }}">
+                                            <flux:button icon="trash" iconVariant="outline"> </flux:button>
+                                        </flux:modal.trigger>
+                                    </flux:button.group>
+                                </div>
+                            </td>
+                        </tr>
+                    @endforeach
                 </tbody>
             </table>
         @endif
 
-        @foreach($instances as $instance)
+        @foreach ($instances as $instance)
             <flux:modal name="delete-instance-{{ $instance['id'] }}" class="min-w-88 space-y-6">
                 <div>
                     <flux:heading size="lg">Delete {{ $instance['name'] }}?</flux:heading>
-                    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">This will also remove this instance from your playlists.</p>
+                    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                        This will also remove this instance from your playlists.
+                    </p>
                 </div>
 
                 <div class="flex gap-2">
-                    <flux:spacer/>
+                    <flux:spacer />
                     <flux:modal.close>
                         <flux:button variant="ghost">Cancel</flux:button>
                     </flux:modal.close>
-                    <flux:button wire:click="deleteInstance({{ $instance['id'] }})" variant="danger">Delete instance</flux:button>
+                    <flux:button wire:click="deleteInstance({{ $instance['id'] }})" variant="danger"
+                        >Delete instance</flux:button>
                 </div>
             </flux:modal>
         @endforeach

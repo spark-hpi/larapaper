@@ -437,57 +437,61 @@ new class extends Component
 
 <div class="bg-muted flex flex-col items-center justify-center gap-6 p-6 md:p-10">
     <div class="flex flex-col gap-6">
-        <div
-            class="styled-container">
+        <div class="styled-container">
             <div class="px-10 py-8">
                 @php
-                    $current_image_uuid =$device->current_screen_image;
-                    if($current_image_uuid) {
-                        $file_extension = Storage::disk('public')->exists('images/generated/' . $current_image_uuid . '.png') ? 'png' : 'bmp';
-                        $current_image_url = Storage::disk('public')->url('images/generated/' . $current_image_uuid . '.' . $file_extension);
+                    $current_image_uuid = $device->current_screen_image;
+                    if ($current_image_uuid) {
+                        $file_extension = Storage::disk('public')->exists('images/generated/'.$current_image_uuid.'.png') ? 'png' : 'bmp';
+                        $current_image_url = Storage::disk('public')->url('images/generated/'.$current_image_uuid.'.'.$file_extension);
                     } else {
                         $current_image_url = asset('storage/images/setup-logo.bmp');
                     }
                 @endphp
 
                 <div class="flex items-center justify-between gap-4">
-                    <flux:tooltip content="Friendly ID: {{$device->friendly_id}}" position="bottom">
+                    <flux:tooltip content="Friendly ID: {{ $device->friendly_id }}" position="bottom">
                         <h1 class="text-xl font-medium dark:text-zinc-200">{{ $device->name }}</h1>
                     </flux:tooltip>
                     <div class="flex gap-2">
                         <flux:tooltip content="Last refresh" position="bottom">
-                            <span class="dark:text-zinc-200">{{$device->last_refreshed_at?->diffForHumans()}}</span>
+                            <span class="dark:text-zinc-200">{{ $device->last_refreshed_at?->diffForHumans() }}</span>
                         </flux:tooltip>
-                        <flux:separator vertical/>
+                        <flux:separator vertical />
                         <flux:tooltip content="MAC Address" position="bottom">
-                            <span class="dark:text-zinc-200">{{$device->mac_address}}</span>
+                            <span class="dark:text-zinc-200">{{ $device->mac_address }}</span>
                         </flux:tooltip>
-                        @if($device->last_firmware_version)
-                            <flux:separator vertical/>
+                        @if ($device->last_firmware_version)
+                            <flux:separator vertical />
                             <flux:tooltip content="Firmware Version" position="bottom">
-                                <span class="dark:text-zinc-200">{{$device->last_firmware_version}}</span>
+                                <span class="dark:text-zinc-200">{{ $device->last_firmware_version }}</span>
                             </flux:tooltip>
                         @endif
-                        @if($device->wifiStrength)
-                            <flux:separator vertical/>
-                            <x-responsive-icons.wifi :strength="$device->wifiStrength" :rssi="$device->last_rssi_level"
-                                                     class="dark:text-zinc-200"/>
+                        @if ($device->wifiStrength)
+                            <flux:separator vertical />
+                            <x-responsive-icons.wifi
+                                :strength="$device->wifiStrength"
+                                :rssi="$device->last_rssi_level"
+                                class="dark:text-zinc-200"
+                            />
                         @endif
-                        @if($device->batteryPercent)
-                            <flux:separator vertical/>
-                            @if($device->last_battery_charging)
+                        @if ($device->batteryPercent)
+                            <flux:separator vertical />
+                            @if ($device->last_battery_charging)
                                 <flux:tooltip content="Charging …" position="bottom">
-                                    <flux:icon.battery-charging class="dark:text-zinc-200"/>
+                                    <flux:icon.battery-charging class="dark:text-zinc-200" />
                                 </flux:tooltip>
                             @else
-                                <x-responsive-icons.battery :percent="$device->batteryPercent"/>
+                                <x-responsive-icons.battery :percent="$device->batteryPercent" />
                             @endif
                         @endif
-                        @if($device->isPauseActive())
-                            <flux:separator vertical/>
-                            <flux:tooltip content="Pause active until {{$device->pause_until?->format('H:i')}}"
-                                          position="bottom">
-                                <flux:icon name="pause-circle" variant="solid"/>
+                        @if ($device->isPauseActive())
+                            <flux:separator vertical />
+                            <flux:tooltip
+                                content="Pause active until {{ $device->pause_until?->format('H:i') }}"
+                                position="bottom"
+                            >
+                                <flux:icon name="pause-circle" variant="solid" />
                             </flux:tooltip>
                         @endif
                     </div>
@@ -502,11 +506,12 @@ new class extends Component
                                 <flux:modal.trigger name="update-firmware">
                                     <flux:menu.item icon="arrow-up-circle">Update Firmware</flux:menu.item>
                                 </flux:modal.trigger>
-                                <flux:menu.item icon="bars-3" href="{{ route('devices.logs', $device) }}" wire:navigate>Show Logs</flux:menu.item>
+                                <flux:menu.item icon="bars-3" href="{{ route('devices.logs', $device) }}" wire:navigate>
+                                    Show Logs</flux:menu.item>
                                 <flux:modal.trigger name="mirror-url">
                                     <flux:menu.item icon="link">Mirror URL</flux:menu.item>
                                 </flux:modal.trigger>
-                                <flux:menu.separator/>
+                                <flux:menu.separator />
                                 <flux:modal.trigger name="delete-device">
                                     <flux:menu.item icon="trash" variant="danger">Delete Device</flux:menu.item>
                                 </flux:modal.trigger>
@@ -515,38 +520,47 @@ new class extends Component
                     </div>
                 </div>
 
-
                 <flux:modal name="edit-device" class="md:w-96">
                     <div class="space-y-6">
                         <div>
                             <flux:heading size="lg">Edit TRMNL</flux:heading>
                             <flux:subheading></flux:subheading>
                         </div>
-                        <flux:input label="Name" wire:model="name"/>
+                        <flux:input label="Name" wire:model="name" />
 
-                        <flux:input label="API Key" icon="key" value="{{ $device->api_key }}" type="password"
-                                    viewable class="max-w-xs" readonly/>
+                        <flux:input
+                            label="API Key"
+                            icon="key"
+                            value="{{ $device->api_key }}"
+                            type="password"
+                            viewable
+                            class="max-w-xs"
+                            readonly
+                        />
 
-                        <flux:input label="Friendly ID" wire:model="friendly_id"/>
-                        <flux:input label="MAC Address" wire:model="mac_address"/>
+                        <flux:input label="Friendly ID" wire:model="friendly_id" />
+                        <flux:input label="MAC Address" wire:model="mac_address" />
 
-                        <flux:input label="Default Refresh Interval (seconds)" wire:model="default_refresh_interval"
-                                    type="number"/>
+                        <flux:input
+                            label="Default Refresh Interval (seconds)"
+                            wire:model="default_refresh_interval"
+                            type="number"
+                        />
 
                         <flux:select label="Device Model" wire:model.live="device_model_id">
                             <flux:select.option value="">Custom (Manual Dimensions)</flux:select.option>
-                            @foreach($deviceModels as $deviceModel)
+                            @foreach ($deviceModels as $deviceModel)
                                 <flux:select.option value="{{ $deviceModel->id }}">
                                     {{ $deviceModel->label }} ({{ $deviceModel->width }}x{{ $deviceModel->height }})
                                 </flux:select.option>
                             @endforeach
                         </flux:select>
 
-                        <flux:checkbox wire:model.live="is_mirror" label="Mirrors Device"/>
-                        @if($is_mirror)
+                        <flux:checkbox wire:model.live="is_mirror" label="Mirrors Device" />
+                        @if ($is_mirror)
                             <flux:select wire:model="mirror_device_id" label="Select Device to Mirror">
                                 <flux:select.option value="">Select a device</flux:select.option>
-                                @foreach(auth()->user()->devices->where('mirror_device_id', null)->where('id', '!=', $device->id) as $mirrorOption)
+                                @foreach (auth()->user()->devices->where('mirror_device_id', null)->where('id', '!=', $device->id) as $mirrorOption)
                                     <flux:select.option value="{{ $mirrorOption->id }}">
                                         {{ $mirrorOption->name }} ({{ $mirrorOption->friendly_id }})
                                     </flux:select.option>
@@ -554,18 +568,23 @@ new class extends Component
                             </flux:select>
                         @endif
 
-                        <flux:checkbox wire:model="maximum_compatibility" label="Maximum Compatibility" description="Resolves display issues caused by certain e-ink driver chips. Disables fast refresh. TRMNL Firmware 1.6.0+ required." />
+                        <flux:checkbox
+                            wire:model="maximum_compatibility"
+                            label="Maximum Compatibility"
+                            description="Resolves display issues caused by certain e-ink driver chips. Disables fast refresh. TRMNL Firmware 1.6.0+ required."
+                        />
 
-                        @if(empty($device_model_id))
+                        @if (empty($device_model_id))
                             <flux:separator class="my-4" text="Advanced Device Settings" />
                             <div class="flex gap-4">
                                 <flux:input label="Width (px)" wire:model="width" type="number" />
-                                <flux:input label="Height (px)" wire:model="height" type="number"/>
-                                <flux:input label="Rotate °" wire:model="rotate" type="number"/>
+                                <flux:input label="Height (px)" wire:model="height" type="number" />
+                                <flux:input label="Rotate °" wire:model="rotate" type="number" />
                             </div>
                             <flux:select label="Image Format" wire:model="image_format">
-                                @foreach(\App\Enums\ImageFormat::cases() as $format)
-                                    <flux:select.option value="{{ $format->value }}">{{$format->label()}}</flux:select.option>
+                                @foreach (\App\Enums\ImageFormat::cases() as $format)
+                                    <flux:select.option value="{{ $format->value }}">
+                                        {{ $format->label() }}</flux:select.option>
                                 @endforeach
                             </flux:select>
                         @endif
@@ -577,25 +596,25 @@ new class extends Component
                             <flux:select.option value="none">None</flux:select.option>
                         </flux:select>
 
-
-                        <div class="flex items-center gap-4 mb-4">
-                            <flux:switch wire:model.live="sleep_mode_enabled"/>
+                        <div class="mb-4 flex items-center gap-4">
+                            <flux:switch wire:model.live="sleep_mode_enabled" />
                             <div>
                                 <div class="font-semibold">Sleep Mode</div>
-                                <div class="text-zinc-500 text-sm">Enabling Sleep Mode extends battery life</div>
+                                <div class="text-sm text-zinc-500">Enabling Sleep Mode extends battery life</div>
                             </div>
                         </div>
-                        @if($sleep_mode_enabled)
-                            <div class="flex gap-4 mb-4">
-                                <flux:input type="time" label="From" wire:model.fill="sleep_mode_from"/>
+                        @if ($sleep_mode_enabled)
+                            <div class="mb-4 flex gap-4">
+                                <flux:input type="time" label="From" wire:model.fill="sleep_mode_from" />
                                 <flux:input type="time" label="To" wire:model.fill="sleep_mode_to" />
                             </div>
                         @endif
 
                         <div class="flex">
-                            <flux:spacer/>
+                            <flux:spacer />
 
-                            <flux:button type="submit" wire:click="updateDevice" variant="primary">Save changes
+                            <flux:button type="submit" wire:click="updateDevice" variant="primary"
+                                >Save changes
                             </flux:button>
                         </div>
                     </div>
@@ -611,7 +630,9 @@ new class extends Component
                         <form wire:submit="updateFirmware">
                             <flux:callout variant="warning" icon="exclamation-triangle" class="mb-4">
                                 <flux:callout.heading>TRMNL devices only</flux:callout.heading>
-                                <flux:callout.text>OTA firmware updates are currently available only for TRMNL devices. Applying firmware to other device models may break your device.</flux:callout.text>
+                                <flux:callout.text>
+                                    OTA firmware updates are currently available only for TRMNL devices. Applying
+                                    firmware to other device models may break your device.</flux:callout.text>
                             </flux:callout>
 
                             <flux:button
@@ -625,15 +646,16 @@ new class extends Component
 
                             <div class="mb-4">
                                 <flux:select label="Device Model" wire:model.live="selected_firmware_model" required>
-                                    @foreach(FirmwareModel::cases() as $firmwareModel)
-                                        <flux:select.option value="{{ $firmwareModel->value }}">{{ $firmwareModel->label() }}</flux:select.option>
+                                    @foreach (FirmwareModel::cases() as $firmwareModel)
+                                        <flux:select.option value="{{ $firmwareModel->value }}">
+                                            {{ $firmwareModel->label() }}</flux:select.option>
                                     @endforeach
                                 </flux:select>
                             </div>
 
                             <div class="mb-4">
                                 <flux:select label="Firmware Version" wire:model="selected_firmware_id" required>
-                                    @foreach($firmwares->where('model', $selected_firmware_model) as $firmware)
+                                    @foreach ($firmwares->where('model', $selected_firmware_model) as $firmware)
                                         <flux:select.option value="{{ $firmware->id }}">
                                             {{ $firmware->version_tag }} {{ $firmware->latest ? '(Latest)' : '' }}
                                         </flux:select.option>
@@ -644,12 +666,11 @@ new class extends Component
                             <div class="mb-4">
                                 <flux:checkbox wire:model="download_firmware" label="Cache Firmware on BYOS">
                                 </flux:checkbox>
-                                <flux:text class="text-xs mt-2">Check if the Device has no internet connection.
-                                </flux:text>
+                                <flux:text class="mt-2 text-xs">Check if the Device has no internet connection.</flux:text>
                             </div>
 
                             <div class="flex">
-                                <flux:spacer/>
+                                <flux:spacer />
                                 <flux:button type="submit" variant="primary">Update Firmware</flux:button>
                             </div>
                         </form>
@@ -658,54 +679,51 @@ new class extends Component
 
                 <flux:modal name="delete-device" class="min-w-[22rem] space-y-6">
                     <div>
-                        <flux:heading size="lg">Delete {{$device->name}}?</flux:heading>
+                        <flux:heading size="lg">Delete {{ $device->name }}?</flux:heading>
                     </div>
 
                     <div class="flex gap-2">
-                        <flux:spacer/>
+                        <flux:spacer />
 
                         <flux:modal.close>
                             <flux:button variant="ghost">Cancel</flux:button>
                         </flux:modal.close>
-                        <flux:button wire:click="deleteDevice({{ $device->id }})" variant="danger">Delete device
+                        <flux:button wire:click="deleteDevice({{ $device->id }})" variant="danger"
+                            >Delete device
                         </flux:button>
                     </div>
                 </flux:modal>
 
-
                 <flux:modal name="mirror-url" class="md:w-96">
                     @php
-                        $mirrorUrl = url('/mirror/index.html') . '?api_key=' . urlencode($device->api_key);
+                        $mirrorUrl = url('/mirror/index.html').'?api_key='.urlencode($device->api_key);
                     @endphp
 
                     <div class="space-y-6">
                         <div>
                             <flux:heading size="lg">Mirror WebUI</flux:heading>
-                            <flux:subheading>Mirror this device onto older devices with a web browser — Safari is supported back to iOS 9.</flux:subheading>
+                            <flux:subheading
+                                >Mirror this device onto older devices with a web browser — Safari is supported back to
+                                iOS 9.</flux:subheading>
                         </div>
 
-                        <flux:input
-                            label="Mirror URL"
-                            value="{{$mirrorUrl}}"
-                            readonly
-                            copyable
-                        />
+                        <flux:input label="Mirror URL" value="{{ $mirrorUrl }}" readonly copyable />
                     </div>
                 </flux:modal>
 
-                @if(!$device->mirror_device_id)
-                    @if($current_image_url)
-                        <flux:separator class="mt-6 mb-6" text="Screen"/>
+                @if (! $device->mirror_device_id)
+                    @if ($current_image_url)
+                        <flux:separator class="mt-6 mb-6" text="Screen" />
                         <div class="flex justify-center">
                             <div class="relative origin-center rotate-[{{ $device->preview_rotation }}deg]">
-                                <img src="{{ $current_image_url }}" class="max-h-[480px]" alt="Next Image"/>
+                                <img src="{{ $current_image_url }}" class="max-h-[480px]" alt="Next Image" />
                             </div>
                         </div>
                     @endif
 
-                    <flux:separator class="mt-6 mb-6" text="Playlists"/>
+                    <flux:separator class="mt-6 mb-6" text="Playlists" />
 
-                    <div class="flex justify-between items-center mb-4">
+                    <div class="mb-4 flex items-center justify-between">
                         <h3 class="text-lg font-medium dark:text-zinc-200">Device Playlists</h3>
                         <flux:modal.trigger name="create-playlist">
                             <flux:button icon="plus" variant="primary">Create Playlist</flux:button>
@@ -715,10 +733,13 @@ new class extends Component
                     <div class="mt-6 mb-6">
                         <flux:callout variant="info">
                             <div class="flex items-center gap-2">
-                                <flux:icon.link class="dark:text-zinc-200"/>
+                                <flux:icon.link class="dark:text-zinc-200" />
                                 <flux:text>
                                     This device is mirrored from
-                                    <a href="{{ route('devices.configure', $device->mirrorDevice) }}" class="font-medium hover:underline">
+                                    <a
+                                        href="{{ route('devices.configure', $device->mirrorDevice) }}"
+                                        class="font-medium hover:underline"
+                                    >
                                         {{ $device->mirrorDevice->name }}
                                     </a>
                                 </flux:text>
@@ -735,66 +756,79 @@ new class extends Component
 
                         <form wire:submit="createPlaylist">
                             <div class="mb-4">
-                                <flux:input label="Playlist Name" wire:model="playlist_name" required/>
+                                <flux:input label="Playlist Name" wire:model="playlist_name" required />
                             </div>
 
                             <div class="mb-4">
                                 <flux:checkbox.group wire:model="selected_weekdays" label="Active Days (optional)">
-                                    <flux:checkbox label="Monday" value="1"/>
-                                    <flux:checkbox label="Tuesday" value="2"/>
-                                    <flux:checkbox label="Wednesday" value="3"/>
-                                    <flux:checkbox label="Thursday" value="4"/>
-                                    <flux:checkbox label="Friday" value="5"/>
-                                    <flux:checkbox label="Saturday" value="6"/>
-                                    <flux:checkbox label="Sunday" value="0"/>
+                                    <flux:checkbox label="Monday" value="1" />
+                                    <flux:checkbox label="Tuesday" value="2" />
+                                    <flux:checkbox label="Wednesday" value="3" />
+                                    <flux:checkbox label="Thursday" value="4" />
+                                    <flux:checkbox label="Friday" value="5" />
+                                    <flux:checkbox label="Saturday" value="6" />
+                                    <flux:checkbox label="Sunday" value="0" />
                                 </flux:checkbox.group>
                             </div>
 
                             <div class="mb-4">
-                                <flux:input type="time" label="Active From (optional)" wire:model="active_from"/>
+                                <flux:input type="time" label="Active From (optional)" wire:model="active_from" />
                             </div>
 
                             <div class="mb-4">
-                                <flux:input type="time" label="Active Until (optional)" wire:model="active_until"/>
+                                <flux:input type="time" label="Active Until (optional)" wire:model="active_until" />
                             </div>
 
                             <div class="mb-4">
-                                <flux:input type="number" label="Refresh Time (seconds)" wire:model="refresh_time" min="1" placeholder="Leave empty to use device default"/>
+                                <flux:input
+                                    type="number"
+                                    label="Refresh Time (seconds)"
+                                    wire:model="refresh_time"
+                                    min="1"
+                                    placeholder="Leave empty to use device default"
+                                />
                             </div>
 
                             <div class="flex">
-                                <flux:spacer/>
+                                <flux:spacer />
                                 <flux:button type="submit" variant="primary">Create Playlist</flux:button>
                             </div>
                         </form>
                     </div>
                 </flux:modal>
 
-                @foreach($playlists as $playlist)
-                    <div class="mb-6 rounded-lg border dark:border-zinc-700 p-4">
-                        <div class="flex items-center justify-between mb-4">
+                @foreach ($playlists as $playlist)
+                    <div class="mb-6 rounded-lg border p-4 dark:border-zinc-700">
+                        <div class="mb-4 flex items-center justify-between">
                             <div class="flex items-center gap-4">
                                 <h4 class="text-lg font-medium dark:text-zinc-200">{{ $playlist->name }}</h4>
-                                <flux:switch wire:model.live="playlist.is_active"
-                                             wire:click="togglePlaylistActive({{ $playlist->id }})"
-                                             :checked="$playlist->is_active"/>
+                                <flux:switch
+                                    wire:model.live="playlist.is_active"
+                                    wire:click="togglePlaylistActive({{ $playlist->id }})"
+                                    :checked="$playlist->is_active"
+                                />
                             </div>
                             <div class="flex items-center gap-4">
                                 <div class="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-                                    @if($playlist->weekdays)
+                                    @if ($playlist->weekdays)
                                         <span>{{ implode(', ', collect($playlist->weekdays)->map(fn($day) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][$day])->toArray()) }}</span>
                                     @endif
-                                    @if($playlist->active_from && $playlist->active_until)
-                                        <flux:separator vertical/>
+                                    @if ($playlist->active_from && $playlist->active_until)
+                                        <flux:separator vertical />
                                         <span>{{ $playlist->active_from->format('H:i') }} - {{ $playlist->active_until->format('H:i') }}</span>
                                     @endif
                                 </div>
                                 <div class="flex gap-2">
                                     <flux:modal.trigger name="edit-playlist-{{ $playlist->id }}">
-                                        <flux:button icon="pencil-square" variant="subtle" size="sm" wire:click="preparePlaylistEdit({{ $playlist->id }})"/>
+                                        <flux:button
+                                            icon="pencil-square"
+                                            variant="subtle"
+                                            size="sm"
+                                            wire:click="preparePlaylistEdit({{ $playlist->id }})"
+                                        />
                                     </flux:modal.trigger>
                                     <flux:modal.trigger name="delete-playlist-{{ $playlist->id }}">
-                                        <flux:button icon="trash"  size="sm"/>
+                                        <flux:button icon="trash" size="sm" />
                                     </flux:modal.trigger>
                                 </div>
                             </div>
@@ -808,35 +842,52 @@ new class extends Component
 
                                 <form wire:submit="editPlaylist({{ $playlist->id }})">
                                     <div class="mb-4">
-                                        <flux:input label="Playlist Name" wire:model="playlist_name" required/>
+                                        <flux:input label="Playlist Name" wire:model="playlist_name" required />
                                     </div>
 
                                     <div class="mb-4">
-                                        <flux:checkbox.group wire:model="selected_weekdays" label="Active Days (optional)">
-                                            <flux:checkbox label="Monday" value="1"/>
-                                            <flux:checkbox label="Tuesday" value="2"/>
-                                            <flux:checkbox label="Wednesday" value="3"/>
-                                            <flux:checkbox label="Thursday" value="4"/>
-                                            <flux:checkbox label="Friday" value="5"/>
-                                            <flux:checkbox label="Saturday" value="6"/>
-                                            <flux:checkbox label="Sunday" value="0"/>
+                                        <flux:checkbox.group
+                                            wire:model="selected_weekdays"
+                                            label="Active Days (optional)"
+                                        >
+                                            <flux:checkbox label="Monday" value="1" />
+                                            <flux:checkbox label="Tuesday" value="2" />
+                                            <flux:checkbox label="Wednesday" value="3" />
+                                            <flux:checkbox label="Thursday" value="4" />
+                                            <flux:checkbox label="Friday" value="5" />
+                                            <flux:checkbox label="Saturday" value="6" />
+                                            <flux:checkbox label="Sunday" value="0" />
                                         </flux:checkbox.group>
                                     </div>
 
                                     <div class="mb-4">
-                                        <flux:input type="time" label="Active From (optional)" wire:model="active_from"/>
+                                        <flux:input
+                                            type="time"
+                                            label="Active From (optional)"
+                                            wire:model="active_from"
+                                        />
                                     </div>
 
                                     <div class="mb-4">
-                                        <flux:input type="time" label="Active Until (optional)" wire:model="active_until"/>
+                                        <flux:input
+                                            type="time"
+                                            label="Active Until (optional)"
+                                            wire:model="active_until"
+                                        />
                                     </div>
 
                                     <div class="mb-4">
-                                        <flux:input type="number" label="Refresh Time (seconds)" wire:model="refresh_time" min="1" placeholder="Leave empty to use device default"/>
+                                        <flux:input
+                                            type="number"
+                                            label="Refresh Time (seconds)"
+                                            wire:model="refresh_time"
+                                            min="1"
+                                            placeholder="Leave empty to use device default"
+                                        />
                                     </div>
 
                                     <div class="flex">
-                                        <flux:spacer/>
+                                        <flux:spacer />
                                         <flux:button type="submit" variant="primary">Save Changes</flux:button>
                                     </div>
                                 </form>
@@ -846,113 +897,147 @@ new class extends Component
                         <flux:modal name="delete-playlist-{{ $playlist->id }}" class="min-w-[22rem] space-y-6">
                             <div>
                                 <flux:heading size="lg">Delete {{ $playlist->name }}?</flux:heading>
-                                <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">This will permanently delete this playlist and all its items.</p>
+                                <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                                    This will permanently delete this playlist and all its items.
+                                </p>
                             </div>
 
                             <div class="flex gap-2">
-                                <flux:spacer/>
+                                <flux:spacer />
                                 <flux:modal.close>
                                     <flux:button variant="ghost">Cancel</flux:button>
                                 </flux:modal.close>
-                                <flux:button wire:click="deletePlaylist({{ $playlist->id }})" variant="danger">Delete playlist</flux:button>
+                                <flux:button wire:click="deletePlaylist({{ $playlist->id }})" variant="danger"
+                                    >Delete playlist</flux:button>
                             </div>
                         </flux:modal>
 
                         <table class="w-full" data-flux-table>
                             <thead data-flux-columns>
-                            <tr>
-                                <th class="w-10 py-3 px-2 first:pl-0 text-left text-sm font-medium text-zinc-800 dark:text-white"
-                                    data-flux-column>
-                                    <span class="sr-only">Reorder</span>
-                                </th>
-                                <th class="py-3 px-3 last:pr-0 text-left text-sm font-medium text-zinc-800 dark:text-white"
-                                    data-flux-column>
-                                    <div class="whitespace-nowrap flex">Plugin</div>
-                                </th>
-                                <th class="py-3 px-3 first:pl-0 last:pr-0 text-left text-sm font-medium text-zinc-800 dark:text-white"
-                                    data-flux-column>
-                                    <div class="whitespace-nowrap flex">Status</div>
-                                </th>
-                                <th class="py-3 px-3 first:pl-0 last:pr-0 text-right text-sm font-medium text-zinc-800 dark:text-white"
-                                    data-flux-column>
-                                    <div class="whitespace-nowrap flex justify-end">Actions</div>
-                                </th>
-                            </tr>
+                                <tr>
+                                    <th
+                                        class="w-10 px-2 py-3 text-left text-sm font-medium text-zinc-800 first:pl-0 dark:text-white"
+                                        data-flux-column
+                                    >
+                                        <span class="sr-only">Reorder</span>
+                                    </th>
+                                    <th
+                                        class="px-3 py-3 text-left text-sm font-medium text-zinc-800 last:pr-0 dark:text-white"
+                                        data-flux-column
+                                    >
+                                        <div class="flex whitespace-nowrap">Plugin</div>
+                                    </th>
+                                    <th
+                                        class="px-3 py-3 text-left text-sm font-medium text-zinc-800 first:pl-0 last:pr-0 dark:text-white"
+                                        data-flux-column
+                                    >
+                                        <div class="flex whitespace-nowrap">Status</div>
+                                    </th>
+                                    <th
+                                        class="px-3 py-3 text-right text-sm font-medium text-zinc-800 first:pl-0 last:pr-0 dark:text-white"
+                                        data-flux-column
+                                    >
+                                        <div class="flex justify-end whitespace-nowrap">Actions</div>
+                                    </th>
+                                </tr>
                             </thead>
                             <tbody
                                 class="divide-y divide-zinc-800/10 dark:divide-white/20"
                                 data-flux-rows
-                                @if($playlist->items->count() > 1) wire:sort="sortPlaylistItem" @endif
+                                @if ($playlist->items->count() > 1) wire:sort="sortPlaylistItem" @endif
                             >
-                            @foreach($playlist->items->sortBy('order') as $item)
-                                <tr
-                                    data-flux-row
-                                    wire:key="playlist-item-{{ $item->id }}"
-                                    @if($playlist->items->count() > 1) wire:sort:item="{{ $item->id }}" @endif
-                                >
-                                    <td class="w-10 py-3 px-2 first:pl-0 align-middle text-zinc-400 dark:text-zinc-500">
-                                        @if($playlist->items->count() > 1)
-                                            <div
-                                                wire:sort:handle
-                                                class="cursor-grab active:cursor-grabbing flex justify-center touch-none"
-                                                title="Drag to reorder"
-                                            >
-                                                <flux:icon name="bars-3" variant="mini" class="size-5"/>
-                                            </div>
-                                        @endif
-                                    </td>
-                                    <td class="py-3 px-3 last:pr-0 text-sm whitespace-nowrap text-zinc-500 dark:text-zinc-300">
-                                        @if($item->isMashup())
-                                            <div class="flex items-center gap-2">
-                                                <div>
-                                                    <div class="font-medium">{{ $item->getMashupName() }}</div>
-                                                    <div class="text-xs text-zinc-500 dark:text-zinc-400">
-                                                        <flux:icon name="mashup-{{ $item->getMashupLayoutType() }}" class="inline-block pb-1" variant="mini" />
-                                                        {{ collect($item->getMashupPluginIds())->map(fn($id) => App\Models\Plugin::find($id)?->name ?? 'Missing plugin')->join(' | ') }}
+                                @foreach ($playlist->items->sortBy('order') as $item)
+                                    <tr
+                                        data-flux-row
+                                        wire:key="playlist-item-{{ $item->id }}"
+                                        @if ($playlist->items->count() > 1) wire:sort:item="{{ $item->id }}" @endif
+                                    >
+                                        <td class="w-10 px-2 py-3 align-middle text-zinc-400 first:pl-0 dark:text-zinc-500">
+                                            @if ($playlist->items->count() > 1)
+                                                <div
+                                                    wire:sort:handle
+                                                    class="flex cursor-grab touch-none justify-center active:cursor-grabbing"
+                                                    title="Drag to reorder"
+                                                >
+                                                    <flux:icon name="bars-3" variant="mini" class="size-5" />
+                                                </div>
+                                            @endif
+                                        </td>
+                                        <td class="px-3 py-3 text-sm whitespace-nowrap text-zinc-500 last:pr-0 dark:text-zinc-300">
+                                            @if ($item->isMashup())
+                                                <div class="flex items-center gap-2">
+                                                    <div>
+                                                        <div class="font-medium">{{ $item->getMashupName() }}</div>
+                                                        <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                            <flux:icon
+                                                                name="mashup-{{ $item->getMashupLayoutType() }}"
+                                                                class="inline-block pb-1"
+                                                                variant="mini"
+                                                            />
+                                                            {{ collect($item->getMashupPluginIds())->map(fn($id) => App\Models\Plugin::find($id)?->name ?? 'Missing plugin')->join(' | ') }}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        @else
-                                            <div class="font-medium">{{ $item->plugin?->name ?? 'Missing plugin' }}</div>
-                                        @endif
-                                    </td>
-                                    <td class="py-3 px-3 first:pl-0 last:pr-0 text-sm whitespace-nowrap text-zinc-500 dark:text-zinc-300">
-                                        <flux:switch
-                                                     wire:click="togglePlaylistItemActive({{ $item->id }})"
-                                                     :checked="$item->is_active"/>
-                                    </td>
-                                    <td class="py-3 px-3 first:pl-0 last:pr-0 text-sm whitespace-nowrap">
-                                        <div class="flex items-center justify-end gap-2">
-                                            @if(! $item->isMashup() && $item->plugin?->plugin_type === 'recipe')
-                                                <flux:dropdown>
-                                                    <flux:button icon="ellipsis-horizontal" variant="ghost" size="xs"/>
-                                                    <flux:menu>
-                                                        <flux:menu.item icon="x-mark" wire:click="clearPluginImageCache({{ $item->id }})">Clear image cache</flux:menu.item>
-                                                    </flux:menu>
-                                                </flux:dropdown>
+                                            @else
+                                                <div class="font-medium">
+                                                    {{ $item->plugin?->name ?? 'Missing plugin' }}
+                                                </div>
                                             @endif
-                                            <flux:modal.trigger name="delete-playlist-item-{{ $item->id }}">
-                                                <flux:button icon="trash" variant="ghost" size="sm"/>
-                                            </flux:modal.trigger>
-                                        </div>
-
-                                        <flux:modal name="delete-playlist-item-{{ $item->id }}" class="min-w-[22rem] space-y-6">
-                                            <div>
-                                                <flux:heading size="lg">Delete {{ $item->plugin?->name ?? 'missing item' }}?</flux:heading>
-                                                <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">This will remove this item from the playlist.</p>
+                                        </td>
+                                        <td class="px-3 py-3 text-sm whitespace-nowrap text-zinc-500 first:pl-0 last:pr-0 dark:text-zinc-300">
+                                            <flux:switch
+                                                wire:click="togglePlaylistItemActive({{ $item->id }})"
+                                                :checked="$item->is_active"
+                                            />
+                                        </td>
+                                        <td class="px-3 py-3 text-sm whitespace-nowrap first:pl-0 last:pr-0">
+                                            <div class="flex items-center justify-end gap-2">
+                                                @if (! $item->isMashup() && $item->plugin?->plugin_type === 'recipe')
+                                                    <flux:dropdown>
+                                                        <flux:button
+                                                            icon="ellipsis-horizontal"
+                                                            variant="ghost"
+                                                            size="xs"
+                                                        />
+                                                        <flux:menu>
+                                                            <flux:menu.item
+                                                                icon="x-mark"
+                                                                wire:click="clearPluginImageCache({{ $item->id }})"
+                                                            >
+                                                                Clear image cache</flux:menu.item>
+                                                        </flux:menu>
+                                                    </flux:dropdown>
+                                                @endif
+                                                <flux:modal.trigger name="delete-playlist-item-{{ $item->id }}">
+                                                    <flux:button icon="trash" variant="ghost" size="sm" />
+                                                </flux:modal.trigger>
                                             </div>
 
-                                            <div class="flex gap-2">
-                                                <flux:spacer/>
-                                                <flux:modal.close>
-                                                    <flux:button variant="ghost">Cancel</flux:button>
-                                                </flux:modal.close>
-                                                <flux:button wire:click="deletePlaylistItem({{ $item->id }})" variant="danger">Delete item</flux:button>
-                                            </div>
-                                        </flux:modal>
-                                    </td>
-                                </tr>
-                            @endforeach
+                                            <flux:modal
+                                                name="delete-playlist-item-{{ $item->id }}"
+                                                class="min-w-[22rem] space-y-6"
+                                            >
+                                                <div>
+                                                    <flux:heading size="lg">Delete {{ $item->plugin?->name ?? 'missing item' }}?</flux:heading>
+                                                    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                                                        This will remove this item from the playlist.
+                                                    </p>
+                                                </div>
+
+                                                <div class="flex gap-2">
+                                                    <flux:spacer />
+                                                    <flux:modal.close>
+                                                        <flux:button variant="ghost">Cancel</flux:button>
+                                                    </flux:modal.close>
+                                                    <flux:button
+                                                        wire:click="deletePlaylistItem({{ $item->id }})"
+                                                        variant="danger"
+                                                    >Delete item</flux:button>
+                                                </div>
+                                            </flux:modal>
+                                        </td>
+                                    </tr>
+                                @endforeach
                             </tbody>
                         </table>
                     </div>

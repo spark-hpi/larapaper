@@ -42,7 +42,7 @@ new class extends Component
 } ?>
 
 <span>
-    @if($hasUpdate)
-        <flux:badge color="yellow"><flux:icon name="sparkles" class="size-4"/></flux:badge>
+    @if ($hasUpdate)
+        <flux:badge color="yellow"><flux:icon name="sparkles" class="size-4" /></flux:badge>
     @endif
 </span>

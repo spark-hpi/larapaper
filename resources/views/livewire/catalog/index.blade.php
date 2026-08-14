@@ -235,7 +235,7 @@ class extends Component
 
     <!-- Preview Modal -->
     <flux:modal name="catalog-preview" class="min-w-[850px] min-h-[480px] space-y-6">
-        @if($previewingPlugin && !empty($previewData))
+        @if($previewingPlugin && ! empty($previewData))
             <div>
                 <flux:heading size="lg">Preview {{ $previewData['name'] ?? 'Plugin' }}</flux:heading>
             </div>

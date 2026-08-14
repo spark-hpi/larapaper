@@ -24,7 +24,7 @@ new class extends Component
         } else {
             Toggle::disable($name);
         }
-        Flux::toast(text: "The feature '{$name}' has been " . ($active ? 'enabled' : 'disabled') . '.', variant: 'success');
+        Flux::toast(text: "The feature '{$name}' has been ".($active ? 'enabled' : 'disabled').'.', variant: 'success');
     }
 };
 ?>
@@ -33,7 +33,10 @@ new class extends Component
     <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
         @include('partials.settings-heading')
 
-        <x-pages::settings.layout :heading="__('Lab')" :subheading="__('Experimental features before general availability.')">
+        <x-pages::settings.layout
+            :heading="__('Lab')"
+            :subheading="__('Experimental features before general availability.')"
+        >
             <div class="space-y-6">
                 <flux:card>
                     <div class="space-y-4">

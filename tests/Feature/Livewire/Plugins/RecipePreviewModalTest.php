@@ -137,5 +137,6 @@ test('add to playlist modal gates layout block with alpine using wire state', fu
     ]);
 
     Livewire::test('plugins.recipe', ['plugin' => $plugin])
-        ->assertSee('($wire.checked_devices ?? []).length > 0 && ($wire.checked_devices ?? []).some', false);
+        ->assertSee('($wire.checked_devices ?? []).length > 0', false)
+        ->assertSee('($wire.checked_devices ?? []).some((id) =>', false);
 });

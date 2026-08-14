@@ -167,14 +167,15 @@ HTML;
 ?>
 
 <div class="py-12">
-    <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-        <h2 class="text-2xl font-semibold dark:text-gray-100">Markup
+    <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+        <h2 class="text-2xl font-semibold dark:text-gray-100">
+            Markup
             <flux:badge size="sm" class="ml-2">Plugin</flux:badge>
         </h2>
 
         {{--        <div class="flex justify-between items-center mb-6">--}}
 
-        <div class="mt-5 mb-5 ">
+        <div class="mt-5 mb-5">
             <span>Examples</span>
             <div class="text-accent">
                 <a href="#" wire:click="renderExample('helloWorld')" class="text-xl">Hello World</a> |
@@ -198,23 +199,21 @@ HTML;
 
             <div class="flex">
                 <flux:checkbox.group wire:model="checked_devices" label="Devices">
-                    @foreach($devices as $name => $id)
-                        <flux:checkbox label="{{ $name }}" value="{{ $id }}"/>
+                    @foreach ($devices as $name => $id)
+                        <flux:checkbox label="{{ $name }}" value="{{ $id }}" />
                     @endforeach
                 </flux:checkbox.group>
 
-                <flux:spacer/>
+                <flux:spacer />
 
-                <flux:button type="submit" variant="primary">
-                    Generate Screen
-                </flux:button>
+                <flux:button type="submit" variant="primary"> Generate Screen </flux:button>
             </div>
         </form>
 
         @error('generate_screen')
-        <div class="mt-4">
-            <span class="font-mono text-red-700">{{ $message }}</span>
-        </div>
+            <div class="mt-4">
+                <span class="font-mono text-red-700">{{ $message }}</span>
+            </div>
         @enderror
 
         {{--        </div>--}}
