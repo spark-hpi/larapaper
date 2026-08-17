@@ -61,7 +61,7 @@ trait ResolvesUserRecipes
             return null;
         }
 
-        if ($dataStrategy !== 'polling' || empty($pollingUrl)) {
+        if ($dataStrategy !== 'polling') {
             return null;
         }
 

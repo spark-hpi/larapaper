@@ -21,6 +21,7 @@ use Closure;
 use Exception;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\App;
@@ -95,7 +96,10 @@ class Plugin extends Model
 
     public const CUSTOM_FIELDS_KEY = 'custom_fields';
 
-    public function user()
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
@@ -856,7 +860,7 @@ class Plugin extends Model
                 if ($size === 'full') {
                     return view('trmnl-layouts.single', [
                         'colorDepth' => $device?->colorDepth(),
-                        'deviceVariant' => $device?->deviceModel?->css_name ?? $device?->deviceVariant() ?? 'og',
+                        'deviceVariant' => $device?->deviceModel->css_name ?? $device?->deviceVariant() ?? 'og',
                         'noBleed' => $this->no_bleed,
                         'darkMode' => $this->dark_mode,
                         'scaleLevel' => $device?->scaleLevel(),
@@ -869,7 +873,7 @@ class Plugin extends Model
                 return view('trmnl-layouts.mashup', [
                     'mashupLayout' => $this->getPreviewMashupLayoutForSize($size),
                     'colorDepth' => $device?->colorDepth(),
-                    'deviceVariant' => $device?->deviceModel?->css_name ?? $device?->deviceVariant() ?? 'og',
+                    'deviceVariant' => $device?->deviceModel->css_name ?? $device?->deviceVariant() ?? 'og',
                     'darkMode' => $this->dark_mode,
                     'scaleLevel' => $device?->scaleLevel(),
                     'cssVariables' => $device?->deviceModel?->css_variables,
@@ -893,7 +897,7 @@ class Plugin extends Model
                 if ($size === 'full') {
                     return view('trmnl-layouts.single', [
                         'colorDepth' => $device?->colorDepth(),
-                        'deviceVariant' => $device?->deviceModel?->css_name ?? $device?->deviceVariant() ?? 'og',
+                        'deviceVariant' => $device?->deviceModel->css_name ?? $device?->deviceVariant() ?? 'og',
                         'noBleed' => $this->no_bleed,
                         'darkMode' => $this->dark_mode,
                         'scaleLevel' => $device?->scaleLevel(),
@@ -906,7 +910,7 @@ class Plugin extends Model
                 return view('trmnl-layouts.mashup', [
                     'mashupLayout' => $this->getPreviewMashupLayoutForSize($size),
                     'colorDepth' => $device?->colorDepth(),
-                    'deviceVariant' => $device?->deviceModel?->css_name ?? $device?->deviceVariant() ?? 'og',
+                    'deviceVariant' => $device?->deviceModel->css_name ?? $device?->deviceVariant() ?? 'og',
                     'darkMode' => $this->dark_mode,
                     'scaleLevel' => $device?->scaleLevel(),
                     'cssVariables' => $device?->deviceModel?->css_variables,

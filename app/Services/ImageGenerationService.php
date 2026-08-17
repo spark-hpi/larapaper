@@ -336,7 +336,7 @@ class ImageGenerationService
             $existingPath = 'images/generated/'.$existingImageId.'.'.$fileExtension;
             if (Storage::disk('public')->exists($existingPath)) {
                 $existingBytes = Storage::disk('public')->get($existingPath);
-                if ($existingBytes !== false
+                if ($existingBytes !== null
                     && hash_equals(hash('sha256', $existingBytes), hash('sha256', $bytes))) {
                     Log::debug("Generated image has same hash. Keeping: $existingImageId");
 
@@ -655,7 +655,7 @@ class ImageGenerationService
         };
 
         // Determine device properties from DeviceModel or device settings
-        $deviceVariant = $device->deviceModel?->css_name ?? $device->deviceVariant();
+        $deviceVariant = $device->deviceModel->css_name ?? $device->deviceVariant();
         $deviceOrientation = $device->rotate > 0 ? 'portrait' : 'landscape';
         $colorDepth = $device->colorDepth() ?? '1bit';
         $scaleLevel = $device->scaleLevel();
@@ -669,7 +669,7 @@ class ImageGenerationService
             'deviceOrientation' => $deviceOrientation,
             'colorDepth' => $colorDepth,
             'scaleLevel' => $scaleLevel,
-            'cssVariables' => $device->deviceModel?->css_variables ?? [],
+            'cssVariables' => $device->deviceModel->css_variables ?? [],
         ];
 
         // Add plugin name for error screens

@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Storage;
 /**
  * @property-read DeviceModel|null $deviceModel
  * @property-read DevicePalette|null $palette
+ * @property-read User|null $user
+ * @property-read Device|null $mirrorDevice
+ * @property-read bool $update_firmware
  */
 class Device extends Model
 {
@@ -75,7 +78,11 @@ class Device extends Model
 
     public function getPreviewRotationAttribute(): int
     {
-        return (360 - ($this->deviceModel?->rotation ?? ($this->rotate ?? 0))) % 360;
+        $rotation = $this->deviceModel instanceof DeviceModel
+            ? $this->deviceModel->rotation
+            : null;
+
+        return (360 - ($rotation ?? ($this->rotate ?? 0))) % 360;
     }
 
     /**
@@ -162,6 +169,9 @@ class Device extends Model
         }
     }
 
+    /**
+     * @return HasMany<Playlist, $this>
+     */
     public function playlists(): HasMany
     {
         return $this->hasMany(Playlist::class);
@@ -189,26 +199,41 @@ class Device extends Model
         return null;
     }
 
+    /**
+     * @return BelongsTo<Playlist, $this>
+     */
     public function playlist(): BelongsTo
     {
         return $this->belongsTo(Playlist::class);
     }
 
+    /**
+     * @return BelongsTo<Device, $this>
+     */
     public function mirrorDevice(): BelongsTo
     {
         return $this->belongsTo(self::class, 'mirror_device_id');
     }
 
+    /**
+     * @return BelongsTo<Firmware, $this>
+     */
     public function updateFirmware(): BelongsTo
     {
         return $this->belongsTo(Firmware::class, 'update_firmware_id');
     }
 
+    /**
+     * @return BelongsTo<DeviceModel, $this>
+     */
     public function deviceModel(): BelongsTo
     {
         return $this->belongsTo(DeviceModel::class);
     }
 
+    /**
+     * @return BelongsTo<DevicePalette, $this>
+     */
     public function palette(): BelongsTo
     {
         return $this->belongsTo(DevicePalette::class, 'palette_id');
@@ -267,6 +292,9 @@ class Device extends Model
         ];
     }
 
+    /**
+     * @return BelongsTo<User, $this>
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -278,7 +306,9 @@ class Device extends Model
             return false;
         }
 
-        $timezone = $this->user?->timezone ?? config('app.timezone');
+        $timezone = $this->user instanceof User
+            ? $this->user->preferredTimezone()
+            : config('app.timezone');
         $localNow = ($now instanceof DateTimeInterface ? Carbon::instance($now) : now())->timezone($timezone);
 
         $from = $localNow->copy()->setTimeFrom($this->sleep_mode_from);
@@ -298,7 +328,9 @@ class Device extends Model
             return null;
         }
 
-        $timezone = $this->user?->timezone ?? config('app.timezone');
+        $timezone = $this->user instanceof User
+            ? $this->user->preferredTimezone()
+            : config('app.timezone');
         $nowCarbon = $now instanceof DateTimeInterface ? Carbon::instance($now) : now();
         $localNow = $nowCarbon->copy()->timezone($timezone);
 

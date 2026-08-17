@@ -4,6 +4,7 @@ namespace App\Mcp\Tools;
 
 use App\Mcp\Concerns\ResolvesUserRecipes;
 use App\Models\Plugin;
+use App\Models\User;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Str;
 use Laravel\Mcp\Request;
@@ -45,9 +46,15 @@ class CreateRecipeTool extends Tool
             return $error;
         }
 
+        $user = $request->user();
+
+        if (! $user instanceof User) {
+            return Response::error('Unauthenticated.');
+        }
+
         $plugin = Plugin::query()->create([
             'uuid' => Str::uuid(),
-            'user_id' => $request->user()->id,
+            'user_id' => $user->id,
             'name' => $validated['name'],
             'plugin_type' => 'recipe',
             'markup_language' => $markupLanguage,

@@ -197,7 +197,7 @@ class RunDeviceDisplayCycle
         return true;
     }
 
-    private function renderMashup(Device $device, $playlistItem): void
+    private function renderMashup(Device $device, PlaylistItem $playlistItem): void
     {
         $plugins = Plugin::whereIn('id', $playlistItem->getMashupPluginIds())->get();
 
@@ -213,7 +213,8 @@ class RunDeviceDisplayCycle
             GenerateScreenJob::dispatchSync($device->id, null, $markup);
         } catch (Exception $e) {
             Log::error("Failed to render mashup playlist item {$playlistItem->id}: ".$e->getMessage());
-            $pluginName = $plugins->first()?->name ?? 'Recipe';
+            $firstPlugin = $plugins->first();
+            $pluginName = $firstPlugin instanceof Plugin ? $firstPlugin->name : 'Recipe';
             $errorImageUuid = ImageGenerationService::generateDefaultScreenImage($device, 'error', $pluginName);
             $device->update(['current_screen_image' => $errorImageUuid]);
         }
