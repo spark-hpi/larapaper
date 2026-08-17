@@ -179,9 +179,9 @@ new class extends Component
             $this->refreshPlugins();
             $this->reset(['zipFile']);
 
-            Flux::modal('import-zip')->close();
+            Flux::toast(variant: 'success', text: "\"{$plugin->name}\" installed successfully.");
         } catch (Exception $e) {
-            $this->addError('zipFile', 'Error installing plugin: '.$e->getMessage());
+            Flux::toast(variant: 'danger', text: 'Error installing plugin: '.$e->getMessage());
         }
     }
 };
@@ -313,9 +313,6 @@ new class extends Component
                             accept=".zip"
                             class="block w-full cursor-pointer rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-400 dark:placeholder-gray-400"
                         />
-                        @error('zipFile')
-                            <flux:callout variant="danger" icon="x-circle" heading="{{ $message }}" class="mt-2" />
-                        @enderror
                     </div>
 
                     <div class="flex">

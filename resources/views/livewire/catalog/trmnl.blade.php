@@ -175,11 +175,11 @@ class extends Component
             );
 
             $this->dispatch('plugin-installed');
-            Flux::modal('import-from-trmnl-catalog')->close();
+            Flux::toast(variant: 'success', text: "\"{$plugin->name}\" installed successfully.");
 
         } catch (Exception $e) {
             Log::error('Plugin installation failed: '.$e->getMessage());
-            $this->addError('installation', 'Error installing plugin: '.$e->getMessage());
+            Flux::toast(variant: 'danger', text: 'Error installing plugin: '.$e->getMessage());
         }
     }
 
@@ -269,10 +269,6 @@ class extends Component
         </div>
         <flux:badge color="zinc">Newest</flux:badge>
     </div>
-
-    @error('installation')
-        <flux:callout variant="danger" icon="x-circle" heading="{{$message}}" />
-    @enderror
 
     @if(empty($recipes))
         <div class="text-center py-8">

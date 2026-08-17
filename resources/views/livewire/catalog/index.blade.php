@@ -101,7 +101,7 @@ class extends Component
         $plugin = collect($this->catalogPlugins)->firstWhere('id', $pluginId);
 
         if (! $plugin || ! $plugin['zip_url']) {
-            $this->addError('installation', 'Plugin not found or no download URL available.');
+            Flux::toast(variant: 'danger', text: 'Plugin not found or no download URL available.');
 
             return;
         }
@@ -119,10 +119,10 @@ class extends Component
             );
 
             $this->dispatch('plugin-installed');
-            Flux::modal('import-from-catalog')->close();
+            Flux::toast(variant: 'success', text: "\"{$importedPlugin->name}\" installed successfully.");
 
         } catch (Exception $e) {
-            $this->addError('installation', 'Error installing plugin: '.$e->getMessage());
+            Flux::toast(variant: 'danger', text: 'Error installing plugin: '.$e->getMessage());
         } finally {
             $this->installingPlugin = '';
         }
@@ -158,10 +158,6 @@ class extends Component
         </div>
     @else
         <div class="grid grid-cols-1 gap-4">
-            @error('installation')
-                <flux:callout variant="danger" icon="x-circle" heading="{{$message}}" />
-            @enderror
-
             @foreach($catalogPlugins as $plugin)
                 <div wire:key="plugin-{{ $plugin['id'] }}" class="bg-white dark:bg-white/10 border border-zinc-200 dark:border-white/10 [:where(&)]:p-6 [:where(&)]:rounded-xl space-y-6">
                     <div class="flex items-start space-x-4">
