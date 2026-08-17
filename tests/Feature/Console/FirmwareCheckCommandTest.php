@@ -5,6 +5,10 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
+beforeEach(function (): void {
+    Http::preventStrayRequests();
+});
+
 test('firmware check command has correct signature', function (): void {
     $command = $this->app->make(App\Console\Commands\FirmwareCheckCommand::class);
 

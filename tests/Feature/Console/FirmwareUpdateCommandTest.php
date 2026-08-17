@@ -6,6 +6,12 @@ use App\Enums\FirmwareModel;
 use App\Models\Device;
 use App\Models\Firmware;
 use App\Models\User;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
+
+beforeEach(function (): void {
+    Http::preventStrayRequests();
+});
 
 test('firmware update command has correct signature', function (): void {
     $this->artisan('trmnl:firmware:update --help')
@@ -64,6 +70,15 @@ test('firmware update command calls firmware check when check is selected', func
     $device = Device::factory()->create(['user_id' => $user->id]);
     $firmware = Firmware::factory()->trmnl()->create(['version_tag' => '1.0.0']);
 
+    $baseUrl = config('services.trmnl.base_url');
+
+    Http::fake([
+        $baseUrl.'/api/firmware/latest' => Http::response([
+            'version' => '1.0.0',
+            'url' => 'https://example.com/firmware.bin',
+        ], 200),
+    ]);
+
     $this->artisan('trmnl:firmware:update')
         ->expectsQuestion('Check for new firmware?', 'check')
         ->expectsQuestion('Which device model? (OTA updates are for TRMNL devices only)', FirmwareModel::Trmnl->value)
@@ -78,7 +93,22 @@ test('firmware update command calls firmware check when check is selected', func
 test('firmware update command calls firmware check with download when download is selected', function (): void {
     $user = User::factory()->create();
     $device = Device::factory()->create(['user_id' => $user->id]);
-    $firmware = Firmware::factory()->trmnl()->create(['version_tag' => '1.0.0']);
+    $firmware = Firmware::factory()->trmnl()->create([
+        'version_tag' => '1.0.0',
+        'storage_location' => null,
+    ]);
+
+    $baseUrl = config('services.trmnl.base_url');
+
+    Http::fake([
+        $baseUrl.'/api/firmware/latest' => Http::response([
+            'version' => '1.0.0',
+            'url' => 'https://example.com/firmware.bin',
+        ], 200),
+        'https://example.com/firmware.bin' => Http::response('fake firmware content', 200),
+    ]);
+
+    Storage::fake('public');
 
     $this->artisan('trmnl:firmware:update')
         ->expectsQuestion('Check for new firmware?', 'download')
