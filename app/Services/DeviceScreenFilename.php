@@ -38,7 +38,7 @@ class DeviceScreenFilename
      * Unix timestamps are 10 digits wide from 2001-09-09 until 2286. The firmware
      * reads exactly the last 10 characters, so a narrower value would misparse.
      */
-    private const MIN_TIMESTAMP = 1_000_000_000;
+    private const int MIN_TIMESTAMP = 1_000_000_000;
 
     public function make(?string $imagePath, string $identity, string $prefix = self::PREFIX_PLUGIN): ?string
     {

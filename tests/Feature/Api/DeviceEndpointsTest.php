@@ -1551,8 +1551,8 @@ test('device in sleep mode returns sleep image and correct refresh rate', functi
     $imagePath = 'images/generated/'.basename(parse_url((string) $json['image_url'], PHP_URL_PATH));
     expect($json['filename'])->toBe(
         app(DeviceScreenFilename::class)->make($imagePath, 'sleep', DeviceScreenFilename::PREFIX_SYSTEM)
-    )->toMatch('/^'.preg_quote(DeviceScreenFilename::PREFIX_SYSTEM, '/').'[a-f0-9]{6}-\d{10}$/');
-    expect($json['refresh_rate'])->toBeGreaterThan(0);
+    )->toMatch('/^'.preg_quote(DeviceScreenFilename::PREFIX_SYSTEM, '/').'[a-f0-9]{6}-\d{10}$/')
+        ->and($json['refresh_rate'])->toBeGreaterThan(0);
 
     Carbon\Carbon::setTestNow(); // Clear test time
 });
@@ -1628,8 +1628,8 @@ test('device returns sleep.png and correct refresh time when paused', function (
     $imagePath = 'images/generated/'.basename(parse_url((string) $json['image_url'], PHP_URL_PATH));
     expect($json['filename'])->toBe(
         app(DeviceScreenFilename::class)->make($imagePath, 'sleep', DeviceScreenFilename::PREFIX_SYSTEM)
-    )->toMatch('/^'.preg_quote(DeviceScreenFilename::PREFIX_SYSTEM, '/').'[a-f0-9]{6}-\d{10}$/');
-    expect($json['image_url'])->toContain('images/generated/')
+    )->toMatch('/^'.preg_quote(DeviceScreenFilename::PREFIX_SYSTEM, '/').'[a-f0-9]{6}-\d{10}$/')
+        ->and($json['image_url'])->toContain('images/generated/')
         ->and($json['refresh_rate'])->toBeLessThanOrEqual(3600); // ~60 min
 });
 
