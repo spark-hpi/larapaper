@@ -11,7 +11,7 @@ test('device auto join component can be rendered', function (): void {
 
     Livewire::actingAs($user)
         ->test(DeviceAutoJoin::class)
-        ->assertSee('Permit Auto-Join')
+        ->assertSee('Auto-Join Permitted')
         ->assertSet('deviceAutojoin', false)
         ->assertSet('isFirstUser', true);
 });
@@ -93,6 +93,17 @@ test('device auto join component works with authenticated user', function (): vo
 
     expect($component->instance()->deviceAutojoin)->toBeTrue()
         ->and($component->instance()->isFirstUser)->toBe($user->id === 1);
+});
+
+test('device auto join is persisted in the layout so wire navigate does not remount it', function (): void {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertSee('x-persist="device-auto-join-desktop"', false)
+        ->assertSee('x-persist="device-auto-join-mobile"', false)
+        ->assertSee('Auto-Join Permitted');
 });
 
 test('device auto join component handles multiple updates correctly', function (): void {

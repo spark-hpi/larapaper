@@ -50,7 +50,9 @@
         <flux:spacer />
 
         <flux:navbar class="mr-1.5 space-x-0.5 py-0! max-lg:hidden">
-            <livewire:actions.device-auto-join />
+            @persist('device-auto-join-desktop')
+                <livewire:actions.device-auto-join :key="'desktop'" />
+            @endpersist
         </flux:navbar>
 
         <!-- Desktop User Menu -->
@@ -164,7 +166,9 @@
         <flux:spacer />
 
         <flux:navlist variant="outline">
-            <livewire:actions.device-auto-join />
+            @persist('device-auto-join-mobile')
+                <livewire:actions.device-auto-join :key="'mobile'" />
+            @endpersist
         </flux:navlist>
     </flux:sidebar>
 
