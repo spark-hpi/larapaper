@@ -144,7 +144,8 @@ export function createCodeMirror(element, options = {}) {
         readOnly = false,
         onChange = () => {},
         onUpdate = () => {},
-        onBlur = () => {}
+        onBlur = () => {},
+        onSave = () => {}
     } = options;
 
     // Get language and theme support
@@ -171,6 +172,14 @@ export function createCodeMirror(element, options = {}) {
                 {
                     key: 'Mod-a',
                     run: selectAll,
+                },
+                {
+                    key: 'Mod-s',
+                    run: () => {
+                        onSave();
+                        return true;
+                    },
+                    preventDefault: true,
                 },
             ]),
             EditorView.theme({

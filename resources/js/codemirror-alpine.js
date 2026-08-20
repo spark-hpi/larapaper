@@ -95,8 +95,29 @@ export function codeEditorFormComponent(config) {
                     if (this.editor) {
                         this.updateState(this.editor.state.doc.toString());
                     }
-                }
+                },
+                onSave: () => this.handleSave()
             });
+        },
+
+        /**
+         * Handle Ctrl/Cmd+S: persist the editor content to the server instead
+         * of letting the browser download the page as a .txt file.
+         */
+        handleSave() {
+            if (this.editor) {
+                this.updateState(this.editor.state.doc.toString());
+            }
+
+            if (typeof config.onSave === 'function') {
+                config.onSave();
+                return;
+            }
+
+            const form = this.$el.closest('form');
+            if (form) {
+                form.requestSubmit();
+            }
         },
         
         /**
