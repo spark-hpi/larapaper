@@ -5,8 +5,6 @@ use App\Models\Device;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 beforeEach(function (): void {
     Storage::fake('public');
     Storage::disk('public')->makeDirectory('/images/generated');
@@ -151,10 +149,9 @@ test('it fetches and processes proxy cloud responses for devices with BMP images
         ->and($device->proxy_cloud_response)->toBe([
             'image_url' => 'https://example.com/test-image.bmp?response-content-type=image/bmp',
             'filename' => 'test-image',
-        ]);
-
-    expect(Storage::disk('public')->exists('images/generated/test-image.bmp'))->toBeTrue();
-    expect(Storage::disk('public')->exists('images/generated/test-image.png'))->toBeFalse();
+        ])
+        ->and(Storage::disk('public')->exists('images/generated/test-image.bmp'))->toBeTrue()
+        ->and(Storage::disk('public')->exists('images/generated/test-image.png'))->toBeFalse();
 });
 
 test('it fetches and processes proxy cloud responses for devices with PNG images', function (): void {
@@ -177,10 +174,9 @@ test('it fetches and processes proxy cloud responses for devices with PNG images
         ->and($device->proxy_cloud_response)->toBe([
             'image_url' => 'https://example.com/test-image.png?response-content-type=image/png',
             'filename' => 'test-image',
-        ]);
-
-    expect(Storage::disk('public')->exists('images/generated/test-image.png'))->toBeTrue();
-    expect(Storage::disk('public')->exists('images/generated/test-image.bmp'))->toBeFalse();
+        ])
+        ->and(Storage::disk('public')->exists('images/generated/test-image.png'))->toBeTrue()
+        ->and(Storage::disk('public')->exists('images/generated/test-image.bmp'))->toBeFalse();
 });
 
 test('it handles missing content type in image URL gracefully', function (): void {
@@ -202,10 +198,9 @@ test('it handles missing content type in image URL gracefully', function (): voi
         ->and($device->proxy_cloud_response)->toBe([
             'image_url' => 'https://example.com/test-image.bmp',
             'filename' => 'test-image',
-        ]);
-
-    expect(Storage::disk('public')->exists('images/generated/test-image.bmp'))->toBeTrue();
-    expect(Storage::disk('public')->exists('images/generated/test-image.png'))->toBeFalse();
+        ])
+        ->and(Storage::disk('public')->exists('images/generated/test-image.bmp'))->toBeTrue()
+        ->and(Storage::disk('public')->exists('images/generated/test-image.png'))->toBeFalse();
 });
 
 test('it handles null image URL gracefully', function (): void {
@@ -224,11 +219,10 @@ test('it handles null image URL gracefully', function (): void {
     expect($device->proxy_cloud_response)->toBe([
         'image_url' => null,
         'filename' => 'test-image',
-    ]);
-
-    expect($device->current_screen_image)->toBeNull();
-    expect(Storage::disk('public')->exists('images/generated/test-image.bmp'))->toBeFalse();
-    expect(Storage::disk('public')->exists('images/generated/test-image.png'))->toBeFalse();
+    ])
+        ->and($device->current_screen_image)->toBeNull()
+        ->and(Storage::disk('public')->exists('images/generated/test-image.bmp'))->toBeFalse()
+        ->and(Storage::disk('public')->exists('images/generated/test-image.png'))->toBeFalse();
 });
 
 test('it handles malformed image URL gracefully', function (): void {
@@ -247,7 +241,6 @@ test('it handles malformed image URL gracefully', function (): void {
     expect($device->proxy_cloud_response)->toBe([
         'image_url' => 'not-a-valid-url://',
         'filename' => 'test-image',
-    ]);
-
-    expect($device->current_screen_image)->toBeNull();
+    ])
+        ->and($device->current_screen_image)->toBeNull();
 });

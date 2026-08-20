@@ -24,7 +24,6 @@ class QrCodeService
      * Set the output format
      *
      * @param  string  $format  The format (currently only 'svg' is supported)
-     * @return $this
      */
     public function format(string $format): self
     {
@@ -37,7 +36,6 @@ class QrCodeService
      * Set the size of the QR code
      *
      * @param  int  $size  The size in pixels
-     * @return $this
      */
     public function size(int $size): self
     {
@@ -50,7 +48,6 @@ class QrCodeService
      * Set the error correction level
      *
      * @param  string  $level  Error correction level: 'l', 'm', 'q', 'h'
-     * @return $this
      */
     public function errorCorrection(string $level): self
     {

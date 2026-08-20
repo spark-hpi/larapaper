@@ -37,8 +37,7 @@ test('webhook message can add headers', function (): void {
         ->header('Authorization', 'Bearer token');
 
     $headers = $message->toArray()['headers'];
-    expect($headers['X-Custom-Header'])->toBe('custom-value');
-    expect($headers['Authorization'])->toBe('Bearer token');
+    expect($headers)->toMatchArray(['X-Custom-Header' => 'custom-value', 'Authorization' => 'Bearer token']);
 });
 
 test('webhook message can set user agent', function (): void {
@@ -71,12 +70,9 @@ test('webhook message can chain methods', function (): void {
         ->verify(true);
 
     $array = $message->toArray();
-
-    expect($array['query'])->toBe(['param' => 'value']);
-    expect($array['data'])->toBe(['updated' => 'data']);
-    expect($array['headers']['X-Test'])->toBe('header');
-    expect($array['headers']['User-Agent'])->toBe('Test Agent');
-    expect($array['verify'])->toBeTrue();
+    expect($array)->toMatchArray(['query' => ['param' => 'value'], 'data' => ['updated' => 'data']])
+        ->and($array['headers'])->toMatchArray(['X-Test' => 'header', 'User-Agent' => 'Test Agent'])
+        ->and($array['verify'])->toBeTrue();
 });
 
 test('webhook message toArray returns correct structure', function (): void {
@@ -84,9 +80,9 @@ test('webhook message toArray returns correct structure', function (): void {
 
     $array = $message->toArray();
 
-    expect($array)->toHaveKeys(['query', 'data', 'headers', 'verify']);
-    expect($array['query'])->toBeNull();
-    expect($array['data'])->toBe(['test' => 'data']);
-    expect($array['headers'])->toBeNull();
-    expect($array['verify'])->toBeFalse();
+    expect($array)->toHaveKeys(['query', 'data', 'headers', 'verify'])
+        ->and($array['query'])->toBeNull()
+        ->and($array['data'])->toBe(['test' => 'data'])
+        ->and($array['headers'])->toBeNull()
+        ->and($array['verify'])->toBeFalse();
 });

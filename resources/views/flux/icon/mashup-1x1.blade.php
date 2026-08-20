@@ -5,20 +5,20 @@
 ])
 
 @php
-$classes = Flux::classes('shrink-0')
-    ->add(match($variant) {
-        'outline' => '[:where(&)]:size-6',
-        'solid' => '[:where(&)]:size-6',
-        'mini' => '[:where(&)]:size-5',
-        'micro' => '[:where(&)]:size-4',
-    });
+    $classes = Flux::classes('shrink-0')
+        ->add(match ($variant) {
+            'outline' => '[:where(&)]:size-6',
+            'solid' => '[:where(&)]:size-6',
+            'mini' => '[:where(&)]:size-5',
+            'micro' => '[:where(&)]:size-4',
+        });
 
-$strokeWidth = match ($variant) {
-    'outline' => 2,
-    'mini' => 2.25,
-    'micro' => 2.5,
-    default => 2,
-};
+    $strokeWidth = match ($variant) {
+        'outline' => 2,
+        'mini' => 2.25,
+        'micro' => 2.5,
+        default => 2,
+    };
 @endphp
 
 <svg
@@ -34,5 +34,5 @@ $strokeWidth = match ($variant) {
     aria-hidden="true"
     data-slot="icon"
 >
-    <rect width="76" height="44" rx="3"/>
+    <rect width="76" height="44" rx="3" />
 </svg>

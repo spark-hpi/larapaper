@@ -2,9 +2,6 @@
 
 use App\Models\Device;
 use App\Models\DeviceLog;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-
-uses(RefreshDatabase::class);
 
 test('device log belongs to a device', function (): void {
     $device = Device::factory()->create();

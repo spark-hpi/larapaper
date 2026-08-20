@@ -1,25 +1,29 @@
 @php
-    $weatherEntity = collect(Arr::get($data, 'data'))->first(function($entity) {
+    $weatherEntity = collect(Arr::get($data, 'data'))->first(function ($entity) {
         return $entity['entity_id'] === 'weather.forecast_home';
     });
 @endphp
 
 @props(['size' => 'full'])
-<x-trmnl::view size="{{$size}}">
+<x-trmnl::view size="{{ $size }}">
     <x-trmnl::layout class="layout--col gap--space-between">
-        @if($weatherEntity)
-
-            <div class="grid" style="gap: 9px;">
+        @if ($weatherEntity)
+            <div class="grid" style="gap: 9px">
                 <div class="row row--center col--span-3 col--end">
-                    <img class="weather-image" style="max-height: 150px; margin:auto;"
-                         src="{{ config('services.trmnl.base_url') }}/images/plugins/weather/wi-thermometer.svg">
+                    <img
+                        class="weather-image"
+                        style="max-height: 150px; margin: auto"
+                        src="{{ config('services.trmnl.base_url') }}/images/plugins/weather/wi-thermometer.svg"
+                    />
                 </div>
                 <div class="col col--span-3 col--end">
                     <div class="item h--full">
                         <div class="meta"></div>
                         <div class="justify-center">
-                            <span class="value @if($size == 'full' || $size == 'half_horizontal') value--xxlarge @else value--medium @endif"
-                                  data-fit-value="true">{{ $weatherEntity['attributes']['temperature'] }}</span>
+                            <span
+                                class="value @if($size === 'full' || $size === 'half_horizontal') value--xxlarge @else value--medium @endif"
+                                data-fit-value="true"
+                            >{{ $weatherEntity['attributes']['temperature'] }}</span>
                             <span class="label">Temperature {{ $weatherEntity['attributes']['temperature_unit'] }}</span>
                         </div>
                     </div>
@@ -65,5 +69,5 @@
         @endif
     </x-trmnl::layout>
 
-    <x-trmnl::title-bar title="Home Assistant"/>
+    <x-trmnl::title-bar title="Home Assistant" />
 </x-trmnl::view>

@@ -35,8 +35,7 @@ test('playlist has many items', function (): void {
     $items = PlaylistItem::factory()->count(3)->create(['playlist_id' => $playlist->id]);
 
     expect($playlist->items)
-        ->toHaveCount(3)
-        ->each->toBeInstanceOf(PlaylistItem::class);
+        ->toHaveCount(3)->toContainOnlyInstancesOf(PlaylistItem::class);
 });
 
 test('getNextPlaylistItem returns null when playlist is inactive', function (): void {

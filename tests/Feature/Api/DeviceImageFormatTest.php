@@ -6,9 +6,8 @@ use App\Models\Playlist;
 use App\Models\PlaylistItem;
 use App\Models\Plugin;
 use App\Models\User;
+use App\Services\DeviceScreenFilename;
 use Illuminate\Support\Facades\Storage;
-
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
 
 beforeEach(function (): void {
     Storage::fake('public');
@@ -27,6 +26,8 @@ test('device with firmware version 1.5.1 gets bmp format', function (): void {
     Storage::disk('public')->put('images/generated/test-image.bmp', 'fake bmp content');
     Storage::disk('public')->put('images/generated/test-image.png', 'fake png content');
 
+    $path = 'images/generated/test-image.bmp';
+
     // Test /api/display endpoint
     $displayResponse = $this->withHeaders([
         'id' => $device->mac_address,
@@ -38,7 +39,7 @@ test('device with firmware version 1.5.1 gets bmp format', function (): void {
 
     $displayResponse->assertOk()
         ->assertJson([
-            'filename' => 'test-image.bmp',
+            'filename' => app(DeviceScreenFilename::class)->make($path, 'device:'.$device->id, DeviceScreenFilename::PREFIX_SYSTEM),
         ]);
 
     // Test /api/current_screen endpoint
@@ -48,7 +49,7 @@ test('device with firmware version 1.5.1 gets bmp format', function (): void {
 
     $currentScreenResponse->assertOk()
         ->assertJson([
-            'filename' => 'test-image.bmp',
+            'filename' => app(DeviceScreenFilename::class)->make($path, 'device:'.$device->id, DeviceScreenFilename::PREFIX_SYSTEM),
         ]);
 });
 
@@ -63,6 +64,8 @@ test('device with firmware version 1.5.2 gets png format', function (): void {
     // Create both bmp and png files
     Storage::disk('public')->put('images/generated/test-image.png', 'fake bmp content');
 
+    $path = 'images/generated/test-image.png';
+
     // Test /api/display endpoint
     $displayResponse = $this->withHeaders([
         'id' => $device->mac_address,
@@ -74,7 +77,7 @@ test('device with firmware version 1.5.2 gets png format', function (): void {
 
     $displayResponse->assertOk()
         ->assertJson([
-            'filename' => 'test-image.png',
+            'filename' => app(DeviceScreenFilename::class)->make($path, 'device:'.$device->id, DeviceScreenFilename::PREFIX_SYSTEM),
         ]);
 
     // Test /api/current_screen endpoint
@@ -84,7 +87,7 @@ test('device with firmware version 1.5.2 gets png format', function (): void {
 
     $currentScreenResponse->assertOk()
         ->assertJson([
-            'filename' => 'test-image.png',
+            'filename' => app(DeviceScreenFilename::class)->make($path, 'device:'.$device->id, DeviceScreenFilename::PREFIX_SYSTEM),
         ]);
 });
 
@@ -99,6 +102,8 @@ test('device falls back to bmp when png does not exist', function (): void {
     // Create only bmp file
     Storage::disk('public')->put('images/generated/test-image.bmp', 'fake bmp content');
 
+    $path = 'images/generated/test-image.bmp';
+
     // Test /api/display endpoint
     $displayResponse = $this->withHeaders([
         'id' => $device->mac_address,
@@ -110,7 +115,7 @@ test('device falls back to bmp when png does not exist', function (): void {
 
     $displayResponse->assertOk()
         ->assertJson([
-            'filename' => 'test-image.bmp',
+            'filename' => app(DeviceScreenFilename::class)->make($path, 'device:'.$device->id, DeviceScreenFilename::PREFIX_SYSTEM),
         ]);
 
     // Test /api/current_screen endpoint
@@ -120,7 +125,7 @@ test('device falls back to bmp when png does not exist', function (): void {
 
     $currentScreenResponse->assertOk()
         ->assertJson([
-            'filename' => 'test-image.bmp',
+            'filename' => app(DeviceScreenFilename::class)->make($path, 'device:'.$device->id, DeviceScreenFilename::PREFIX_SYSTEM),
         ]);
 });
 
@@ -183,8 +188,9 @@ test('device without device_model_id and image_format bmp3_1bit_srgb returns bmp
     ])->get('/api/current_screen');
 
     $displayResponse->assertOk();
+    $path = 'images/generated/'.$imageUuid.'.bmp';
     $displayResponse->assertJson([
-        'filename' => $imageUuid.'.bmp',
+        'filename' => app(DeviceScreenFilename::class)->make($path, 'plugin:'.$plugin->id, DeviceScreenFilename::PREFIX_PLUGIN),
     ]);
 
     // Verify that the device's image_format is correctly set

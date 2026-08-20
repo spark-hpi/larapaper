@@ -22,17 +22,25 @@ class FirmwareCheckCommand extends Command
             message: 'Checking for latest firmware...'
         );
 
-        $latestFirmware = Firmware::getLatest();
-        if ($latestFirmware instanceof Firmware) {
-            table(
-                rows: [
-                    ['Latest Version', $latestFirmware->version_tag],
-                    ['Download URL', $latestFirmware->url],
-                    ['Storage Location', $latestFirmware->storage_location],
-                ]
-            );
-        } else {
+        $latestFirmwares = Firmware::query()
+            ->latestVersion()
+            ->orderBy('model')
+            ->get();
+
+        if ($latestFirmwares->isEmpty()) {
             $this->error('No firmware found.');
+
+            return;
         }
+
+        table(
+            headers: ['Model', 'Version', 'Download URL', 'Storage Location'],
+            rows: $latestFirmwares->map(fn (Firmware $firmware): array => [
+                $firmware->model->label(),
+                $firmware->version_tag,
+                $firmware->url,
+                $firmware->storage_location,
+            ])->all(),
+        );
     }
 }

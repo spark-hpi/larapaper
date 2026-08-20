@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\Plugin;
 use App\Plugins\Enums\PluginOutput;
+use App\Plugins\PluginContent;
 use App\Plugins\PluginHandler;
 use Bnussbau\EpaperPipeline\Stages\BrowserStage;
 use Illuminate\Http\Request;
@@ -34,7 +35,7 @@ test('default produce throws runtime exception', function (): void {
 
     $plugin = Plugin::factory()->make();
 
-    expect(fn () => $handler->produce($plugin))
+    expect(fn (): PluginContent => $handler->produce($plugin))
         ->toThrow(RuntimeException::class, 'does not implement produce()');
 });
 
@@ -94,8 +95,7 @@ test('configure browser stage sets html from markup', function (): void {
     $stage = new BrowserStage;
     $handler->configureBrowserStage($stage, '<main>x</main>', Plugin::factory()->make());
 
-    $html = (new ReflectionClass(BrowserStage::class))->getProperty('html');
-    $html->setAccessible(true);
+    $html = new ReflectionClass(BrowserStage::class)->getProperty('html');
 
     expect($html->getValue($stage))->toBe('<main>x</main>');
 });

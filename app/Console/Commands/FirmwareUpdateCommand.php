@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\FirmwareModel;
 use App\Models\Device;
 use App\Models\Firmware;
 use Illuminate\Console\Command;
@@ -17,7 +18,6 @@ class FirmwareUpdateCommand extends Command
 
     public function handle(): void
     {
-
         $checkFirmware = select(
             label: 'Check for new firmware?',
             options: [
@@ -33,9 +33,30 @@ class FirmwareUpdateCommand extends Command
             ]);
         }
 
+        $firmwareModel = select(
+            label: 'Which device model? (OTA updates are for TRMNL devices only)',
+            options: FirmwareModel::options(),
+        );
+
+        $this->warn('OTA firmware updates are currently available only for TRMNL devices. Applying firmware to other device models may break your device.');
+
+        $firmwareOptions = Firmware::query()
+            ->forModel($firmwareModel)
+            ->orderedForSelection()
+            ->get()
+            ->mapWithKeys(fn (Firmware $firmware): array => [
+                $firmware->id => $firmware->version_tag.($firmware->latest ? ' (Latest)' : ''),
+            ]);
+
+        if ($firmwareOptions->isEmpty()) {
+            $this->error("No firmware found for model [{$firmwareModel}]. Run trmnl:firmware:check first.");
+
+            return;
+        }
+
         $firmwareVersion = select(
             label: 'Update to which version?',
-            options: Firmware::pluck('version_tag', 'id')
+            options: $firmwareOptions->all(),
         );
 
         $devices = multiselect(

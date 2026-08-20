@@ -56,10 +56,10 @@ ICS;
     $plugin->updateDataPayload();
     $plugin->refresh();
 
-    expect($plugin->data_payload)->not->toHaveKey('error');
-    expect($plugin->data_payload)->toHaveKey('ical');
-    expect($plugin->data_payload['ical'])->toHaveCount(1);
-    expect($plugin->data_payload['ical'][0]['SUMMARY'])->toBe('Meeting');
+    expect($plugin->data_payload)->not->toHaveKey('error')
+        ->toHaveKey('ical')
+        ->and($plugin->data_payload['ical'])->toHaveCount(1)
+        ->and($plugin->data_payload['ical'][0]['SUMMARY'])->toBe('Meeting');
 
     Carbon::setTestNow();
 });
@@ -112,7 +112,7 @@ ICS;
     $summaries = collect($ical)->pluck('SUMMARY');
     expect($summaries)->toContain('Recurring Meeting');
 
-    $dates = collect($ical)->map(fn ($event) => Carbon::parse($event['DTSTART'])->format('Y-m-d'))->values();
+    $dates = collect($ical)->map(fn ($event): string => Carbon::parse($event['DTSTART'])->format('Y-m-d'))->values();
 
     // Check if Tuesday March 26 is present
     expect($dates)->toContain('2024-03-26');
@@ -157,10 +157,10 @@ ICS;
     $plugin->refresh();
 
     $ical = $plugin->data_payload['ical'];
-    $dates = collect($ical)->map(fn ($event) => Carbon::parse($event['DTSTART'])->format('Y-m-d'))->values();
+    $dates = collect($ical)->map(fn ($event): string => Carbon::parse($event['DTSTART'])->format('Y-m-d'))->values();
 
-    expect($dates)->toContain('2024-03-26');
-    expect($dates)->toContain('2024-03-28');
+    expect($dates)->toContain('2024-03-26')
+        ->toContain('2024-03-28');
 
     Carbon::setTestNow();
 });
@@ -215,20 +215,18 @@ ICS;
 
     $payload = $plugin->data_payload;
 
-    expect($payload)->toHaveKeys(['IDX_0', 'IDX_1']);
-    expect($payload['IDX_0'])->toHaveKey('ical');
-    expect($payload['IDX_1'])->toHaveKey('ical');
+    expect($payload)->toHaveKeys(['IDX_0', 'IDX_1'])
+        ->and($payload['IDX_0'])->toHaveKey('ical')
+        ->and($payload['IDX_1'])->toHaveKey('ical');
 
     $offsetEvent = $payload['IDX_0']['ical'][0];
     $utcEvent = $payload['IDX_1']['ical'][0];
 
-    expect($offsetEvent['SUMMARY'])->toBe('Event1');
-    expect($utcEvent['SUMMARY'])->toBe('Event2');
-
-    expect(Carbon::parse($offsetEvent['DTSTART'])->equalTo(Carbon::parse('2026-04-30 09:00:00', 'UTC')))->toBeTrue();
-    expect(Carbon::parse($utcEvent['DTSTART'])->equalTo(Carbon::parse('2026-04-30 12:25:00', 'UTC')))->toBeTrue();
-
-    expect($utcEvent['DTSTART'])->toBe('2026-04-30T12:25:00+00:00');
+    expect($offsetEvent['SUMMARY'])->toBe('Event1')
+        ->and($utcEvent['SUMMARY'])->toBe('Event2')
+        ->and(Carbon::parse($offsetEvent['DTSTART'])->equalTo(Carbon::parse('2026-04-30 09:00:00', 'UTC')))->toBeTrue()
+        ->and(Carbon::parse($utcEvent['DTSTART'])->equalTo(Carbon::parse('2026-04-30 12:25:00', 'UTC')))->toBeTrue()
+        ->and($utcEvent['DTSTART'])->toBe('2026-04-30T12:25:00+00:00');
 
     Carbon::setTestNow();
 });

@@ -120,7 +120,7 @@ it('installs plugin successfully when user is authenticated', function (): void 
     Livewire::test('catalog.trmnl')
         ->assertSee('Weather Chum')
         ->call('installPlugin', '123')
-        ->assertSee('Error installing plugin'); // This will fail because we don't have a real zip file
+        ->assertDispatched('toast-show');
 });
 
 it('shows error when user is not authenticated', function (): void {
@@ -173,7 +173,7 @@ it('shows error when plugin installation fails', function (): void {
     Livewire::test('catalog.trmnl')
         ->assertSee('Weather Chum')
         ->call('installPlugin', '123')
-        ->assertSee('Error installing plugin'); // This will fail because the zip content is invalid
+        ->assertDispatched('toast-show');
 });
 
 it('previews a recipe with async fetch', function (): void {

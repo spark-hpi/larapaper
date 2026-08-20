@@ -23,6 +23,7 @@ use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\App;
@@ -100,7 +101,10 @@ class Plugin extends Model
 
     public const CUSTOM_FIELDS_KEY = 'custom_fields';
 
-    public function user()
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
@@ -301,7 +305,7 @@ class Plugin extends Model
     }
 
     /** Bytes reserved below livewire.payload.max_size for other component state in the request. */
-    private const WIRE_HEADROOM_BYTES = 512;
+    private const int WIRE_HEADROOM_BYTES = 512;
 
     /** Extra reserve for the recipe form body (markup, views, other properties). */
     private const RECIPE_STATIC_FIELD_RESERVE_BYTES = 1024 * 1024;
@@ -488,7 +492,7 @@ class Plugin extends Model
         $contentType = $headers['Content-Type'] ?? 'application/json';
 
         $isPost = $this->polling_verb === 'post';
-        $responses = Http::pool(function (Pool $pool) use ($urls, $headers, $resolvedBody, $contentType, $isPost) {
+        $responses = Http::pool(function (Pool $pool) use ($urls, $headers, $resolvedBody, $contentType, $isPost): array {
             $requests = [];
             foreach ($urls as $url) {
                 $request = $pool->withHeaders($headers)->timeout(10);
@@ -885,7 +889,7 @@ class Plugin extends Model
                 if ($size === 'full') {
                     return view('trmnl-layouts.single', [
                         'colorDepth' => $device?->colorDepth(),
-                        'deviceVariant' => $device?->deviceModel?->css_name ?? $device?->deviceVariant() ?? 'og',
+                        'deviceVariant' => $device?->deviceModel->css_name ?? $device?->deviceVariant() ?? 'og',
                         'noBleed' => $this->no_bleed,
                         'darkMode' => $this->dark_mode,
                         'scaleLevel' => $device?->scaleLevel(),
@@ -898,7 +902,7 @@ class Plugin extends Model
                 return view('trmnl-layouts.mashup', [
                     'mashupLayout' => $this->getPreviewMashupLayoutForSize($size),
                     'colorDepth' => $device?->colorDepth(),
-                    'deviceVariant' => $device?->deviceModel?->css_name ?? $device?->deviceVariant() ?? 'og',
+                    'deviceVariant' => $device?->deviceModel->css_name ?? $device?->deviceVariant() ?? 'og',
                     'darkMode' => $this->dark_mode,
                     'scaleLevel' => $device?->scaleLevel(),
                     'cssVariables' => $device?->deviceModel?->css_variables,
@@ -922,7 +926,7 @@ class Plugin extends Model
                 if ($size === 'full') {
                     return view('trmnl-layouts.single', [
                         'colorDepth' => $device?->colorDepth(),
-                        'deviceVariant' => $device?->deviceModel?->css_name ?? $device?->deviceVariant() ?? 'og',
+                        'deviceVariant' => $device?->deviceModel->css_name ?? $device?->deviceVariant() ?? 'og',
                         'noBleed' => $this->no_bleed,
                         'darkMode' => $this->dark_mode,
                         'scaleLevel' => $device?->scaleLevel(),
@@ -935,7 +939,7 @@ class Plugin extends Model
                 return view('trmnl-layouts.mashup', [
                     'mashupLayout' => $this->getPreviewMashupLayoutForSize($size),
                     'colorDepth' => $device?->colorDepth(),
-                    'deviceVariant' => $device?->deviceModel?->css_name ?? $device?->deviceVariant() ?? 'og',
+                    'deviceVariant' => $device?->deviceModel->css_name ?? $device?->deviceVariant() ?? 'og',
                     'darkMode' => $this->dark_mode,
                     'scaleLevel' => $device?->scaleLevel(),
                     'cssVariables' => $device?->deviceModel?->css_variables,
@@ -981,7 +985,7 @@ class Plugin extends Model
 
         // Prepend shared markup if it exists
         if ($markup && $this->render_markup_shared) {
-            $markup = $this->render_markup_shared."\n".$markup;
+            return $this->render_markup_shared."\n".$markup;
         }
 
         return $markup;

@@ -3,8 +3,6 @@
 use App\Models\User;
 use Illuminate\Support\Facades\Config;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 test('auth pages show pixel logo SVG when pixel_logo_enabled is true', function (): void {
     Config::set('app.pixel_logo_enabled', true);
 

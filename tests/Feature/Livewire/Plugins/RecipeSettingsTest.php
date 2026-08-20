@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 use App\Models\Plugin;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
-
-uses(RefreshDatabase::class);
 
 test('recipe settings can save trmnlp_id', function (): void {
     $user = User::factory()->create();

@@ -24,9 +24,9 @@ test('battery low notification creates correct mail message', function (): void 
     $notification = new BatteryLow($device);
     $mailMessage = $notification->toMail(new User());
 
-    expect($mailMessage)->toBeInstanceOf(MailMessage::class);
-    expect($mailMessage->markdown)->toBe('mail.battery-low');
-    expect($mailMessage->viewData['device'])->toBe($device);
+    expect($mailMessage)->toBeInstanceOf(MailMessage::class)
+        ->and($mailMessage->markdown)->toBe('mail.battery-low')
+        ->and($mailMessage->viewData['device'])->toBe($device);
 });
 
 test('battery low notification creates correct webhook message', function (): void {

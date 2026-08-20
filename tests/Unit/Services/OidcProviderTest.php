@@ -233,12 +233,12 @@ test('oidc provider maps user data correctly', function (): void {
 
     $user = $provider->mapUserToObject($userData);
 
-    expect($user)->toBeInstanceOf(User::class);
-    expect($user->getId())->toBe('user123');
-    expect($user->getName())->toBe('John Doe');
-    expect($user->getEmail())->toBe('john@example.com');
-    expect($user->getNickname())->toBe('johndoe');
-    expect($user->getAvatar())->toBe('https://example.com/avatar.jpg');
+    expect($user)->toBeInstanceOf(User::class)
+        ->and($user->getId())->toBe('user123')
+        ->and($user->getName())->toBe('John Doe')
+        ->and($user->getEmail())->toBe('john@example.com')
+        ->and($user->getNickname())->toBe('johndoe')
+        ->and($user->getAvatar())->toBe('https://example.com/avatar.jpg');
 });
 
 test('oidc provider handles missing user fields gracefully', function (): void {
@@ -272,10 +272,10 @@ test('oidc provider handles missing user fields gracefully', function (): void {
 
     $user = $provider->mapUserToObject($userData);
 
-    expect($user)->toBeInstanceOf(User::class);
-    expect($user->getId())->toBe('user123');
-    expect($user->getName())->toBeNull();
-    expect($user->getEmail())->toBeNull();
-    expect($user->getNickname())->toBeNull();
-    expect($user->getAvatar())->toBeNull();
+    expect($user)->toBeInstanceOf(User::class)
+        ->and($user->getId())->toBe('user123')
+        ->and($user->getName())->toBeNull()
+        ->and($user->getEmail())->toBeNull()
+        ->and($user->getNickname())->toBeNull()
+        ->and($user->getAvatar())->toBeNull();
 });

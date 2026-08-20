@@ -198,17 +198,19 @@ new class extends Component
 
 <div>
     <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center mb-6">
+        <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+            <div class="mb-6 flex items-center justify-between">
                 <livewire:device-resource-nav />
                 <flux:button.group>
                     <flux:modal.trigger name="device-palette-modal">
-                        <flux:button wire:click="openDevicePaletteModal()" icon="plus" variant="primary">Add Device Palette</flux:button>
+                        <flux:button wire:click="openDevicePaletteModal()" icon="plus" variant="primary"
+                            >Add Device Palette</flux:button>
                     </flux:modal.trigger>
                     <flux:dropdown>
                         <flux:button icon="chevron-down" variant="primary"></flux:button>
                         <flux:menu>
-                            <flux:menu.item icon="arrow-path" wire:click="updateFromApi">Update from API</flux:menu.item>
+                            <flux:menu.item icon="arrow-path" wire:click="updateFromApi">
+                                Update from API</flux:menu.item>
                         </flux:menu>
                     </flux:dropdown>
                 </flux:button.group>
@@ -229,64 +231,110 @@ new class extends Component
 
                     <form wire:submit="saveDevicePalette">
                         <div class="mb-4">
-                            <flux:input label="Name (Identifier)" wire:model="name" id="name" class="block mt-1 w-full" type="text"
-                                        name="name" autofocus :disabled="$viewingDevicePaletteId"/>
+                            <flux:input
+                                label="Name (Identifier)"
+                                wire:model="name"
+                                id="name"
+                                class="mt-1 block w-full"
+                                type="text"
+                                name="name"
+                                autofocus
+                                :disabled="$viewingDevicePaletteId"
+                            />
                         </div>
 
                         <div class="mb-4">
-                            <flux:input label="Description" wire:model="description" id="description" class="block mt-1 w-full" type="text"
-                                        name="description" :disabled="$viewingDevicePaletteId"/>
+                            <flux:input
+                                label="Description"
+                                wire:model="description"
+                                id="description"
+                                class="mt-1 block w-full"
+                                type="text"
+                                name="description"
+                                :disabled="$viewingDevicePaletteId"
+                            />
                         </div>
 
                         <div class="mb-4">
-                            <flux:input label="Grays" wire:model="grays" id="grays" class="block mt-1 w-full"
-                                        type="number"
-                                        name="grays" min="1" max="256" :disabled="$viewingDevicePaletteId"/>
+                            <flux:input
+                                label="Grays"
+                                wire:model="grays"
+                                id="grays"
+                                class="mt-1 block w-full"
+                                type="number"
+                                name="grays"
+                                min="1"
+                                max="256"
+                                :disabled="$viewingDevicePaletteId"
+                            />
                         </div>
 
                         <div class="mb-4">
-                            <flux:input label="Framework Class" wire:model="framework_class" id="framework_class"
-                                        class="block mt-1 w-full" type="text"
-                                        name="framework_class" :disabled="$viewingDevicePaletteId"/>
+                            <flux:input
+                                label="Framework Class"
+                                wire:model="framework_class"
+                                id="framework_class"
+                                class="mt-1 block w-full"
+                                type="text"
+                                name="framework_class"
+                                :disabled="$viewingDevicePaletteId"
+                            />
                         </div>
 
                         <div class="mb-4">
                             <flux:label>Colors</flux:label>
-                            @if (!$viewingDevicePaletteId)
-                                <div class="flex gap-2 mb-2">
-                                    <flux:input wire:model="colorInput" placeholder="#FF0000" class="flex-1"/>
+                            @if (! $viewingDevicePaletteId)
+                                <div class="mb-2 flex gap-2">
+                                    <flux:input wire:model="colorInput" placeholder="#FF0000" class="flex-1" />
                                     <flux:button type="button" wire:click="addColor" variant="ghost">Add</flux:button>
                                 </div>
                             @endif
                             <div class="flex flex-wrap gap-2">
-                                @if (!empty($colors) && is_array($colors) && count($colors) > 0)
+                                @if (! empty($colors) && is_array($colors) && count($colors) > 0)
                                     @foreach ($colors as $index => $color)
-                                        @if (!empty($color))
-                                            <div wire:key="color-{{ $editingDevicePaletteId ?? $viewingDevicePaletteId ?? 'new' }}-{{ $index }}-{{ $color }}" class="flex items-center gap-2 px-3 py-1 bg-zinc-100 dark:bg-zinc-800 rounded">
-                                                <div class="w-4 h-4 rounded border border-zinc-300 dark:border-zinc-600" style="background-color: {{ $color }}"></div>
+                                        @if (! empty($color))
+                                            <div
+                                                wire:key="color-{{ $editingDevicePaletteId ?? $viewingDevicePaletteId ?? 'new' }}-{{ $index }}-{{ $color }}"
+                                                class="flex items-center gap-2 rounded bg-zinc-100 px-3 py-1 dark:bg-zinc-800"
+                                            >
+                                                <div
+                                                    class="h-4 w-4 rounded border border-zinc-300 dark:border-zinc-600"
+                                                    style="background-color: {{ $color }}"
+                                                ></div>
                                                 <span class="text-sm">{{ $color }}</span>
-                                                @if (!$viewingDevicePaletteId)
-                                                    <flux:button type="button" wire:click="removeColor({{ $index }})" icon="x-mark" variant="ghost" size="sm"></flux:button>
+                                                @if (! $viewingDevicePaletteId)
+                                                    <flux:button
+                                                        type="button"
+                                                        wire:click="removeColor({{ $index }})"
+                                                        icon="x-mark"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                    ></flux:button>
                                                 @endif
                                             </div>
                                         @endif
                                     @endforeach
                                 @endif
                             </div>
-                            @if (!$viewingDevicePaletteId)
+                            @if (! $viewingDevicePaletteId)
                                 <p class="mt-1 text-xs text-zinc-500">Leave empty for grayscale-only palette</p>
                             @endif
                         </div>
 
-                        @if (!$viewingDevicePaletteId)
+                        @if (! $viewingDevicePaletteId)
                             <div class="flex">
-                                <flux:spacer/>
-                                <flux:button type="submit" variant="primary">{{ $editingDevicePaletteId ? 'Update' : 'Create' }} Device Palette</flux:button>
+                                <flux:spacer />
+                                <flux:button type="submit" variant="primary"
+                                    >{{ $editingDevicePaletteId ? 'Update' : 'Create' }} Device Palette</flux:button>
                             </div>
                         @else
                             <div class="flex">
-                                <flux:spacer/>
-                                <flux:button type="button" wire:click="duplicateDevicePalette('{{ $viewingDevicePaletteId }}')" variant="primary">Duplicate</flux:button>
+                                <flux:spacer />
+                                <flux:button
+                                    type="button"
+                                    wire:click="duplicateDevicePalette('{{ $viewingDevicePaletteId }}')"
+                                    variant="primary"
+                                >Duplicate</flux:button>
                             </div>
                         @endif
                     </form>
@@ -294,87 +342,108 @@ new class extends Component
             </flux:modal>
 
             <table
-                class="min-w-full table-fixed text-zinc-800 divide-y divide-zinc-800/10 dark:divide-white/20 text-zinc-800"
-                data-flux-table>
+                class="min-w-full table-fixed divide-y divide-zinc-800/10 text-zinc-800 dark:divide-white/20"
+                data-flux-table
+            >
                 <thead data-flux-columns>
-                <tr>
-                    <th class="py-3 px-3 first:pl-0 last:pr-0 text-left text-sm font-medium text-zinc-800 dark:text-white"
-                        data-flux-column>
-                        <div class="whitespace-nowrap flex group-[]/right-align:justify-end">Description</div>
-                    </th>
-                    <th class="py-3 px-3 first:pl-0 last:pr-0 text-left text-sm font-medium text-zinc-800 dark:text-white"
-                        data-flux-column>
-                        <div class="whitespace-nowrap flex group-[]/right-align:justify-end">Grays</div>
-                    </th>
-                    <th class="py-3 px-3 first:pl-0 last:pr-0 text-left text-sm font-medium text-zinc-800 dark:text-white"
-                        data-flux-column>
-                        <div class="whitespace-nowrap flex group-[]/right-align:justify-end">Colors</div>
-                    </th>
-                    <th class="py-3 px-3 first:pl-0 last:pr-0 text-left text-sm font-medium text-zinc-800 dark:text-white"
-                        data-flux-column>
-                        <div class="whitespace-nowrap flex group-[]/right-align:justify-end">Actions</div>
-                    </th>
-                </tr>
+                    <tr>
+                        <th
+                            class="px-3 py-3 text-left text-sm font-medium text-zinc-800 first:pl-0 last:pr-0 dark:text-white"
+                            data-flux-column
+                        >
+                            <div class="group-[]/right-align:justify-end flex whitespace-nowrap">Description</div>
+                        </th>
+                        <th
+                            class="px-3 py-3 text-left text-sm font-medium text-zinc-800 first:pl-0 last:pr-0 dark:text-white"
+                            data-flux-column
+                        >
+                            <div class="group-[]/right-align:justify-end flex whitespace-nowrap">Grays</div>
+                        </th>
+                        <th
+                            class="px-3 py-3 text-left text-sm font-medium text-zinc-800 first:pl-0 last:pr-0 dark:text-white"
+                            data-flux-column
+                        >
+                            <div class="group-[]/right-align:justify-end flex whitespace-nowrap">Colors</div>
+                        </th>
+                        <th
+                            class="px-3 py-3 text-left text-sm font-medium text-zinc-800 first:pl-0 last:pr-0 dark:text-white"
+                            data-flux-column
+                        >
+                            <div class="group-[]/right-align:justify-end flex whitespace-nowrap">Actions</div>
+                        </th>
+                    </tr>
                 </thead>
 
                 <tbody class="divide-y divide-zinc-800/10 dark:divide-white/20" data-flux-rows>
-                @foreach ($devicePalettes as $devicePalette)
-                    <tr data-flux-row>
-                        <td class="py-3 px-3 first:pl-0 last:pr-0 text-sm whitespace-nowrap text-zinc-500 dark:text-zinc-300"
-                        >
-                            <div>
-                                <div class="font-medium text-zinc-800 dark:text-white">{{ $devicePalette->description ?? $devicePalette->name }}</div>
-                                <div class="text-xs text-zinc-500">{{ $devicePalette->name }}</div>
-                            </div>
-                        </td>
-                        <td class="py-3 px-3 first:pl-0 last:pr-0 text-sm whitespace-nowrap text-zinc-500 dark:text-zinc-300"
-                        >
-                            {{ $devicePalette->grays }}
-                        </td>
-                        <td class="py-3 px-3 first:pl-0 last:pr-0 text-sm whitespace-nowrap text-zinc-500 dark:text-zinc-300"
-                        >
-                            @if ($devicePalette->colors)
-                                <div class="flex gap-1">
-                                    @foreach ($devicePalette->colors as $color)
-                                        <div class="w-4 h-4 rounded border border-zinc-300 dark:border-zinc-600" style="background-color: {{ $color }}"></div>
-                                    @endforeach
-                                    <span class="ml-2">({{ count($devicePalette->colors) }})</span>
+                    @foreach ($devicePalettes as $devicePalette)
+                        <tr data-flux-row>
+                            <td class="px-3 py-3 text-sm whitespace-nowrap text-zinc-500 first:pl-0 last:pr-0 dark:text-zinc-300">
+                                <div>
+                                    <div class="font-medium text-zinc-800 dark:text-white">
+                                        {{ $devicePalette->description ?? $devicePalette->name }}
+                                    </div>
+                                    <div class="text-xs text-zinc-500">{{ $devicePalette->name }}</div>
                                 </div>
-                            @else
-                                <span class="text-zinc-400">Grayscale only</span>
-                            @endif
-                        </td>
-                        <td class="py-3 px-3 first:pl-0 last:pr-0 text-sm whitespace-nowrap font-medium text-zinc-800 dark:text-white"
-                        >
-                            <div class="flex items-center gap-4">
-                                <flux:button.group>
-                                    @if ($devicePalette->source === 'api')
-                                        <flux:modal.trigger name="device-palette-modal">
-                                            <flux:button wire:click="openDevicePaletteModal('{{ $devicePalette->id }}', true)" icon="eye"
-                                                         iconVariant="outline">
+                            </td>
+                            <td class="px-3 py-3 text-sm whitespace-nowrap text-zinc-500 first:pl-0 last:pr-0 dark:text-zinc-300">
+                                {{ $devicePalette->grays }}
+                            </td>
+                            <td class="px-3 py-3 text-sm whitespace-nowrap text-zinc-500 first:pl-0 last:pr-0 dark:text-zinc-300">
+                                @if ($devicePalette->colors)
+                                    <div class="flex gap-1">
+                                        @foreach ($devicePalette->colors as $color)
+                                            <div
+                                                class="h-4 w-4 rounded border border-zinc-300 dark:border-zinc-600"
+                                                style="background-color: {{ $color }}"
+                                            ></div>
+                                        @endforeach
+                                        <span class="ml-2">({{ count($devicePalette->colors) }})</span>
+                                    </div>
+                                @else
+                                    <span class="text-zinc-400">Grayscale only</span>
+                                @endif
+                            </td>
+                            <td class="px-3 py-3 text-sm font-medium whitespace-nowrap text-zinc-800 first:pl-0 last:pr-0 dark:text-white">
+                                <div class="flex items-center gap-4">
+                                    <flux:button.group>
+                                        @if ($devicePalette->source === 'api')
+                                            <flux:modal.trigger name="device-palette-modal">
+                                                <flux:button
+                                                    wire:click="openDevicePaletteModal('{{ $devicePalette->id }}', true)"
+                                                    icon="eye"
+                                                    iconVariant="outline"
+                                                >
+                                                </flux:button>
+                                            </flux:modal.trigger>
+                                            <flux:button
+                                                wire:click="duplicateDevicePalette('{{ $devicePalette->id }}')"
+                                                icon="document-duplicate"
+                                                iconVariant="outline"
+                                            >
                                             </flux:button>
-                                        </flux:modal.trigger>
-                                        <flux:button wire:click="duplicateDevicePalette('{{ $devicePalette->id }}')" icon="document-duplicate"
-                                                     iconVariant="outline">
-                                        </flux:button>
-                                    @else
-                                        <flux:modal.trigger name="device-palette-modal">
-                                            <flux:button wire:click="openDevicePaletteModal('{{ $devicePalette->id }}')" icon="pencil"
-                                                         iconVariant="outline">
+                                        @else
+                                            <flux:modal.trigger name="device-palette-modal">
+                                                <flux:button
+                                                    wire:click="openDevicePaletteModal('{{ $devicePalette->id }}')"
+                                                    icon="pencil"
+                                                    iconVariant="outline"
+                                                >
+                                                </flux:button>
+                                            </flux:modal.trigger>
+                                            <flux:button
+                                                wire:click="deleteDevicePalette('{{ $devicePalette->id }}')"
+                                                icon="trash"
+                                                iconVariant="outline"
+                                            >
                                             </flux:button>
-                                        </flux:modal.trigger>
-                                        <flux:button wire:click="deleteDevicePalette('{{ $devicePalette->id }}')" icon="trash"
-                                                     iconVariant="outline">
-                                        </flux:button>
-                                    @endif
-                                </flux:button.group>
-                            </div>
-                        </td>
-                    </tr>
-                @endforeach
+                                        @endif
+                                    </flux:button.group>
+                                </div>
+                            </td>
+                        </tr>
+                    @endforeach
                 </tbody>
             </table>
         </div>
     </div>
 </div>
-

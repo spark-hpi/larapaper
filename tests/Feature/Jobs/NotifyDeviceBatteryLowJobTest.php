@@ -135,6 +135,6 @@ test('it processes multiple devices correctly', function (): void {
     $device1->refresh();
     $device2->refresh();
 
-    expect($device1->battery_notification_sent)->toBeTrue();
-    expect($device2->battery_notification_sent)->toBeFalse();
+    expect($device1->battery_notification_sent)->toBeTrue()
+        ->and($device2->battery_notification_sent)->toBeFalse();
 });

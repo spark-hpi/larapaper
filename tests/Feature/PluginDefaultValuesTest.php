@@ -2,9 +2,6 @@
 
 use App\Models\Plugin;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-
-uses(RefreshDatabase::class);
 
 test('plugin import extracts default values from custom_fields and stores in configuration', function (): void {
     // Create a user
@@ -60,14 +57,11 @@ test('plugin import extracts default values from custom_fields and stores in con
 
     // Assert the plugin was created with correct configuration
     expect($plugin)->not->toBeNull();
-    expect($plugin->configuration)->toBeArray();
-    expect($plugin->configuration)->toHaveKey('reading_days');
-    expect($plugin->configuration)->toHaveKey('refresh_interval');
-    expect($plugin->configuration)->not->toHaveKey('timezone');
-
-    expect($plugin->getConfiguration('reading_days'))->toBe('Monday,Friday,Saturday,Sunday');
-    expect($plugin->getConfiguration('refresh_interval'))->toBe(15);
-    expect($plugin->getConfiguration('timezone'))->toBeNull();
+    expect($plugin->configuration)->toBeArray()
+        ->toHaveKeys(['reading_days', 'refresh_interval'])->not->toHaveKey('timezone')
+        ->and($plugin->getConfiguration('reading_days'))->toBe('Monday,Friday,Saturday,Sunday')
+        ->and($plugin->getConfiguration('refresh_interval'))->toBe(15)
+        ->and($plugin->getConfiguration('timezone'))->toBeNull();
 
     // Verify configuration template was stored correctly
     expect($plugin->configuration_template)->toBeArray();
@@ -113,8 +107,8 @@ test('plugin import handles custom_fields without default values', function (): 
 
     // Assert the plugin was created with empty configuration
     expect($plugin)->not->toBeNull();
-    expect($plugin->configuration)->toBeArray();
-    expect($plugin->configuration)->toBeEmpty();
+    expect($plugin->configuration)->toBeArray()
+        ->toBeEmpty();
 
     // Verify configuration template was stored correctly
     expect($plugin->configuration_template)->toBeArray();

@@ -34,10 +34,10 @@ test('json filter handles nested structures', function (): void {
 test('json filter handles scalar values', function (): void {
     $filter = new Data();
 
-    expect($filter->json('string'))->toBe('"string"');
-    expect($filter->json(123))->toBe('123');
-    expect($filter->json(true))->toBe('true');
-    expect($filter->json(null))->toBe('null');
+    expect($filter->json('string'))->toBe('"string"')
+        ->and($filter->json(123))->toBe('123')
+        ->and($filter->json(true))->toBe('true')
+        ->and($filter->json(null))->toBe('null');
 });
 
 test('json filter preserves unicode characters', function (): void {
@@ -177,7 +177,7 @@ test('group_by filter handles empty collection', function (): void {
     $collection = [];
 
     $result = $filter->group_by($collection, 'age');
-    expect($result)->toBe([]);
+    expect($result)->toBeEmpty();
 });
 
 test('group_by filter handles collection with non-array items', function (): void {
@@ -319,11 +319,11 @@ test('parse_json filter parses nested JSON structure', function (): void {
 test('parse_json filter handles primitive values', function (): void {
     $filter = new Data();
 
-    expect($filter->parse_json('"hello"'))->toBe('hello');
-    expect($filter->parse_json('123'))->toBe(123);
-    expect($filter->parse_json('true'))->toBe(true);
-    expect($filter->parse_json('false'))->toBe(false);
-    expect($filter->parse_json('null'))->toBe(null);
+    expect($filter->parse_json('"hello"'))->toBe('hello')
+        ->and($filter->parse_json('123'))->toBe(123)
+        ->and($filter->parse_json('true'))->toBeTrue()
+        ->and($filter->parse_json('false'))->toBeFalse()
+        ->and($filter->parse_json('null'))->toBeNull();
 });
 
 test('map_to_i filter converts string numbers to integers', function (): void {
@@ -351,7 +351,7 @@ test('map_to_i filter handles empty array', function (): void {
     $filter = new Data();
     $input = [];
 
-    expect($filter->map_to_i($input))->toBe([]);
+    expect($filter->map_to_i($input))->toBeEmpty();
 });
 
 test('where_exp filter returns string as array when input is string', function (): void {
@@ -468,7 +468,7 @@ test('where_exp filter handles empty array', function (): void {
     $filter = new Data();
     $input = [];
 
-    expect($filter->where_exp($input, 'n', 'n >= 3'))->toBe([]);
+    expect($filter->where_exp($input, 'n', 'n >= 3'))->toBeEmpty();
 });
 
 test('where_exp filter handles associative array', function (): void {
@@ -486,12 +486,12 @@ test('where_exp filter handles non-array input', function (): void {
     $filter = new Data();
     $input = 123;
 
-    expect($filter->where_exp($input, 'n', 'n >= 3'))->toBe([]);
+    expect($filter->where_exp($input, 'n', 'n >= 3'))->toBeEmpty();
 });
 
 test('where_exp filter handles null input', function (): void {
     $filter = new Data();
     $input = null;
 
-    expect($filter->where_exp($input, 'n', 'n >= 3'))->toBe([]);
+    expect($filter->where_exp($input, 'n', 'n >= 3'))->toBeEmpty();
 });

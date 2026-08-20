@@ -41,12 +41,13 @@ class IcalResponseParser implements ResponseParser
 
             $filteredEvents = array_values(array_filter($events, function (array $event) use ($windowStart, $windowEnd): bool {
                 $startDate = $this->asCarbon($event['DTSTART'] ?? null);
+                $endDate = $this->asCarbon($event['DTEND'] ?? null);
 
-                if (! $startDate instanceof Carbon) {
+                if (! $startDate instanceof Carbon || ! $endDate instanceof Carbon) {
                     return false;
                 }
 
-                return $startDate->between($windowStart, $windowEnd, true);
+                return $startDate->gte($windowStart) && $startDate->lt($windowEnd) || $endDate->gt($windowStart) && $endDate->lte($windowEnd) || $windowStart->gte($startDate) && $windowEnd->lte($endDate);
             }));
 
             $normalizedEvents = array_map($this->normalizeIcalEvent(...), $filteredEvents);

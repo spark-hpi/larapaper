@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 
-class StorageS3Init extends Command
+class StorageS3InitCommand extends Command
 {
     /**
      * The name and signature of the console command.
@@ -23,7 +23,7 @@ class StorageS3Init extends Command
     /**
      * Execute the console command.
      */
-    public function handle()
+    public function handle(): void
     {
         if (config('filesystems.disks.public.driver') !== 's3') {
             $this->error('The public disk is not configured to use the S3 driver.');
@@ -31,7 +31,6 @@ class StorageS3Init extends Command
             return;
         }
 
-        $localDisk = \Illuminate\Support\Facades\Storage::disk('local');
         $s3Disk = \Illuminate\Support\Facades\Storage::disk('public');
 
         $sourcePath = storage_path('app/public');

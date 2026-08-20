@@ -6,8 +6,11 @@ use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('API Tokens')] class extends Component {
+new #[Title('API Tokens')] class extends Component
+{
     public string $tokenName = '';
+
+    public string $tokenType = 'api';
 
     #[Locked]
     public array $tokens = [];
@@ -38,6 +41,7 @@ new #[Title('API Tokens')] class extends Component {
             ->map(fn ($token) => [
                 'id' => $token->id,
                 'name' => $token->name,
+                'abilities' => $token->abilities ?? [],
                 'created_at' => $token->created_at->diffForHumans(),
                 'last_used_at' => $token->last_used_at?->diffForHumans(),
             ])
@@ -46,12 +50,20 @@ new #[Title('API Tokens')] class extends Component {
 
     public function createToken(): void
     {
-        $this->validate(['tokenName' => 'required|string|max:255']);
+        $this->validate([
+            'tokenName' => 'required|string|max:255',
+            'tokenType' => 'required|string|in:api,mcp',
+        ]);
 
-        $token = Auth::user()->createToken($this->tokenName);
+        $abilities = $this->tokenType === 'mcp'
+            ? ['mcp']
+            : ['*'];
+
+        $token = Auth::user()->createToken($this->tokenName, $abilities);
 
         $this->newTokenValue = $token->plainTextToken;
         $this->tokenName = '';
+        $this->tokenType = 'api';
         $this->showNewTokenModal = true;
         $this->loadTokens();
     }
@@ -98,8 +110,10 @@ new #[Title('API Tokens')] class extends Component {
 
         <flux:heading class="sr-only">{{ __('API Tokens') }}</flux:heading>
 
-        <x-pages::settings.layout :heading="__('API Tokens')" :subheading="__('Manage tokens for CLI tools and integrations')">
-
+        <x-pages::settings.layout
+            :heading="__('API Tokens')"
+            :subheading="__('Manage tokens for CLI tools and integrations')"
+        >
             <form wire:submit="createToken" class="my-6 w-full space-y-4">
                 <flux:input
                     wire:model="tokenName"
@@ -108,10 +122,14 @@ new #[Title('API Tokens')] class extends Component {
                     required
                     autofocus
                 />
+                @toggle('mcp')
+                    <flux:radio.group wire:model="tokenType" :label="__('Token type')" variant="segmented">
+                        <flux:radio value="api" :label="__('API')" />
+                        <flux:radio value="mcp" :label="__('MCP')" />
+                    </flux:radio.group>
+                @endtoggle
                 <div>
-                    <flux:button variant="primary" type="submit">
-                        {{ __('Create token') }}
-                    </flux:button>
+                    <flux:button variant="primary" type="submit"> {{ __('Create token') }} </flux:button>
                 </div>
             </form>
 
@@ -119,7 +137,7 @@ new #[Title('API Tokens')] class extends Component {
                 <section class="mt-8">
                     <flux:heading>{{ __('Active tokens') }}</flux:heading>
 
-                    <div class="mt-4 border rounded-lg border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                    <div class="mt-4 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
                         @foreach ($tokens as $token)
                             <div class="flex items-center justify-between p-4 {{ ! $loop->last ? 'border-b border-zinc-200 dark:border-zinc-700' : '' }}">
                                 <div class="flex items-center gap-4">
@@ -128,13 +146,20 @@ new #[Title('API Tokens')] class extends Component {
                                     </div>
                                     <div class="space-y-0.5">
                                         <p class="font-medium tracking-tight">{{ $token['name'] }}</p>
-                                        <p class="text-zinc-500 dark:text-zinc-400 text-xs">
+                                        @if (count($token['abilities']) > 0)
+                                            <div class="mt-1 flex flex-wrap gap-1.5">
+                                                @foreach ($token['abilities'] as $ability)
+                                                    <flux:badge size="sm" color="zinc">{{ $ability }}</flux:badge>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                        <p class="text-xs text-zinc-500 dark:text-zinc-400">
                                             {{ __('Created :time', ['time' => $token['created_at']]) }}
                                             @if ($token['last_used_at'])
-                                                <span class="opacity-50 mx-1">/</span>
+                                                <span class="mx-1 opacity-50">/</span>
                                                 {{ __('Last used :time', ['time' => $token['last_used_at']]) }}
                                             @else
-                                                <span class="opacity-50 mx-1">/</span>
+                                                <span class="mx-1 opacity-50">/</span>
                                                 {{ __('Never used') }}
                                             @endif
                                         </p>
@@ -147,14 +172,13 @@ new #[Title('API Tokens')] class extends Component {
                                     icon="trash"
                                     icon:variant="outline"
                                     wire:click="confirmRevoke({{ $token['id'] }})"
-                                    class="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50"
+                                    class="text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/50"
                                 />
                             </div>
                         @endforeach
                     </div>
                 </section>
             @endif
-
         </x-pages::settings.layout>
 
         {{-- New token modal --}}
@@ -167,35 +191,13 @@ new #[Title('API Tokens')] class extends Component {
             <div class="space-y-6">
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Token created') }}</flux:heading>
-                    <flux:text>
-                        {{ __('Copy your token now — it will not be shown again.') }}
-                    </flux:text>
+                    <flux:text> {{ __('Copy your token now — it will not be shown again.') }} </flux:text>
                 </div>
 
-                <div
-                    x-data="{ copied: false }"
-                    class="flex items-center gap-2"
-                >
-                    <flux:input
-                        value="{{ $newTokenValue }}"
-                        readonly
-                        class="font-mono text-sm"
-                        x-ref="tokenInput"
-                    />
-                    <flux:button
-                        variant="outline"
-                        size="sm"
-                        x-on:click="navigator.clipboard.writeText($refs.tokenInput.value); copied = true; setTimeout(() => copied = false, 2000)"
-                    >
-                        <span x-show="!copied">{{ __('Copy') }}</span>
-                        <span x-show="copied">{{ __('Copied!') }}</span>
-                    </flux:button>
-                </div>
+                <flux:input value="{{ $newTokenValue }}" readonly copyable class="font-mono text-sm" />
 
                 <div class="flex justify-end">
-                    <flux:button variant="primary" wire:click="closeNewTokenModal">
-                        {{ __('Done') }}
-                    </flux:button>
+                    <flux:button variant="primary" wire:click="closeNewTokenModal"> {{ __('Done') }} </flux:button>
                 </div>
             </div>
         </flux:modal>
@@ -215,13 +217,9 @@ new #[Title('API Tokens')] class extends Component {
                     </flux:text>
                 </div>
 
-                <div class="flex gap-3 justify-end">
-                    <flux:button variant="outline" wire:click="closeRevokeModal">
-                        {{ __('Cancel') }}
-                    </flux:button>
-                    <flux:button variant="danger" wire:click="revokeToken">
-                        {{ __('Revoke token') }}
-                    </flux:button>
+                <div class="flex justify-end gap-3">
+                    <flux:button variant="outline" wire:click="closeRevokeModal"> {{ __('Cancel') }} </flux:button>
+                    <flux:button variant="danger" wire:click="revokeToken"> {{ __('Revoke token') }} </flux:button>
                 </div>
             </div>
         </flux:modal>

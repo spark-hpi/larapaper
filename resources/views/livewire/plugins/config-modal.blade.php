@@ -64,7 +64,7 @@ new class extends Component
     public function refreshFromParent(): void
     {
         $this->loadData();
-        $this->resetIndex++;
+        ++$this->resetIndex;
     }
 
     public function resetForm(): void
@@ -174,359 +174,400 @@ new class extends Component
     }
 }; ?>
 
-    <flux:modal name="configuration-modal" @close="resetForm" class="md:w-96">
-        <div wire:key="config-form-{{ $resetIndex }}" class="space-y-6">
-            <div class="space-y-6">
-                <div>
-                    <flux:heading size="lg">Configuration</flux:heading>
-                    <flux:subheading>Configure your plugin settings</flux:subheading>
-                </div>
+<flux:modal name="configuration-modal" @close="resetForm" class="md:w-96">
+    <div wire:key="config-form-{{ $resetIndex }}" class="space-y-6">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">Configuration</flux:heading>
+                <flux:subheading>Configure your plugin settings</flux:subheading>
+            </div>
 
-                        <form wire:submit="saveConfiguration">
-                            @if(isset($configuration_template['custom_fields']) && is_array($configuration_template['custom_fields']))
-                                @foreach($configuration_template['custom_fields'] as $field)
-                                    @php
-                                        $fieldKey = $field['keyname'] ?? $field['key'] ?? $field['name'];
-                                        $rawValue = $configuration[$fieldKey] ?? ($field['default'] ?? '');
+            <form wire:submit="saveConfiguration">
+                @if (isset($configuration_template['custom_fields']) && is_array($configuration_template['custom_fields']))
+                    @foreach ($configuration_template['custom_fields'] as $field)
+                        @php
+                            $fieldKey = $field['keyname'] ?? $field['key'] ?? $field['name'];
+                            $rawValue = $configuration[$fieldKey] ?? ($field['default'] ?? '');
 
-                                        # These are sanitized at Model/Plugin level, safe to render HTML
-                                        $safeDescription = $field['description'] ?? '';
-                                        $safeHelp = $field['help_text'] ?? '';
+                            // These are sanitized at Model/Plugin level, safe to render HTML
+                            $safeDescription = $field['description'] ?? '';
+                            $safeHelp = $field['help_text'] ?? '';
 
-                                        // For code fields, if the value is an array, JSON encode it
-                                        if ($field['field_type'] === 'code' && is_array($rawValue)) {
-                                            $currentValue = json_encode($rawValue, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-                                        } else {
-                                            $currentValue = is_array($rawValue) ? '' : (string) $rawValue;
-                                        }
-                                    @endphp
-                                    <div class="mb-4">
-                                        @if($field['field_type'] === 'author_bio')
-                                            @continue
-                                        @endif
+                            // For code fields, if the value is an array, JSON encode it
+                            if ($field['field_type'] === 'code' && is_array($rawValue)) {
+                                $currentValue = json_encode($rawValue, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+                            } else {
+                                $currentValue = is_array($rawValue) ? '' : (string) $rawValue;
+                            }
+                        @endphp
+                        <div class="mb-4">
+                            @if ($field['field_type'] === 'author_bio')
+                                @continue
+                            @endif
 
-                                        @if($field['field_type'] === 'copyable_webhook_url')
-                                            @continue
-                                        @endif
+                            @if ($field['field_type'] === 'copyable_webhook_url')
+                                @continue
+                            @endif
 
-                                        @if($field['field_type'] === 'string' || $field['field_type'] === 'url')
-                                            <flux:field>
-                                                <flux:label>{{ $field['name'] }}</flux:label>
-                                                <flux:description>{!! $safeDescription !!}</flux:description>
-                                                <flux:input
-                                                    wire:model="configuration.{{ $fieldKey }}"
-                                                    value="{{ $currentValue }}"
-                                                />
-                                                <flux:description>{!! $safeHelp !!}</flux:description>
-                                            </flux:field>
+                            @if ($field['field_type'] === 'string' || $field['field_type'] === 'url')
+                                <flux:field>
+                                    <flux:label>{{ $field['name'] }}</flux:label>
+                                    <flux:description>{!! $safeDescription !!}</flux:description>
+                                    <flux:input
+                                        wire:model="configuration.{{ $fieldKey }}"
+                                        value="{{ $currentValue }}"
+                                    />
+                                    <flux:description>{!! $safeHelp !!}</flux:description>
+                                </flux:field>
 
-                                        @elseif($field['field_type'] === 'text')
-                                            <flux:field>
-                                                <flux:label>{{ $field['name'] }}</flux:label>
-                                                <flux:description>{!! $safeDescription !!}</flux:description>
-                                                <flux:textarea
-                                                    wire:model="configuration.{{ $fieldKey }}"
-                                                    value="{{ $currentValue }}"
-                                                />
-                                                <flux:description>{!! $safeHelp !!}</flux:description>
-                                            </flux:field>
+                            @elseif ($field['field_type'] === 'text')
+                                <flux:field>
+                                    <flux:label>{{ $field['name'] }}</flux:label>
+                                    <flux:description>{!! $safeDescription !!}</flux:description>
+                                    <flux:textarea
+                                        wire:model="configuration.{{ $fieldKey }}"
+                                        value="{{ $currentValue }}"
+                                    />
+                                    <flux:description>{!! $safeHelp !!}</flux:description>
+                                </flux:field>
 
-                                        @elseif($field['field_type'] === 'code')
-                                            <flux:field>
-                                                <flux:label>{{ $field['name'] }}</flux:label>
-                                                <flux:description>{!! $safeDescription !!}</flux:description>
-                                                <flux:textarea
-                                                    rows="{{ $field['rows'] ?? 3 }}"
-                                                    placeholder="{{ $field['placeholder'] ?? null }}"
-                                                    wire:model="configuration.{{ $fieldKey }}"
-                                                    value="{{ $currentValue }}"
-                                                    class="font-mono"
-                                                />
-                                                <flux:description>{!! $safeHelp !!}</flux:description>
-                                            </flux:field>
+                            @elseif ($field['field_type'] === 'code')
+                                <flux:field>
+                                    <flux:label>{{ $field['name'] }}</flux:label>
+                                    <flux:description>{!! $safeDescription !!}</flux:description>
+                                    <flux:textarea
+                                        rows="{{ $field['rows'] ?? 3 }}"
+                                        placeholder="{{ $field['placeholder'] ?? null }}"
+                                        wire:model="configuration.{{ $fieldKey }}"
+                                        value="{{ $currentValue }}"
+                                        class="font-mono"
+                                    />
+                                    <flux:description>{!! $safeHelp !!}</flux:description>
+                                </flux:field>
 
-                                        @elseif($field['field_type'] === 'password')
-                                            <flux:field>
-                                                <flux:label>{{ $field['name'] }}</flux:label>
-                                                <flux:description>{!! $safeDescription !!}</flux:description>
-                                                <flux:input
-                                                    type="password"
-                                                    wire:model="configuration.{{ $fieldKey }}"
-                                                    value="{{ $currentValue }}"
-                                                    viewable
-                                                />
-                                                <flux:description>{!! $safeHelp !!}</flux:description>
-                                            </flux:field>
+                            @elseif ($field['field_type'] === 'password')
+                                <flux:field>
+                                    <flux:label>{{ $field['name'] }}</flux:label>
+                                    <flux:description>{!! $safeDescription !!}</flux:description>
+                                    <flux:input
+                                        type="password"
+                                        wire:model="configuration.{{ $fieldKey }}"
+                                        value="{{ $currentValue }}"
+                                        viewable
+                                    />
+                                    <flux:description>{!! $safeHelp !!}</flux:description>
+                                </flux:field>
 
-                                        @elseif($field['field_type'] === 'copyable')
-                                            <flux:field>
-                                                <flux:label>{{ $field['name'] }}</flux:label>
-                                                <flux:description>{!! $safeDescription !!}</flux:description>
-                                                <flux:input
-                                                    value="{{ $field['value'] }}"
-                                                    copyable
-                                                />
-                                                <flux:description>{!! $safeHelp !!}</flux:description>
-                                            </flux:field>
+                            @elseif ($field['field_type'] === 'copyable')
+                                <flux:field>
+                                    <flux:label>{{ $field['name'] }}</flux:label>
+                                    <flux:description>{!! $safeDescription !!}</flux:description>
+                                    <flux:input value="{{ $field['value'] }}" copyable />
+                                    <flux:description>{!! $safeHelp !!}</flux:description>
+                                </flux:field>
 
-                                        @elseif($field['field_type'] === 'time_zone')
-                                            <flux:field>
-                                                <flux:label>{{ $field['name'] }}</flux:label>
-                                                <flux:description>{!! $safeDescription !!}</flux:description>
-                                                <flux:select
-                                                    wire:model="configuration.{{ $fieldKey }}"
-                                                    value="{{ Arr::get($field, 'value') }}"
-                                                >
-                                                    <option value="">Select timezone...</option>
-                                                    @foreach(timezone_identifiers_list() as $timezone)
-                                                        <option value="{{ $timezone }}" {{ $currentValue === $timezone ? 'selected' : '' }}>{{ $timezone }}</option>
-                                                    @endforeach
-                                                </flux:select>
-                                                <flux:description>{!! $safeHelp !!}</flux:description>
-                                            </flux:field>
+                            @elseif ($field['field_type'] === 'time_zone')
+                                <flux:field>
+                                    <flux:label>{{ $field['name'] }}</flux:label>
+                                    <flux:description>{!! $safeDescription !!}</flux:description>
+                                    <flux:select
+                                        wire:model="configuration.{{ $fieldKey }}"
+                                        value="{{ Arr::get($field, 'value') }}"
+                                    >
+                                        <option value="">Select timezone...</option>
+                                        @foreach (timezone_identifiers_list() as $timezone)
+                                            <option
+                                                value="{{ $timezone }}"
+                                                {{ $currentValue === $timezone ? 'selected' : '' }}
+                                            >
+                                                {{ $timezone }}
+                                            </option>
+                                        @endforeach
+                                    </flux:select>
+                                    <flux:description>{!! $safeHelp !!}</flux:description>
+                                </flux:field>
 
-                                        @elseif($field['field_type'] === 'number')
-                                            <flux:field>
-                                                <flux:label>{{ $field['name'] }}</flux:label>
-                                                <flux:description>{!! $safeDescription !!}</flux:description>
-                                                <flux:input
-                                                    type="number"
-                                                    wire:model="configuration.{{ $fieldKey }}"
-                                                    value="{{ $currentValue }}"
-                                                />
-                                                <flux:description>{!! $safeHelp !!}</flux:description>
-                                            </flux:field>
+                            @elseif ($field['field_type'] === 'number')
+                                <flux:field>
+                                    <flux:label>{{ $field['name'] }}</flux:label>
+                                    <flux:description>{!! $safeDescription !!}</flux:description>
+                                    <flux:input
+                                        type="number"
+                                        wire:model="configuration.{{ $fieldKey }}"
+                                        value="{{ $currentValue }}"
+                                    />
+                                    <flux:description>{!! $safeHelp !!}</flux:description>
+                                </flux:field>
 
-                                        @elseif($field['field_type'] === 'boolean')
-                                            <flux:field>
-                                                <flux:label>{{ $field['name'] }}</flux:label>
-                                                <flux:description>{!! $safeDescription !!}</flux:description>
-                                                <flux:checkbox
-                                                    wire:model="configuration.{{ $fieldKey }}"
-                                                    :checked="$currentValue"
-                                                />
-                                                <flux:description>{!! $safeHelp !!}</flux:description>
-                                            </flux:field>
+                            @elseif ($field['field_type'] === 'boolean')
+                                <flux:field>
+                                    <flux:label>{{ $field['name'] }}</flux:label>
+                                    <flux:description>{!! $safeDescription !!}</flux:description>
+                                    <flux:checkbox
+                                        wire:model="configuration.{{ $fieldKey }}"
+                                        :checked="$currentValue"
+                                    />
+                                    <flux:description>{!! $safeHelp !!}</flux:description>
+                                </flux:field>
 
-                                        @elseif($field['field_type'] === 'date')
-                                            <flux:field>
-                                                <flux:label>{{ $field['name'] }}</flux:label>
-                                                <flux:description>{!! $safeDescription !!}</flux:description>
-                                                <flux:input
-                                                    type="date"
-                                                    wire:model="configuration.{{ $fieldKey }}"
-                                                    value="{{ $currentValue }}"
-                                                />
-                                                <flux:description>{!! $safeHelp !!}</flux:description>
-                                            </flux:field>
+                            @elseif ($field['field_type'] === 'date')
+                                <flux:field>
+                                    <flux:label>{{ $field['name'] }}</flux:label>
+                                    <flux:description>{!! $safeDescription !!}</flux:description>
+                                    <flux:input
+                                        type="date"
+                                        wire:model="configuration.{{ $fieldKey }}"
+                                        value="{{ $currentValue }}"
+                                    />
+                                    <flux:description>{!! $safeHelp !!}</flux:description>
+                                </flux:field>
 
-                                        @elseif($field['field_type'] === 'time')
-                                            <flux:field>
-                                                <flux:label>{{ $field['name'] }}</flux:label>
-                                                <flux:description>{!! $safeDescription !!}</flux:description>
-                                                <flux:input
-                                                    type="time"
-                                                    wire:model="configuration.{{ $fieldKey }}"
-                                                    value="{{ $currentValue }}"
-                                                />
-                                                <flux:description>{!! $safeHelp !!}</flux:description>
-                                            </flux:field>
+                            @elseif ($field['field_type'] === 'time')
+                                <flux:field>
+                                    <flux:label>{{ $field['name'] }}</flux:label>
+                                    <flux:description>{!! $safeDescription !!}</flux:description>
+                                    <flux:input
+                                        type="time"
+                                        wire:model="configuration.{{ $fieldKey }}"
+                                        value="{{ $currentValue }}"
+                                    />
+                                    <flux:description>{!! $safeHelp !!}</flux:description>
+                                </flux:field>
 
-                                        @elseif($field['field_type'] === 'select')
-                                            @if(isset($field['multiple']) && $field['multiple'] === true)
-                                                <flux:field>
-                                                    <flux:label>{{ $field['name'] }}</flux:label>
-                                                    <flux:description>{!! $safeDescription !!}</flux:description>
-                                                    <flux:checkbox.group wire:model="configuration.{{ $fieldKey }}">
-                                                        @if(isset($field['options']) && is_array($field['options']))
-                                                            @foreach($field['options'] as $option)
-                                                                @if(is_array($option))
-                                                                    @foreach($option as $label => $value)
-                                                                        <flux:checkbox label="{{ $label }}" value="{{ $value }}"/>
-                                                                    @endforeach
-                                                                @else
-                                                                    @php
-                                                                        $key = mb_strtolower(str_replace(' ', '_', $option));
-                                                                    @endphp
-                                                                    <flux:checkbox label="{{ $option }}" value="{{ $key }}"/>
-                                                                @endif
-                                                            @endforeach
-                                                        @endif
-                                                    </flux:checkbox.group>
-                                                    <flux:description>{!! $safeHelp !!}</flux:description>
-                                                </flux:field>
-                                            @else
-                                                <flux:field>
-                                                    <flux:label>{{ $field['name'] }}</flux:label>
-                                                    <flux:description>{!! $safeDescription !!}</flux:description>
-                                                    <flux:select wire:model="configuration.{{ $fieldKey }}">
-                                                        <option value="">Select {{ $field['name'] }}...</option>
-                                                            @if(isset($field['options']) && is_array($field['options']))
-                                                                @foreach($field['options'] as $option)
-                                                                    @if(is_array($option))
-                                                                        @foreach($option as $label => $value)
-                                                                            <option value="{{ $value }}" {{ $currentValue === $value ? 'selected' : '' }}>{{ $label }}</option>
-                                                                        @endforeach
-                                                                    @else
-                                                                        @php
-                                                                            $key = mb_strtolower(str_replace(' ', '_', $option));
-                                                                        @endphp
-                                                                        <option value="{{ $key }}" {{ $currentValue === $key ? 'selected' : '' }}>{{ $option }}</option>
-                                                                    @endif
-                                                                @endforeach
-                                                            @endif
-                                                    </flux:select>
-                                                    <flux:description>{!! $safeHelp !!}</flux:description>
-                                                </flux:field>
+                            @elseif ($field['field_type'] === 'select')
+                                @if (isset($field['multiple']) && $field['multiple'] === true)
+                                    <flux:field>
+                                        <flux:label>{{ $field['name'] }}</flux:label>
+                                        <flux:description>{!! $safeDescription !!}</flux:description>
+                                        <flux:checkbox.group wire:model="configuration.{{ $fieldKey }}">
+                                            @if (isset($field['options']) && is_array($field['options']))
+                                                @foreach ($field['options'] as $option)
+                                                    @if (is_array($option))
+                                                        @foreach ($option as $label => $value)
+                                                            <flux:checkbox label="{{ $label }}" value="{{ $value }}" />
+                                                        @endforeach
+                                                    @else
+                                                        @php
+                                                            $key = mb_strtolower(str_replace(' ', '_', $option));
+                                                        @endphp
+                                                        <flux:checkbox label="{{ $option }}" value="{{ $key }}" />
+                                                    @endif
+                                                @endforeach
                                             @endif
+                                        </flux:checkbox.group>
+                                        <flux:description>{!! $safeHelp !!}</flux:description>
+                                    </flux:field>
+                                @else
+                                    <flux:field>
+                                        <flux:label>{{ $field['name'] }}</flux:label>
+                                        <flux:description>{!! $safeDescription !!}</flux:description>
+                                        <flux:select wire:model="configuration.{{ $fieldKey }}">
+                                            <option value="">Select {{ $field['name'] }}...</option>
+                                            @if (isset($field['options']) && is_array($field['options']))
+                                                @foreach ($field['options'] as $option)
+                                                    @if (is_array($option))
+                                                        @foreach ($option as $label => $value)
+                                                            <option
+                                                                value="{{ $value }}"
+                                                                {{ $currentValue === $value ? 'selected' : '' }}
+                                                            >
+                                                                {{ $label }}
+                                                            </option>
+                                                        @endforeach
+                                                    @else
+                                                        @php
+                                                            $key = mb_strtolower(str_replace(' ', '_', $option));
+                                                        @endphp
+                                                        <option
+                                                            value="{{ $key }}"
+                                                            {{ $currentValue === $key ? 'selected' : '' }}
+                                                        >
+                                                            {{ $option }}
+                                                        </option>
+                                                    @endif
+                                                @endforeach
+                                            @endif
+                                        </flux:select>
+                                        <flux:description>{!! $safeHelp !!}</flux:description>
+                                    </flux:field>
+                                @endif
 
-                                        @elseif($field['field_type'] === 'xhrSelect')
-                                            <flux:field>
-                                                <flux:label>{{ $field['name'] }}</flux:label>
-                                                <flux:description>{!! $safeDescription !!}</flux:description>
-                                                <flux:select
-                                                    wire:model="configuration.{{ $fieldKey }}"
-                                                    wire:init="loadXhrSelectOptions('{{ $fieldKey }}', '{{ $field['endpoint'] }}')"
-                                                >
-                                                    <option value="">Select {{ $field['name'] }}...</option>
-                                                    @if(isset($xhrSelectOptions[$fieldKey]) && is_array($xhrSelectOptions[$fieldKey]))
-                                                        @foreach($xhrSelectOptions[$fieldKey] as $option)
-                                                            @if(is_array($option))
-                                                                @if(isset($option['id']) && isset($option['name']))
-                                                                    {{-- xhrSelectSearch format: { 'id' => 'db-456', 'name' => 'Team Goals' } --}}
-                                                                    <option value="{{ $option['id'] }}" {{ $currentValue === (string)$option['id'] ? 'selected' : '' }}>{{ $option['name'] }}</option>
-                                                                @else
-                                                                    {{-- xhrSelect format: { 'Braves' => 123 } --}}
-                                                                    @foreach($option as $label => $value)
-                                                                        <option value="{{ $value }}" {{ $currentValue === (string)$value ? 'selected' : '' }}>{{ $label }}</option>
-                                                                    @endforeach
-                                                                @endif
-                                                            @else
-                                                                <option value="{{ $option }}" {{ $currentValue === (string)$option ? 'selected' : '' }}>{{ $option }}</option>
-                                                            @endif
+                            @elseif ($field['field_type'] === 'xhrSelect')
+                                <flux:field>
+                                    <flux:label>{{ $field['name'] }}</flux:label>
+                                    <flux:description>{!! $safeDescription !!}</flux:description>
+                                    <flux:select
+                                        wire:model="configuration.{{ $fieldKey }}"
+                                        wire:init="loadXhrSelectOptions('{{ $fieldKey }}', '{{ $field['endpoint'] }}')"
+                                    >
+                                        <option value="">Select {{ $field['name'] }}...</option>
+                                        @if (isset($xhrSelectOptions[$fieldKey]) && is_array($xhrSelectOptions[$fieldKey]))
+                                            @foreach ($xhrSelectOptions[$fieldKey] as $option)
+                                                @if (is_array($option))
+                                                    @if (isset($option['id']) && isset($option['name']))
+                                                        {{-- xhrSelectSearch format: { 'id' => 'db-456', 'name' => 'Team Goals' } --}}
+                                                        <option
+                                                            value="{{ $option['id'] }}"
+                                                            {{ $currentValue === (string)$option['id'] ? 'selected' : '' }}
+                                                        >
+                                                            {{ $option['name'] }}
+                                                        </option>
+                                                    @else
+                                                        {{-- xhrSelect format: { 'Braves' => 123 } --}}
+                                                        @foreach ($option as $label => $value)
+                                                            <option
+                                                                value="{{ $value }}"
+                                                                {{ $currentValue === (string)$value ? 'selected' : '' }}
+                                                            >
+                                                                {{ $label }}
+                                                            </option>
                                                         @endforeach
                                                     @endif
-                                                </flux:select>
-                                                <flux:description>{!! $safeHelp !!}</flux:description>
-                                            </flux:field>
-
-                                        @elseif($field['field_type'] === 'xhrSelectSearch')
-                                            <div class="space-y-2">
-
-                                                <flux:label>{{ $field['name'] }}</flux:label>
-                                                <flux:description>{!! $safeDescription !!}</flux:description>
-                                                <flux:input.group>
-                                                    <flux:input
-                                                        wire:model="searchQueries.{{ $fieldKey }}"
-                                                        placeholder="Enter search query..."
-                                                    />
-                                                    <flux:button
-                                                        wire:click="searchXhrSelect('{{ $fieldKey }}', '{{ $field['endpoint'] }}')"
-                                                        icon="magnifying-glass"/>
-                                                </flux:input.group>
-                                                <flux:description>{!! $safeHelp !!}</flux:description>
-                                                @if((isset($xhrSelectOptions[$fieldKey]) && is_array($xhrSelectOptions[$fieldKey]) && count($xhrSelectOptions[$fieldKey]) > 0) || !empty($currentValue))
-                                                    <flux:select
-                                                        wire:model="configuration.{{ $fieldKey }}"
+                                                @else
+                                                    <option
+                                                        value="{{ $option }}"
+                                                        {{ $currentValue === (string)$option ? 'selected' : '' }}
                                                     >
-                                                        <option value="">Select {{ $field['name'] }}...</option>
-                                                        @if(isset($xhrSelectOptions[$fieldKey]) && is_array($xhrSelectOptions[$fieldKey]))
-                                                            @foreach($xhrSelectOptions[$fieldKey] as $option)
-                                                                @if(is_array($option))
-                                                                    @if(isset($option['id']) && isset($option['name']))
-                                                                        {{-- xhrSelectSearch format: { 'id' => 'db-456', 'name' => 'Team Goals' } --}}
-                                                                        <option value="{{ $option['id'] }}" {{ $currentValue === (string)$option['id'] ? 'selected' : '' }}>{{ $option['name'] }}</option>
-                                                                    @else
-                                                                        {{-- xhrSelect format: { 'Braves' => 123 } --}}
-                                                                        @foreach($option as $label => $value)
-                                                                            <option value="{{ $value }}" {{ $currentValue === (string)$value ? 'selected' : '' }}>{{ $label }}</option>
-                                                                        @endforeach
-                                                                    @endif
-                                                                @else
-                                                                    <option value="{{ $option }}" {{ $currentValue === (string)$option ? 'selected' : '' }}>{{ $option }}</option>
-                                                                @endif
+                                                        {{ $option }}
+                                                    </option>
+                                                @endif
+                                            @endforeach
+                                        @endif
+                                    </flux:select>
+                                    <flux:description>{!! $safeHelp !!}</flux:description>
+                                </flux:field>
+
+                            @elseif ($field['field_type'] === 'xhrSelectSearch')
+                                <div class="space-y-2">
+                                    <flux:label>{{ $field['name'] }}</flux:label>
+                                    <flux:description>{!! $safeDescription !!}</flux:description>
+                                    <flux:input.group>
+                                        <flux:input
+                                            wire:model="searchQueries.{{ $fieldKey }}"
+                                            placeholder="Enter search query..."
+                                        />
+                                        <flux:button
+                                            wire:click="searchXhrSelect('{{ $fieldKey }}', '{{ $field['endpoint'] }}')"
+                                            icon="magnifying-glass"
+                                        />
+                                    </flux:input.group>
+                                    <flux:description>{!! $safeHelp !!}</flux:description>
+                                    @if ((isset($xhrSelectOptions[$fieldKey]) && is_array($xhrSelectOptions[$fieldKey]) && count($xhrSelectOptions[$fieldKey]) > 0) || ! empty($currentValue))
+                                        <flux:select wire:model="configuration.{{ $fieldKey }}">
+                                            <option value="">Select {{ $field['name'] }}...</option>
+                                            @if (isset($xhrSelectOptions[$fieldKey]) && is_array($xhrSelectOptions[$fieldKey]))
+                                                @foreach ($xhrSelectOptions[$fieldKey] as $option)
+                                                    @if (is_array($option))
+                                                        @if (isset($option['id']) && isset($option['name']))
+                                                            {{-- xhrSelectSearch format: { 'id' => 'db-456', 'name' => 'Team Goals' } --}}
+                                                            <option
+                                                                value="{{ $option['id'] }}"
+                                                                {{ $currentValue === (string)$option['id'] ? 'selected' : '' }}
+                                                            >
+                                                                {{ $option['name'] }}
+                                                            </option>
+                                                        @else
+                                                            {{-- xhrSelect format: { 'Braves' => 123 } --}}
+                                                            @foreach ($option as $label => $value)
+                                                                <option
+                                                                    value="{{ $value }}"
+                                                                    {{ $currentValue === (string)$value ? 'selected' : '' }}
+                                                                >
+                                                                    {{ $label }}
+                                                                </option>
                                                             @endforeach
                                                         @endif
-                                                        @if(!empty($currentValue) && (!isset($xhrSelectOptions[$fieldKey]) || empty($xhrSelectOptions[$fieldKey])))
-                                                            {{-- Show current value even if no options are loaded --}}
-                                                            <option value="{{ $currentValue }}" selected>{{ $currentValue }}</option>
-                                                        @endif
-                                                    </flux:select>
+                                                    @else
+                                                        <option
+                                                            value="{{ $option }}"
+                                                            {{ $currentValue === (string)$option ? 'selected' : '' }}
+                                                        >
+                                                            {{ $option }}
+                                                        </option>
+                                                    @endif
+                                                @endforeach
+                                            @endif
+                                            @if (! empty($currentValue) && (! isset($xhrSelectOptions[$fieldKey]) || empty($xhrSelectOptions[$fieldKey])))
+                                                {{-- Show current value even if no options are loaded --}}
+                                                <option value="{{ $currentValue }}" selected>
+                                                    {{ $currentValue }}
+                                                </option>
+                                            @endif
+                                        </flux:select>
+                                    @endif
+                                </div>
+                            @elseif ($field['field_type'] === 'multi_string')
+                                <flux:field>
+                                    <flux:label>{{ $field['name'] }}</flux:label>
+                                    <flux:description>{!! $safeDescription !!}</flux:description>
+
+                                    <div class="mt-2 space-y-2">
+                                        @foreach ($multiValues[$fieldKey] as $index => $item)
+                                            <div
+                                                class="flex items-center gap-2"
+                                                wire:key="multi-{{ $fieldKey }}-{{ $index }}"
+                                            >
+                                                <flux:input
+                                                    wire:model.live.debounce="multiValues.{{ $fieldKey }}.{{ $index }}"
+                                                    :placeholder="$field['placeholder'] ?? 'Value...'"
+                                                    :invalid="$errors->has('multiValues.'.$fieldKey.'.'.$index)"
+                                                    class="flex-1"
+                                                />
+
+                                                @if (count($multiValues[$fieldKey]) > 1)
+                                                    <flux:button
+                                                        variant="ghost"
+                                                        icon="trash"
+                                                        size="sm"
+                                                        wire:click="removeMultiItem('{{ $fieldKey }}', {{ $index }})"
+                                                    />
                                                 @endif
                                             </div>
-                                            @elseif($field['field_type'] === 'multi_string')
-                                                <flux:field>
-                                                    <flux:label>{{ $field['name'] }}</flux:label>
-                                                    <flux:description>{!! $safeDescription !!}</flux:description>
+                                            @error("multiValues.{$fieldKey}.{$index}")
+                                                <div class="mt-1 flex items-center gap-2 text-amber-600">
+                                                    <flux:icon name="exclamation-triangle" variant="micro" />
+                                                    {{-- $message comes from thrown error --}}
+                                                    <span class="text-xs font-medium">{{ $message }}</span>
+                                                </div>
+                                            @enderror
+                                        @endforeach
 
-                                                    <div class="space-y-2 mt-2">
-                                                        @foreach($multiValues[$fieldKey] as $index => $item)
-                                                            <div class="flex gap-2 items-center"
-                                                                wire:key="multi-{{ $fieldKey }}-{{ $index }}">
-
-                                                                <flux:input
-                                                                    wire:model.live.debounce="multiValues.{{ $fieldKey }}.{{ $index }}"
-                                                                    :placeholder="$field['placeholder'] ?? 'Value...'"
-                                                                    :invalid="$errors->has('multiValues.'.$fieldKey.'.'.$index)"
-                                                                    class="flex-1"
-                                                                />
-
-                                                                @if(count($multiValues[$fieldKey]) > 1)
-                                                                    <flux:button
-                                                                        variant="ghost"
-                                                                        icon="trash"
-                                                                        size="sm"
-                                                                        wire:click="removeMultiItem('{{ $fieldKey }}', {{ $index }})"
-                                                                    />
-                                                                @endif
-                                                            </div>
-                                                            @error("multiValues.{$fieldKey}.{$index}")
-                                                                <div class="flex items-center gap-2 mt-1 text-amber-600">
-                                                                    <flux:icon name="exclamation-triangle" variant="micro" />
-                                                                    {{-- $message comes from thrown error --}}
-                                                                    <span class="text-xs font-medium">{{ $message }}</span>
-                                                                </div>
-                                                            @enderror
-                                                        @endforeach
-
-                                                        <flux:button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            icon="plus"
-                                                            wire:click="addMultiItem('{{ $fieldKey }}')"
-                                                        >
-                                                            Add Item
-                                                        </flux:button>
-                                                    </div>
-                                                    <flux:description>{!! $safeHelp !!}</flux:description>
-                                                </flux:field>
-                                        @else
-                                            <flux:callout variant="warning">Field type "{{ $field['field_type'] }}" not yet supported</flux:callout>
-                                        @endif
+                                        <flux:button
+                                            variant="ghost"
+                                            size="sm"
+                                            icon="plus"
+                                            wire:click="addMultiItem('{{ $fieldKey }}')"
+                                        >
+                                            Add Item
+                                        </flux:button>
                                     </div>
-                                @endforeach
+                                    <flux:description>{!! $safeHelp !!}</flux:description>
+                                </flux:field>
+                            @else
+                                <flux:callout variant="warning">Field type "{{ $field['field_type'] }}" not yet supported</flux:callout>
                             @endif
+                        </div>
+                    @endforeach
+                @endif
 
-                            <div class="flex-col space-y-2 items-end w-full">
-                                <flux:spacer/>
-                                <flux:button
-                                    type="submit"
-                                    variant="primary"
-                                    :disabled="$errors->any()"
-                                    class="disabled:opacity-50 disabled:cursor-not-allowed disabled:grayscale"
-                                >
-                                    Save Configuration
-                                </flux:button>
-                                @if($errors->any())
-                                <div class="flex items-center gap-2 text-amber-600">
-                                    <flux:icon name="exclamation-circle" variant="micro" />
-                                    <span class="text-sm font-medium">
-                                        Fix errors before saving.
-                                    </span>
-                                </div>
-                            @endif
-                            </div>
-                        </form>
-            </div>
+                <div class="w-full flex-col items-end space-y-2">
+                    <flux:spacer />
+                    <flux:button
+                        type="submit"
+                        variant="primary"
+                        :disabled="$errors->any()"
+                        class="disabled:cursor-not-allowed disabled:opacity-50 disabled:grayscale"
+                    >
+                        Save Configuration
+                    </flux:button>
+                    @if ($errors->any())
+                        <div class="flex items-center gap-2 text-amber-600">
+                            <flux:icon name="exclamation-circle" variant="micro" />
+                            <span class="text-sm font-medium"> Fix errors before saving. </span>
+                        </div>
+                    @endif
+                </div>
+            </form>
         </div>
-    </flux:modal>
+    </div>
+</flux:modal>

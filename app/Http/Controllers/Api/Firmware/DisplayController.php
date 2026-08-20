@@ -6,6 +6,7 @@ use App\Actions\Api\ResolveDeviceByApiKey;
 use App\Actions\Api\RunDeviceDisplayCycle;
 use App\Actions\Api\UpdateDeviceTelemetry;
 use App\Http\Controllers\Controller;
+use App\Services\DeviceScreenFilename;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -13,9 +14,10 @@ use Illuminate\Support\Facades\Storage;
 class DisplayController extends Controller
 {
     public function __construct(
-        private ResolveDeviceByApiKey $resolveDevice,
-        private UpdateDeviceTelemetry $updateTelemetry,
-        private RunDeviceDisplayCycle $runDisplayCycle,
+        private readonly ResolveDeviceByApiKey $resolveDevice,
+        private readonly UpdateDeviceTelemetry $updateTelemetry,
+        private readonly RunDeviceDisplayCycle $runDisplayCycle,
+        private readonly DeviceScreenFilename $screenFilename,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -38,7 +40,11 @@ class DisplayController extends Controller
         $response = [
             'status' => 0,
             'image_url' => $imagePath ? Storage::disk('public')->url($imagePath) : null,
-            'filename' => $imagePath ? basename($imagePath) : null,
+            'filename' => $this->screenFilename->make(
+                $imagePath,
+                $cycle['screen_identity'],
+                $cycle['screen_prefix'],
+            ),
             'refresh_rate' => $refreshTimeOverride ?? $device->default_refresh_interval,
             'reset_firmware' => false,
             'update_firmware' => $device->update_firmware,

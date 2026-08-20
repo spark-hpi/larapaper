@@ -32,21 +32,19 @@ new class extends Component
 ?>
 
 <div class="py-12">
-    <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-semibold dark:text-gray-100">API
+    <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+        <div class="mb-6 flex items-center justify-between">
+            <h2 class="text-2xl font-semibold dark:text-gray-100">
+                API
                 <flux:badge size="sm" class="ml-2">Plugin</flux:badge>
             </h2>
-
         </div>
 
         <div class="mb-6 max-w-md">
-            @if(isset($devices))
+            @if (isset($devices))
                 <flux:select wire:model.live="selected_device" label="Select Device">
-                    @foreach($devices as $id => $name)
-                        <flux:select.option value="{{$name}}">
-                            {{ $id }}
-                        </flux:select.option>
+                    @foreach ($devices as $id => $name)
+                        <flux:select.option value="{{ $name }}"> {{ $id }} </flux:select.option>
                     @endforeach
                 </flux:select>
             @endif
@@ -59,7 +57,8 @@ new class extends Component
             </p>
             <div class="mt-4">
                 <h3 class="text-lg">Headers</h3>
-                <div>Authorization <span class="ml-2 font-mono">Bearer {{$token ?? '**********'}}</span>
+                <div>
+                    Authorization <span class="ml-2 font-mono">Bearer {{ $token ?? '**********' }}</span>
                     <flux:button variant="subtle" size="xs" class="mt-2" wire:click="regenerateToken()">
                         Regenerate Token
                     </flux:button>
@@ -83,7 +82,8 @@ new class extends Component
             </p>
             <div class="mt-4">
                 <h3 class="text-lg">Headers</h3>
-                <div>Authorization <span class="ml-2 font-mono">Bearer {{$token ?? '**********'}}</span>
+                <div>
+                    Authorization <span class="ml-2 font-mono">Bearer {{ $token ?? '**********' }}</span>
                     <flux:button variant="subtle" size="xs" class="mt-2" wire:click="regenerateToken()">
                         Regenerate Token
                     </flux:button>

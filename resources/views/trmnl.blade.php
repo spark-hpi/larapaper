@@ -6,5 +6,5 @@
             <x-trmnl::label variant="underline">Michael Scott</x-trmnl::label>
         </x-trmnl::richtext>
     </x-trmnl::layout>
-    <x-trmnl::title-bar/>
+    <x-trmnl::title-bar />
 </x-trmnl::view>

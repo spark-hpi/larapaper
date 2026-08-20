@@ -5,23 +5,23 @@
 ])
 
 @php
-if ($variant === 'solid') {
-    throw new \Exception('The "solid" variant is not supported in Lucide.');
-}
+    if ($variant === 'solid') {
+        throw new \Exception('The "solid" variant is not supported in Lucide.');
+    }
 
-$classes = Flux::classes('shrink-0')
-    ->add(match($variant) {
-        'outline' => '[:where(&)]:size-6',
-        'solid' => '[:where(&)]:size-6',
-        'mini' => '[:where(&)]:size-5',
-        'micro' => '[:where(&)]:size-4',
-    });
+    $classes = Flux::classes('shrink-0')
+        ->add(match ($variant) {
+            'outline' => '[:where(&)]:size-6',
+            'solid' => '[:where(&)]:size-6',
+            'mini' => '[:where(&)]:size-5',
+            'micro' => '[:where(&)]:size-4',
+        });
 
-$strokeWidth = match ($variant) {
-    'outline' => 2,
-    'mini' => 2.25,
-    'micro' => 2.5,
-};
+    $strokeWidth = match ($variant) {
+        'outline' => 2,
+        'mini' => 2.25,
+        'micro' => 2.5,
+    };
 @endphp
 
 <svg
@@ -37,6 +37,6 @@ $strokeWidth = match ($variant) {
     aria-hidden="true"
     data-slot="icon"
 >
-  <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" />
-  <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" />
+    <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" />
+    <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" />
 </svg>

@@ -425,9 +425,9 @@ new class extends Component
     public function getAvailablePlugins()
     {
         return auth()->user()->plugins()
-        ->where('id', '!=', $this->plugin->id)
-        ->where('plugin_type', 'recipe')
-        ->get();
+            ->where('id', '!=', $this->plugin->id)
+            ->where('plugin_type', 'recipe')
+            ->get();
     }
 
     public function getRequiredPluginCount(): int
@@ -862,44 +862,70 @@ HTML;
         });
     "
 >
-    <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center mb-3">
-            <h2 class="text-2xl font-semibold dark:text-gray-100">{{$plugin->name}}
+    <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+        <div class="mb-6 flex items-center justify-between">
+            <h2 class="text-2xl font-semibold dark:text-gray-100">
+                {{ $plugin->name }}
                 <flux:badge size="sm" class="ml-2">Recipe</flux:badge>
             </h2>
 
             <div class="flex items-center gap-3">
-                @if($plugin->user_id === auth()->id() || auth()->user()->isAdmin())
-                    <flux:switch wire:click="toggleShared" :checked="$is_shared" label="Shared"/>
+                @if ($plugin->user_id === auth()->id() || auth()->user()->isAdmin())
+                    <flux:switch wire:click="toggleShared" :checked="$is_shared" label="Shared" />
                 @endif
 
                 <flux:button.group>
                     <flux:modal.trigger name="preview-plugin">
-                        <flux:button icon="eye" wire:click="renderPreview" :disabled="$plugin->hasMissingRequiredConfigurationFields()">Preview</flux:button>
+                        <flux:button
+                            icon="eye"
+                            wire:click="renderPreview"
+                            :disabled="$plugin->hasMissingRequiredConfigurationFields()"
+                        >Preview</flux:button>
                     </flux:modal.trigger>
                     <flux:dropdown>
-                        <flux:button icon="chevron-down" :disabled="$plugin->hasMissingRequiredConfigurationFields()"></flux:button>
+                        <flux:button
+                            icon="chevron-down"
+                            :disabled="$plugin->hasMissingRequiredConfigurationFields()"
+                        ></flux:button>
                         <flux:menu>
                             <flux:modal.trigger name="preview-plugin">
-                                <flux:menu.item icon="mashup-1Tx1B" wire:click="renderPreview('half_horizontal')" :disabled="$plugin->hasMissingRequiredConfigurationFields()">Half-Horizontal
+                                <flux:menu.item
+                                    icon="mashup-1Tx1B"
+                                    wire:click="renderPreview('half_horizontal')"
+                                    :disabled="$plugin->hasMissingRequiredConfigurationFields()"
+                                >
+                                    Half-Horizontal
                                 </flux:menu.item>
                             </flux:modal.trigger>
 
                             <flux:modal.trigger name="preview-plugin">
-                                <flux:menu.item icon="mashup-1Lx1R" wire:click="renderPreview('half_vertical')" :disabled="$plugin->hasMissingRequiredConfigurationFields()">Half-Vertical
+                                <flux:menu.item
+                                    icon="mashup-1Lx1R"
+                                    wire:click="renderPreview('half_vertical')"
+                                    :disabled="$plugin->hasMissingRequiredConfigurationFields()"
+                                >
+                                    Half-Vertical
                                 </flux:menu.item>
                             </flux:modal.trigger>
 
                             <flux:modal.trigger name="preview-plugin">
-                                <flux:menu.item icon="mashup-2x2" wire:click="renderPreview('quadrant')" :disabled="$plugin->hasMissingRequiredConfigurationFields()">Quadrant</flux:menu.item>
+                                <flux:menu.item
+                                    icon="mashup-2x2"
+                                    wire:click="renderPreview('quadrant')"
+                                    :disabled="$plugin->hasMissingRequiredConfigurationFields()"
+                                >
+                                    Quadrant</flux:menu.item>
                             </flux:modal.trigger>
                         </flux:menu>
                     </flux:dropdown>
                 </flux:button.group>
-
                 <flux:button.group>
                     <flux:modal.trigger name="add-to-playlist">
-                        <flux:button icon="play" variant="primary" :disabled="$plugin->hasMissingRequiredConfigurationFields()">Add to Playlist</flux:button>
+                        <flux:button
+                            icon="play"
+                            variant="primary"
+                            :disabled="$plugin->hasMissingRequiredConfigurationFields()"
+                        >Add to Playlist</flux:button>
                     </flux:modal.trigger>
 
                     <flux:dropdown>
@@ -909,12 +935,14 @@ HTML;
                                 <flux:menu.item icon="cog">Recipe Settings</flux:menu.item>
                             </flux:modal.trigger>
                             <flux:menu.separator />
-                            <flux:menu.item icon="document-duplicate" wire:click="duplicatePlugin">Duplicate Plugin</flux:menu.item>
+                            <flux:menu.item icon="document-duplicate" wire:click="duplicatePlugin">
+                                Duplicate Plugin</flux:menu.item>
                             <flux:modal.trigger name="delete-plugin">
                                 <flux:menu.item icon="trash" variant="danger">Delete Plugin</flux:menu.item>
                             </flux:modal.trigger>
                             <flux:menu.separator />
-                            <flux:menu.item icon="archive-box" wire:click="exportPluginArchive">Export Recipe Archive</flux:menu.item>
+                            <flux:menu.item icon="archive-box" wire:click="exportPluginArchive">
+                                Export Recipe Archive</flux:menu.item>
                         </flux:menu>
                     </flux:dropdown>
                 </flux:button.group>
@@ -931,7 +959,7 @@ HTML;
                     <flux:separator text="Device(s)" />
                     <div class="mt-4 mb-4">
                         <flux:checkbox.group wire:model.live="checked_devices">
-                            @foreach($this->manageableDevices as $device)
+                            @foreach ($this->manageableDevices as $device)
                                 <flux:checkbox
                                     label="{{ $device->name }}{{ $device->user_id === null ? ' (shared)' : '' }}"
                                     value="{{ $device->id }}"
@@ -940,50 +968,64 @@ HTML;
                         </flux:checkbox.group>
                     </div>
 
-                    @if(count($checked_devices) > 0)
+                    @if (count($checked_devices) > 0)
                         <flux:separator text="Playlist Selection" />
                         <div class="mt-4 mb-4 space-y-6">
-                            @foreach($checked_devices as $deviceId)
+                            @foreach ($checked_devices as $deviceId)
                                 @php
                                     $device = $this->manageableDevices->find($deviceId);
                                 @endphp
-                                <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4">
-                                    <div class="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3">
+                                <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+                                    <div class="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
                                         {{ $device->name }}
                                     </div>
 
                                     <div class="mb-4">
                                         <flux:select wire:model.live.debounce="device_playlists.{{ $deviceId }}">
                                             <option value="">Select Playlist or Create New</option>
-                                            @foreach($this->getDevicePlaylists($deviceId) as $playlist)
+                                            @foreach ($this->getDevicePlaylists($deviceId) as $playlist)
                                                 <option value="{{ $playlist->id }}">{{ $playlist->name }}</option>
                                             @endforeach
                                             <option value="new">Create New Playlist</option>
                                         </flux:select>
                                     </div>
 
-                                    @if(isset($device_playlists[$deviceId]) && $device_playlists[$deviceId] === 'new')
+                                    @if (isset($device_playlists[$deviceId]) && $device_playlists[$deviceId] === 'new')
                                         <div class="space-y-4">
                                             <div>
-                                                <flux:input label="Playlist Name" wire:model="device_playlist_names.{{ $deviceId }}"/>
+                                                <flux:input
+                                                    label="Playlist Name"
+                                                    wire:model="device_playlist_names.{{ $deviceId }}"
+                                                />
                                             </div>
                                             <div>
-                                                <flux:checkbox.group wire:model="device_weekdays.{{ $deviceId }}" label="Active Days (optional)">
-                                                    <flux:checkbox label="Monday" value="1"/>
-                                                    <flux:checkbox label="Tuesday" value="2"/>
-                                                    <flux:checkbox label="Wednesday" value="3"/>
-                                                    <flux:checkbox label="Thursday" value="4"/>
-                                                    <flux:checkbox label="Friday" value="5"/>
-                                                    <flux:checkbox label="Saturday" value="6"/>
-                                                    <flux:checkbox label="Sunday" value="0"/>
+                                                <flux:checkbox.group
+                                                    wire:model="device_weekdays.{{ $deviceId }}"
+                                                    label="Active Days (optional)"
+                                                >
+                                                    <flux:checkbox label="Monday" value="1" />
+                                                    <flux:checkbox label="Tuesday" value="2" />
+                                                    <flux:checkbox label="Wednesday" value="3" />
+                                                    <flux:checkbox label="Thursday" value="4" />
+                                                    <flux:checkbox label="Friday" value="5" />
+                                                    <flux:checkbox label="Saturday" value="6" />
+                                                    <flux:checkbox label="Sunday" value="0" />
                                                 </flux:checkbox.group>
                                             </div>
                                             <div class="grid grid-cols-2 gap-4">
                                                 <div>
-                                                    <flux:input type="time" label="Active From (optional)" wire:model="device_active_from.{{ $deviceId }}"/>
+                                                    <flux:input
+                                                        type="time"
+                                                        label="Active From (optional)"
+                                                        wire:model="device_active_from.{{ $deviceId }}"
+                                                    />
                                                 </div>
                                                 <div>
-                                                    <flux:input type="time" label="Active Until (optional)" wire:model="device_active_until.{{ $deviceId }}"/>
+                                                    <flux:input
+                                                        type="time"
+                                                        label="Active Until (optional)"
+                                                        wire:model="device_active_until.{{ $deviceId }}"
+                                                    />
                                                 </div>
                                             </div>
                                         </div>
@@ -994,38 +1036,50 @@ HTML;
                     @endif
 
                     <div
-                        x-show="($wire.checked_devices ?? []).length > 0 && ($wire.checked_devices ?? []).some((id) => { const v = ($wire.device_playlists ?? {})[id]; return v !== undefined && v !== null && v !== ''; })"
-                        style="display: none;"
+                        x-show="
+                            ($wire.checked_devices ?? []).length > 0 &&
+                            ($wire.checked_devices ?? []).some((id) => {
+                                const v = ($wire.device_playlists ?? {})[id];
+                                return v !== undefined && v !== null && v !== '';
+                            })
+                        "
+                        style="display: none"
                     >
                         <flux:separator text="Layout" />
                         <div class="mt-4 mb-4">
                             <flux:radio.group wire:model.live="mashup_layout" variant="segmented">
-                                <flux:radio value="full" icon="mashup-1x1"/>
-                                <flux:radio value="1Lx1R"  icon="mashup-1Lx1R"/>
-                                <flux:radio value="1Lx2R"  icon="mashup-1Lx2R"/>
-                                <flux:radio value="2Lx1R"  icon="mashup-2Lx1R"/>
-                                <flux:radio value="1Tx1B" icon="mashup-1Tx1B"/>
-                                <flux:radio value="2Tx1B"  icon="mashup-2Tx1B"/>
-                                <flux:radio value="1Tx2B"  icon="mashup-1Tx2B"/>
-                                <flux:radio value="2x2"  icon="mashup-2x2"/>
+                                <flux:radio value="full" icon="mashup-1x1" />
+                                <flux:radio value="1Lx1R" icon="mashup-1Lx1R" />
+                                <flux:radio value="1Lx2R" icon="mashup-1Lx2R" />
+                                <flux:radio value="2Lx1R" icon="mashup-2Lx1R" />
+                                <flux:radio value="1Tx1B" icon="mashup-1Tx1B" />
+                                <flux:radio value="2Tx1B" icon="mashup-2Tx1B" />
+                                <flux:radio value="1Tx2B" icon="mashup-1Tx2B" />
+                                <flux:radio value="2x2" icon="mashup-2x2" />
                             </flux:radio.group>
                         </div>
 
-                        @if($mashup_layout !== 'full')
+                        @if ($mashup_layout !== 'full')
                             <div class="mb-4">
-                                <div class="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Mashup Slots</div>
+                                <div class="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                    Mashup Slots
+                                </div>
                                 <div class="space-y-2">
                                     <div class="flex items-center gap-2">
                                         <div class="w-24 text-sm text-zinc-500 dark:text-zinc-400">Main Plugin</div>
-                                        <flux:input :value="$plugin->name" disabled class="flex-1"/>
+                                        <flux:input :value="$plugin->name" disabled class="flex-1" />
                                     </div>
-                                    @for($i = 0; $i < $this->getRequiredPluginCount() - 1; $i++)
+                                    @for ($i = 0; $i < $this->getRequiredPluginCount() - 1; ++$i)
                                         <div class="flex items-center gap-2">
-                                            <div class="w-24 text-sm text-zinc-500 dark:text-zinc-400">Plugin {{ $i + 2 }}:</div>
+                                            <div class="w-24 text-sm text-zinc-500 dark:text-zinc-400">
+                                                Plugin {{ $i + 2 }}:
+                                            </div>
                                             <flux:select wire:model="mashup_plugins.{{ $i }}" class="flex-1">
                                                 <option value="">Select a plugin...</option>
-                                                @foreach($this->getAvailablePlugins() as $availablePlugin)
-                                                    <option value="{{ $availablePlugin->id }}">{{ $availablePlugin->name }}</option>
+                                                @foreach ($this->getAvailablePlugins() as $availablePlugin)
+                                                    <option value="{{ $availablePlugin->id }}">
+                                                        {{ $availablePlugin->name }}
+                                                    </option>
                                                 @endforeach
                                             </flux:select>
                                         </div>
@@ -1036,8 +1090,12 @@ HTML;
                     </div>
 
                     <div class="flex">
-                        <flux:spacer/>
-                        <flux:button type="submit" variant="primary" :disabled="$plugin->hasMissingRequiredConfigurationFields()">Add to Playlist</flux:button>
+                        <flux:spacer />
+                        <flux:button
+                            type="submit"
+                            variant="primary"
+                            :disabled="$plugin->hasMissingRequiredConfigurationFields()"
+                        >Add to Playlist</flux:button>
                     </div>
                 </form>
             </div>
@@ -1046,12 +1104,13 @@ HTML;
         <flux:modal name="delete-plugin" class="min-w-[22rem] space-y-6">
             <div>
                 <flux:heading size="lg">Delete {{ $plugin->name }}?</flux:heading>
-                <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">This will remove this plugin from your
-                    account.</p>
+                <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                    This will remove this plugin from your account.
+                </p>
             </div>
 
             <div class="flex gap-2">
-                <flux:spacer/>
+                <flux:spacer />
                 <flux:modal.close>
                     <flux:button variant="ghost">Cancel</flux:button>
                 </flux:modal.close>
@@ -1059,15 +1118,15 @@ HTML;
             </div>
         </flux:modal>
 
-        <flux:modal name="preview-plugin" class="min-w-[850px] max-h-[90vh]">
-            <div class="flex min-h-0 max-h-[90vh] flex-col gap-4">
+        <flux:modal name="preview-plugin" class="max-h-[90vh] min-w-[850px]">
+            <div class="flex max-h-[90vh] min-h-0 flex-col gap-4">
                 <div class="flex shrink-0 items-center gap-4">
                     <flux:heading size="lg">Preview {{ $plugin->name }}</flux:heading>
                     <flux:field class="w-48">
                         <flux:select wire:model.live="preview_device_model_id">
-                            @foreach($this->getDeviceModels() as $group)
+                            @foreach ($this->getDeviceModels() as $group)
                                 <optgroup label="{{ $group['label'] }}">
-                                    @foreach($group['models'] as $model)
+                                    @foreach ($group['models'] as $model)
                                         <option value="{{ $model->id }}">{{ $model->label ?? $model->name }}</option>
                                     @endforeach
                                 </optgroup>
@@ -1079,12 +1138,21 @@ HTML;
 
                 <div
                     id="preview-stage"
-                    class="flex w-full flex-1 min-h-[50vh] items-center justify-center overflow-hidden rounded-lg bg-white dark:bg-zinc-900"
+                    class="flex min-h-[50vh] w-full flex-1 items-center justify-center overflow-hidden rounded-lg bg-white dark:bg-zinc-900"
                 >
                     <div id="preview-layout" class="overflow-hidden">
                         <div id="preview-scaler" class="origin-top-left">
-                            <iframe id="preview-frame" class="block border-0" x-show="!$wire.preview_image_url"></iframe>
-                            <img id="preview-image" class="block" x-show="$wire.preview_image_url" :src="$wire.preview_image_url">
+                            <iframe
+                                id="preview-frame"
+                                class="block border-0"
+                                x-show="! $wire.preview_image_url"
+                            ></iframe>
+                            <img
+                                id="preview-image"
+                                class="block"
+                                x-show="$wire.preview_image_url"
+                                :src="$wire.preview_image_url"
+                            />
                         </div>
                     </div>
                 </div>
@@ -1136,12 +1204,19 @@ HTML;
                     <p
                         x-cloak
                         x-show="localPayloadError"
-                        class="text-sm text-red-600 dark:text-red-400 mb-3"
+                        class="mb-3 text-sm text-red-600 dark:text-red-400"
                         x-text="localPayloadError"
                     ></p>
                     <div class="mb-4">
-                        <flux:input label="Name" wire:model="name" id="name" class="block mt-1 w-full" type="text"
-                                    name="name" autofocus/>
+                        <flux:input
+                            label="Name"
+                            wire:model="name"
+                            id="name"
+                            class="mt-1 block w-full"
+                            type="text"
+                            name="name"
+                            autofocus
+                        />
                     </div>
 
                     @if(auth()->user()->isAdmin())
@@ -1169,15 +1244,15 @@ HTML;
                         }
                     @endphp
 
-                    @if($authorField)
-                        <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4">
+                    @if ($authorField)
+                        <div class="mb-4 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
                             <div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
                                 {{ $authorField['description'] }}
                             </div>
 
-                            @if(isset($authorField['github_url']) || isset($authorField['learn_more_url']) || isset($authorField['email_address']))
+                            @if (isset($authorField['github_url']) || isset($authorField['learn_more_url']) || isset($authorField['email_address']))
                                 <div class="mt-4 flex flex-wrap gap-2">
-                                    @if(isset($authorField['github_url']))
+                                    @if (isset($authorField['github_url']))
                                         @php
                                             $githubUrl = $authorField['github_url'];
                                             $githubUsername = null;
@@ -1187,9 +1262,11 @@ HTML;
                                                 $githubUsername = $matches[1];
                                             }
                                         @endphp
-                                        @if($githubUsername)<flux:label badge="{{ $githubUsername }}"/>@endif
+                                        @if ($githubUsername)
+                                            <flux:label badge="{{ $githubUsername }}" />
+                                        @endif
                                     @endif
-                                    @if(isset($authorField['learn_more_url']))
+                                    @if (isset($authorField['learn_more_url']))
                                         <flux:button
                                             size="sm"
                                             variant="ghost"
@@ -1201,7 +1278,7 @@ HTML;
                                         </flux:button>
                                     @endif
 
-                                    @if(isset($authorField['github_url']))
+                                    @if (isset($authorField['github_url']))
                                         <flux:button
                                             size="sm"
                                             icon="github"
@@ -1212,7 +1289,7 @@ HTML;
                                         </flux:button>
                                     @endif
 
-                                    @if(isset($authorField['email_address']))
+                                    @if (isset($authorField['email_address']))
                                         <flux:button
                                             size="sm"
                                             variant="ghost"
@@ -1226,130 +1303,142 @@ HTML;
                         </div>
                     @endif
 
-                    @if(isset($configuration_template['custom_fields']) && !empty($configuration_template['custom_fields']))
-                        @if($plugin->hasMissingRequiredConfigurationFields())
-                            <flux:callout class="mb-2" variant="warning" icon="exclamation-circle" heading="Please set required configuration fields." />
+                    @if (isset($configuration_template['custom_fields']) && ! empty($configuration_template['custom_fields']))
+                        @if ($plugin->hasMissingRequiredConfigurationFields())
+                            <flux:callout
+                                class="mb-2"
+                                variant="warning"
+                                icon="exclamation-circle"
+                                heading="Please set required configuration fields."
+                            />
                         @endif
                         <div class="mb-4">
                             <flux:modal.trigger name="configuration-modal">
-                                <flux:button icon="variable" class="block mt-1 w-full">Configuration Fields</flux:button>
+                                <flux:button icon="variable" class="mt-1 block w-full"
+                                    >Configuration Fields</flux:button>
                             </flux:modal.trigger>
                         </div>
                     @endif
                     <div class="mb-4">
                         <flux:radio.group wire:model.live="data_strategy" label="Data Strategy" variant="segmented">
-                            <flux:radio value="polling" label="Polling"/>
-                            <flux:radio value="webhook" label="Webhook"/>
-                            <flux:radio value="static" label="Static"/>
+                            <flux:radio value="polling" label="Polling" />
+                            <flux:radio value="webhook" label="Webhook" />
+                            <flux:radio value="static" label="Static" />
                         </flux:radio.group>
                     </div>
 
-                    @if($data_strategy === 'polling')
-                    <flux:label>Polling URL</flux:label>
+                    @if ($data_strategy === 'polling')
+                        <flux:label>Polling URL</flux:label>
 
-                    <div x-data="{ subTab: 'urls' }" class="mt-2 mb-4">
-                        <div class="flex">
-                            <button
-                                @click="subTab = 'urls'"
-                                class="tab-button"
-                                :class="subTab === 'urls' ? 'is-active' : ''"
-                            >
-                                <flux:icon.link class="size-4"/>
-                                URLs
-                            </button>
+                        <div x-data="{ subTab: 'urls' }" class="mt-2 mb-4">
+                            <div class="flex">
+                                <button
+                                    @click="subTab = 'urls'"
+                                    class="tab-button"
+                                    :class="subTab === 'urls' ? 'is-active' : ''"
+                                >
+                                    <flux:icon.link class="size-4" />
+                                    URLs
+                                </button>
 
-                            <button
-                                @click="subTab = 'settings'"
-                                class="tab-button"
-                                :class="subTab === 'settings' ? 'is-active' : ''"
-                            >
-                                <flux:icon.cog-6-tooth class="size-4"/>
-                                Settings
-                            </button>
+                                <button
+                                    @click="subTab = 'settings'"
+                                    class="tab-button"
+                                    :class="subTab === 'settings' ? 'is-active' : ''"
+                                >
+                                    <flux:icon.cog-6-tooth class="size-4" />
+                                    Settings
+                                </button>
 
-                            @if(app(ServerlessTransformService::class)->isEnabled())
-                            <button
-                                @click="subTab = 'transform'"
-                                class="tab-button"
-                                :class="subTab === 'transform' ? 'is-active' : ''"
-                            >
-                                <flux:icon.code-bracket class="size-4"/>
-                                Transform
-                            </button>
-                            @endif
-                        </div>
-
-                        <div class="flex-col p-4 bg-transparent rounded-tl-none styled-container">
-                            {{-- URLs tab --}}
-                            <div x-show="subTab === 'urls'">
-                                <flux:field>
-                                    <flux:description>Enter the URL(s) to poll for data:</flux:description>
-                                    <flux:textarea
-                                        wire:model.live="polling_url"
-                                        placeholder="https://example.com/api"
-                                        rows="5"
-                                    />
-                                    <flux:description>
-                                        {!! 'Hint: Supports multiple requests via line break separation. You can also use configuration variables with <a href="https://help.usetrmnl.com/en/articles/12689499-dynamic-polling-urls">Liquid syntax</a>. ' !!}
-                                    </flux:description>
-                                </flux:field>
-
-                                <div class="mt-3">
-                                    <flux:field>
-                                        <flux:description>Preview computed URLs here (readonly):</flux:description>
-                                        <flux:textarea
-                                            readonly
-                                            placeholder="Nothing to show..."
-                                            rows="3"
-                                        >
-                                            {{ $this->parsed_urls }}
-                                        </flux:textarea>
-                                    </flux:field>
-                                </div>
-
-                                <flux:button icon="cloud-arrow-down" wire:click="updateData" class="w-full mt-4">
-                                    Fetch data now
-                                </flux:button>
+                                @if (app(ServerlessTransformService::class)->isEnabled())
+                                    <button
+                                        @click="subTab = 'transform'"
+                                        class="tab-button"
+                                        :class="subTab === 'transform' ? 'is-active' : ''"
+                                    >
+                                        <flux:icon.code-bracket class="size-4" />
+                                        Transform
+                                    </button>
+                                @endif
                             </div>
 
-                            {{-- Settings tab --}}
-                            <div x-show="subTab === 'settings'" x-cloak>
-                                <div class="mb-4">
-                                    <flux:radio.group wire:model.live="polling_verb" label="Polling Verb" variant="segmented">
-                                        <flux:radio value="get" label="GET"/>
-                                        <flux:radio value="post" label="POST"/>
-                                    </flux:radio.group>
+                            <div class="styled-container flex-col rounded-tl-none bg-transparent p-4">
+                                {{-- URLs tab --}}
+                                <div x-show="subTab === 'urls'">
+                                    <flux:field>
+                                        <flux:description>Enter the URL(s) to poll for data:</flux:description>
+                                        <flux:textarea
+                                            wire:model.live="polling_url"
+                                            placeholder="https://example.com/api"
+                                            rows="5"
+                                        />
+                                        <flux:description>
+                                            {!! 'Hint: Supports multiple requests via line break separation. You can also use configuration variables with <a href="https://help.usetrmnl.com/en/articles/12689499-dynamic-polling-urls">Liquid syntax</a>. ' !!}
+                                        </flux:description>
+                                    </flux:field>
+
+                                    <div class="mt-3">
+                                        <flux:field>
+                                            <flux:description>Preview computed URLs here (readonly):</flux:description>
+                                            <flux:textarea readonly placeholder="Nothing to show..." rows="3">
+                                                {{ $this->parsed_urls }}
+                                            </flux:textarea>
+                                        </flux:field>
+                                    </div>
+
+                                    <flux:button icon="cloud-arrow-down" wire:click="updateData" class="mt-4 w-full">
+                                        Fetch data now
+                                    </flux:button>
                                 </div>
 
-                                <div class="mb-4">
-                                    <flux:textarea
-                                        label="Polling Headers (one per line, format: Header: Value)"
-                                        wire:model="polling_header"
-                                        id="polling_header"
-                                        class="block mt-1 w-full font-mono"
-                                        name="polling_header"
-                                        rows="3"
-                                        placeholder="Authorization: Bearer ey.*******&#10;Content-Type: application/json"
-                                    />
-                                </div>
+                                {{-- Settings tab --}}
+                                <div x-show="subTab === 'settings'" x-cloak>
+                                    <div class="mb-4">
+                                        <flux:radio.group
+                                            wire:model.live="polling_verb"
+                                            label="Polling Verb"
+                                            variant="segmented"
+                                        >
+                                            <flux:radio value="get" label="GET" />
+                                            <flux:radio value="post" label="POST" />
+                                        </flux:radio.group>
+                                    </div>
 
-                                @if($polling_verb === 'post')
-                                <div class="mb-4">
-                                    <flux:textarea
-                                        label="Polling Body (e.g. for GraphQL queries)"
-                                        wire:model="polling_body"
-                                        id="polling_body"
-                                        class="block mt-1 w-full font-mono"
-                                        name="polling_body"
-                                        rows="6"
-                                    />
-                                </div>
-                                @endif
+                                    <div class="mb-4">
+                                        <flux:textarea
+                                            label="Polling Headers (one per line, format: Header: Value)"
+                                            wire:model="polling_header"
+                                            id="polling_header"
+                                            class="mt-1 block w-full font-mono"
+                                            name="polling_header"
+                                            rows="3"
+                                            placeholder="Authorization: Bearer ey.*******&#10;Content-Type: application/json"
+                                        />
+                                    </div>
 
-                                <div class="mb-4">
-                                    <flux:input label="Data is stale after minutes" wire:model="data_stale_minutes"
-                                                id="data_stale_minutes"
-                                                class="block mt-1 w-full" type="number" name="data_stale_minutes"/>
+                                    @if ($polling_verb === 'post')
+                                        <div class="mb-4">
+                                            <flux:textarea
+                                                label="Polling Body (e.g. for GraphQL queries)"
+                                                wire:model="polling_body"
+                                                id="polling_body"
+                                                class="mt-1 block w-full font-mono"
+                                                name="polling_body"
+                                                rows="6"
+                                            />
+                                        </div>
+                                    @endif
+
+                                    <div class="mb-4">
+                                        <flux:input
+                                            label="Data is stale after minutes"
+                                            wire:model="data_stale_minutes"
+                                            id="data_stale_minutes"
+                                            class="mt-1 block w-full"
+                                            type="number"
+                                            name="data_stale_minutes"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
@@ -1377,21 +1466,28 @@ HTML;
                             </div>
                             @endif
                         </div>
-                    </div>
-                    @elseif($data_strategy === 'webhook')
+                    @elseif ($data_strategy === 'webhook')
                         <div class="mb-4">
                             <flux:field>
                                 <flux:label>Webhook URL</flux:label>
                                 <flux:input
                                     :value="route('api.custom_plugins.webhook', ['plugin' => $plugin->uuid])"
-                                    class="block mt-1 w-full font-mono"
+                                    class="mt-1 block w-full font-mono"
                                     readonly
                                     copyable
                                 />
-                                <flux:description>POST JSON with <code>merge_variables</code> to replace data, or add <code>merge_strategy</code> of <code>deep_merge</code> or <code>stream</code>. GET the same URL to retrieve the latest stored <code>merge_variables</code>. <a href="https://docs.trmnl.com/go/private-plugins/webhooks#update-existing-content" target="_blank">Docs</a></flux:description>
+                                <flux:description
+                                    >POST JSON with <code>merge_variables</code> to replace data, or add
+                                    <code>merge_strategy</code> of <code>deep_merge</code> or <code>stream</code>. GET
+                                    the same URL to retrieve the latest stored <code>merge_variables</code>.
+                                    <a
+                                        href="https://docs.trmnl.com/go/private-plugins/webhooks#update-existing-content"
+                                        target="_blank"
+                                        >Docs</a
+                                    ></flux:description>
                             </flux:field>
                         </div>
-                    @elseif($data_strategy === 'static')
+                    @elseif ($data_strategy === 'static')
                         <flux:text class="mb-2">Enter static JSON data in the Data Payload field.</flux:text>
                     @endif
 
@@ -1412,7 +1508,7 @@ HTML;
                     </div>
 
                     <div class="flex">
-                        <flux:spacer/>
+                        <flux:spacer />
                         <flux:button type="submit" variant="primary" class="w-full">Save</flux:button>
                     </div>
                 </form>
@@ -1421,16 +1517,21 @@ HTML;
                 <div class="mb-1">
                     <flux:label>Data Payload</flux:label>
                     @isset($this->data_payload_updated_at)
-                        <flux:badge icon="clock" size="sm" variant="pill" class="ml-2">{{ $this->data_payload_updated_at?->diffForHumans() ?? 'Never' }}</flux:badge>
+                        <flux:badge
+                            icon="clock"
+                            size="sm"
+                            variant="pill"
+                            class="ml-2"
+                        >{{ $this->data_payload_updated_at?->diffForHumans() ?? 'Never' }}</flux:badge>
                     @endisset
                     @if($transform_error !== null)
                         <flux:badge icon="exclamation-triangle" size="sm" variant="pill" color="red" class="ml-2" :title="$transform_error">Transform error</flux:badge>
                     @endif
                 </div>
-                <flux:error name="data_payload"/>
+                <flux:error name="data_payload" />
                 <flux:field>
                     @php
-                        $textareaId = 'payload-' . uniqid();
+                        $textareaId = 'payload-'.uniqid();
                     @endphp
                     <flux:textarea
                         wire:model="data_payload"
@@ -1449,38 +1550,36 @@ HTML;
                             })"
                         wire:ignore
                         wire:key="cm-{{ $textareaId }}"
-                        class="max-w-2xl min-h-[300px] h-[565px] overflow-hidden resize-y"
+                        class="h-[565px] min-h-[300px] max-w-2xl resize-y overflow-hidden"
                     >
                         <!-- Loading state -->
-                        <div x-show="isLoading" class="flex items-center justify-center h-full">
-                            <div class="flex items-center space-x-2 ">
+                        <div x-show="isLoading" class="flex h-full items-center justify-center">
+                            <div class="flex items-center space-x-2">
                                 <flux:icon.loading />
                             </div>
                         </div>
 
                         <!-- Editor container -->
-                        <div x-show="!isLoading" x-ref="editor" class="h-full"></div>
+                        <div x-show="! isLoading" x-ref="editor" class="h-full"></div>
                     </div>
                     <flux:description class="mt-2">
                         In the markup, the data payload can be accessed using the <code>data</code> variable.
                     </flux:description>
                 </flux:field>
-
-
             </div>
         </div>
-        <flux:separator class="my-5"/>
+        <flux:separator class="my-5" />
         <div>
-            <h3 class="text-xl font-semibold dark:text-gray-100">Code</h3>
-            @if($plugin->render_markup_view)
+            <h3 class="text-xl font-semibold dark:text-gray-100">Markup</h3>
+            @if ($plugin->render_markup_view)
                 <div>
                     Edit view
-                    <span class="font-mono text-accent mb-4">{{ $plugin->render_markup_view }}</span> to update.
+                    <span class="text-accent mb-4 font-mono">{{ $plugin->render_markup_view }}</span> to update.
                 </div>
-                <div class="mb-4 mt-4">
+                <div class="mt-4 mb-4">
                     <flux:field>
                         @php
-                            $textareaId = 'code-view-' . uniqid();
+                            $textareaId = 'code-view-'.uniqid();
                         @endphp
                         <flux:textarea
                             wire:model="view_content"
@@ -1491,36 +1590,34 @@ HTML;
                         />
                         <div
                             x-data="codeEditorFormComponent({
-                                isDisabled: @js((bool)$plugin->render_markup_view),
+                                isDisabled: @js((bool) $plugin->render_markup_view),
                                 language: 'liquid',
                                 state: $wire.entangle('markup_code'),
                                 textareaId: @js($textareaId)
                             })"
                             wire:ignore
                             wire:key="cm-{{ $textareaId }}"
-                            class="min-h-[300px] h-[300px] overflow-hidden resize-y"
+                            class="h-[300px] min-h-[300px] resize-y overflow-hidden"
                         >
                             <!-- Loading state -->
-                            <div x-show="isLoading" class="flex items-center justify-center h-full">
+                            <div x-show="isLoading" class="flex h-full items-center justify-center">
                                 <div class="flex items-center space-x-2">
                                     <flux:icon.loading />
                                 </div>
                             </div>
 
                             <!-- Editor container -->
-                            <div x-show="!isLoading" x-ref="editor" class="h-full"></div>
+                            <div x-show="! isLoading" x-ref="editor" class="h-full"></div>
                         </div>
                     </flux:field>
-
                 </div>
-            @else
             @endif
         </div>
-        @if(!$plugin->render_markup_view)
+        @if (! $plugin->render_markup_view)
             <div class="mb-4">
                 <div>
                     <div class="flex items-end">
-                        @foreach($active_tabs as $tab)
+                        @foreach ($active_tabs as $tab)
                             <button
                                 type="button"
                                 wire:click="switchTab('{{ $tab }}')"
@@ -1531,7 +1628,7 @@ HTML;
                             </button>
                         @endforeach
 
-                        @if($transform_code !== null && app(ServerlessTransformService::class)->isEnabled())
+                        @if ($transform_code !== null && app(ServerlessTransformService::class)->isEnabled())
                             <button
                                 type="button"
                                 wire:click="switchTab('transform')"
@@ -1544,13 +1641,13 @@ HTML;
                         <flux:dropdown>
                             <flux:button icon="plus" variant="ghost" size="sm" class="m-0.5"></flux:button>
                             <flux:menu>
-                                @foreach($this->getAvailableLayouts() as $layout => $label)
+                                @foreach ($this->getAvailableLayouts() as $layout => $label)
                                     <flux:menu.item wire:click="toggleLayoutTab('{{ $layout }}')">
                                         <div class="flex items-center gap-2">
-                                            @if(in_array($layout, $active_tabs, true))
+                                            @if (in_array($layout, $active_tabs, true))
                                                 <flux:icon.check class="size-4" />
                                             @else
-                                                <span class="inline-block w-4 h-4"></span>
+                                                <span class="inline-block h-4 w-4"></span>
                                             @endif
                                             <span>{{ $label }}</span>
                                         </div>
@@ -1560,34 +1657,34 @@ HTML;
                         </flux:dropdown>
                     </div>
 
-                    <div class="flex-col p-4 bg-transparent rounded-tl-none styled-container">
-                        @if($active_tab === 'transform')
+                    <div class="styled-container flex-col rounded-tl-none bg-transparent p-4">
+                        @if ($active_tab === 'transform')
                             {{-- Transform code editor --}}
-                            @php $transformTextareaId = 'transform-' . $plugin->id; @endphp
-                            <flux:textarea wire:model="transform_code" id="{{ $transformTextareaId }}" rows="20" hidden/>
+                            @php $transformTextareaId = 'transform-'.$plugin->id; @endphp
+                            <flux:textarea wire:model="transform_code" id="{{ $transformTextareaId }}" rows="20" hidden />
                             <div
                                 x-data="codeEditorFormComponent({
                                     isDisabled: false,
-                                    language: @js(match($transform_language) { 'node' => 'javascript', 'php' => 'php', default => 'python' }),
+                                    language: @js(match ($transform_language) { 'node' => 'javascript', 'php' => 'php', default => 'python' }),
                                     state: $wire.entangle('transform_code'),
                                     textareaId: @js($transformTextareaId),
                                     onSave: () => $wire.saveTransform()
                                 })"
                                 wire:ignore
                                 wire:key="cm-transform-{{ $plugin->id }}-{{ $transform_language }}"
-                                class="min-h-[300px] h-[300px] overflow-hidden resize-y mb-4"
+                                class="mb-4 h-[300px] min-h-[300px] resize-y overflow-hidden"
                             >
-                                <div x-show="isLoading" class="flex items-center justify-center h-full">
+                                <div x-show="isLoading" class="flex h-full items-center justify-center">
                                     <flux:icon.loading />
                                 </div>
-                                <div x-show="!isLoading" x-ref="editor" class="h-full"></div>
+                                <div x-show="! isLoading" x-ref="editor" class="h-full"></div>
                             </div>
                         @else
                             {{-- Markup code editor --}}
                             <div>
                                 <flux:field>
                                     @php
-                                        $textareaId = 'code-' . $plugin->id;
+                                        $textareaId = 'code-'.$plugin->id;
                                     @endphp
                                     <flux:label>{{ $markup_language === 'liquid' ? 'Liquid Code' : 'Blade Code' }}</flux:label>
                                     <flux:textarea
@@ -1607,14 +1704,14 @@ HTML;
                                         })"
                                         wire:ignore
                                         wire:key="cm-{{ $textareaId }}"
-                                        class="min-h-[300px] h-[300px] overflow-hidden resize-y"
+                                        class="h-[300px] min-h-[300px] resize-y overflow-hidden"
                                     >
-                                        <div x-show="isLoading" class="flex items-center justify-center h-full">
+                                        <div x-show="isLoading" class="flex h-full items-center justify-center">
                                             <div class="flex items-center space-x-2">
                                                 <flux:icon.loading />
                                             </div>
                                         </div>
-                                        <div x-show="!isLoading" x-ref="editor" class="h-full"></div>
+                                        <div x-show="! isLoading" x-ref="editor" class="h-full"></div>
                                     </div>
                                 </flux:field>
                             </div>
@@ -1622,7 +1719,7 @@ HTML;
                     </div>
                 </div>
 
-                <div class="flex mt-4">
+                <div class="mt-4 flex">
                     <flux:button
                         variant="primary"
                         wire:click="{{ $active_tab === 'transform' ? 'saveTransform' : 'saveMarkup' }}"
@@ -1631,7 +1728,7 @@ HTML;
                     </flux:button>
                 </div>
 
-                <div class="flex items-center gap-3 mt-4">
+                <div class="mt-4 flex items-center gap-3">
                     <span class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Template language</span>
                     <flux:select wire:model.live="markup_language" class="max-w-xs">
                         <flux:select.option value="blade">Blade</flux:select.option>
@@ -1639,7 +1736,7 @@ HTML;
                     </flux:select>
                 </div>
 
-                <div class="flex items-center gap-3 mt-3">
+                <div class="mt-3 flex items-center gap-3">
                     <span class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Getting started</span>
                     <flux:button size="sm" wire:click="renderExample('layoutTitle')">Responsive Layout with Title Bar</flux:button>
                     <flux:button size="sm" wire:click="renderExample('layout')">Responsive Layout</flux:button>
@@ -1651,130 +1748,130 @@ HTML;
 </div>
 
 @script
-<script>
-    let previewNativeWidth = 800;
-    let previewNativeHeight = 480;
-    let previewResizeObserver = null;
+    <script>
+        let previewNativeWidth = 800;
+        let previewNativeHeight = 480;
+        let previewResizeObserver = null;
 
-    function positiveNumberOrFallback(value, fallback) {
-        const n = Number(value);
+        function positiveNumberOrFallback(value, fallback) {
+            const n = Number(value);
 
-        return n > 0 ? n : fallback;
-    }
-
-    function fitPreviewToStage() {
-        const stage = document.getElementById('preview-stage');
-        const layout = document.getElementById('preview-layout');
-        const scaler = document.getElementById('preview-scaler');
-        const frame = document.getElementById('preview-frame');
-
-        if (!stage || !layout || !scaler || !frame) {
-            return;
+            return n > 0 ? n : fallback;
         }
 
-        const w = previewNativeWidth;
-        const h = previewNativeHeight;
+        function fitPreviewToStage() {
+            const stage = document.getElementById('preview-stage');
+            const layout = document.getElementById('preview-layout');
+            const scaler = document.getElementById('preview-scaler');
+            const frame = document.getElementById('preview-frame');
 
-        if (w <= 0 || h <= 0) {
-            return;
+            if (!stage || !layout || !scaler || !frame) {
+                return;
+            }
+
+            const w = previewNativeWidth;
+            const h = previewNativeHeight;
+
+            if (w <= 0 || h <= 0) {
+                return;
+            }
+
+            const stageW = stage.clientWidth;
+            const stageH = stage.clientHeight;
+
+            if (stageW <= 0 || stageH <= 0) {
+                return;
+            }
+
+            const scale = Math.min(1, stageW / w, stageH / h);
+
+            layout.style.width = `${w * scale}px`;
+            layout.style.height = `${h * scale}px`;
+            scaler.style.width = `${w}px`;
+            scaler.style.height = `${h}px`;
+            scaler.style.transform = `scale(${scale})`;
         }
 
-        const stageW = stage.clientWidth;
-        const stageH = stage.clientHeight;
+        function ensurePreviewResizeObserver() {
+            const stage = document.getElementById('preview-stage');
 
-        if (stageW <= 0 || stageH <= 0) {
-            return;
+            if (!stage || previewResizeObserver) {
+                return;
+            }
+
+            previewResizeObserver = new ResizeObserver(() => fitPreviewToStage());
+            previewResizeObserver.observe(stage);
         }
 
-        const scale = Math.min(1, stageW / w, stageH / h);
+        $wire.on('preview-updated', ({ preview, screenWidth, screenHeight }) => {
+            $wire.preview_image_url = null;
+            previewNativeWidth = positiveNumberOrFallback(screenWidth, 800);
+            previewNativeHeight = positiveNumberOrFallback(screenHeight, 480);
 
-        layout.style.width = `${w * scale}px`;
-        layout.style.height = `${h * scale}px`;
-        scaler.style.width = `${w}px`;
-        scaler.style.height = `${h}px`;
-        scaler.style.transform = `scale(${scale})`;
-    }
+            const frame = document.getElementById('preview-frame');
 
-    function ensurePreviewResizeObserver() {
-        const stage = document.getElementById('preview-stage');
+            if (!frame) {
+                return;
+            }
 
-        if (!stage || previewResizeObserver) {
-            return;
-        }
+            frame.setAttribute('width', String(previewNativeWidth));
+            frame.setAttribute('height', String(previewNativeHeight));
 
-        previewResizeObserver = new ResizeObserver(() => fitPreviewToStage());
-        previewResizeObserver.observe(stage);
-    }
+            const frameDoc = frame.contentDocument || frame.contentWindow.document;
 
-    $wire.on('preview-updated', ({preview, screenWidth, screenHeight}) => {
-        $wire.preview_image_url = null;
-        previewNativeWidth = positiveNumberOrFallback(screenWidth, 800);
-        previewNativeHeight = positiveNumberOrFallback(screenHeight, 480);
+            // Reset the iframe state before writing new content
+            frame.src = 'about:blank';
 
-        const frame = document.getElementById('preview-frame');
+            // Re-populating the iframe
+            const writeToFrame = () => {
+                const newFrameDoc = frame.contentDocument || frame.contentWindow.document;
+                newFrameDoc.open();
+                newFrameDoc.write(preview);
+                newFrameDoc.close();
 
-        if (!frame) {
-            return;
-        }
+                requestAnimationFrame(() => {
+                    fitPreviewToStage();
+                    ensurePreviewResizeObserver();
+                });
+            };
 
-        frame.setAttribute('width', String(previewNativeWidth));
-        frame.setAttribute('height', String(previewNativeHeight));
+            // If iframe is already on about:blank, we can write immediately,
+            // otherwise wait for the load event once.
+            if (frame.contentWindow.location.href === 'about:blank') {
+                writeToFrame();
+            } else {
+                frame.onload = () => {
+                    frame.onload = null; // Remove listener
+                    writeToFrame();
+                };
+            }
+        });
 
-        const frameDoc = frame.contentDocument || frame.contentWindow.document;
+        $wire.on('preview-image-updated', ({ imageUrl, screenWidth, screenHeight }) => {
+            previewNativeWidth = positiveNumberOrFallback(screenWidth, 800);
+            previewNativeHeight = positiveNumberOrFallback(screenHeight, 480);
 
-        // Reset the iframe state before writing new content
-        frame.src = 'about:blank';
+            const img = document.getElementById('preview-image');
 
-        // Re-populating the iframe
-        const writeToFrame = () => {
-            const newFrameDoc = frame.contentDocument || frame.contentWindow.document;
-            newFrameDoc.open();
-            newFrameDoc.write(preview);
-            newFrameDoc.close();
+            if (!img) {
+                return;
+            }
+
+            img.setAttribute('width', String(previewNativeWidth));
+            img.setAttribute('height', String(previewNativeHeight));
 
             requestAnimationFrame(() => {
                 fitPreviewToStage();
                 ensurePreviewResizeObserver();
             });
-        };
-
-        // If iframe is already on about:blank, we can write immediately,
-        // otherwise wait for the load event once.
-        if (frame.contentWindow.location.href === 'about:blank') {
-            writeToFrame();
-        } else {
-            frame.onload = () => {
-                frame.onload = null; // Remove listener
-                writeToFrame();
-            };
-        }
-    });
-
-    $wire.on('preview-image-updated', ({imageUrl, screenWidth, screenHeight}) => {
-        previewNativeWidth = positiveNumberOrFallback(screenWidth, 800);
-        previewNativeHeight = positiveNumberOrFallback(screenHeight, 480);
-
-        const img = document.getElementById('preview-image');
-
-        if (!img) {
-            return;
-        }
-
-        img.setAttribute('width', String(previewNativeWidth));
-        img.setAttribute('height', String(previewNativeHeight));
-
-        requestAnimationFrame(() => {
-            fitPreviewToStage();
-            ensurePreviewResizeObserver();
         });
-    });
 
-    $wire.on('preview-error', ({message}) => {
-        alert('Preview Error: ' + message);
-    });
+        $wire.on('preview-error', ({ message }) => {
+            alert('Preview Error: ' + message);
+        });
 
-    $wire.on('data-update-error', ({message}) => {
-        alert('Data Update Error: ' + message);
-    });
-</script>
+        $wire.on('data-update-error', ({ message }) => {
+            alert('Data Update Error: ' + message);
+        });
+    </script>
 @endscript

@@ -5,8 +5,6 @@ use Illuminate\Support\Facades\Hash;
 use Laravel\Fortify\Features;
 use Livewire\Livewire;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 beforeEach(function (): void {
     $this->skipUnlessFortifyHas(Features::twoFactorAuthentication());
 

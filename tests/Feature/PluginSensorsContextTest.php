@@ -4,11 +4,8 @@ use App\Enums\DeviceSensorKind;
 use App\Models\Device;
 use App\Models\DeviceSensor;
 use App\Models\Plugin;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 
-uses(RefreshDatabase::class);
-
-test('plugin render exposes sensor data in trmnl.sensors for liquid templates', function () {
+test('plugin render exposes sensor data in trmnl.sensors for liquid templates', function (): void {
     $device = Device::factory()->create();
 
     DeviceSensor::factory()->create([

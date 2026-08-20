@@ -22,11 +22,17 @@ class Playlist extends Model
         'refresh_time' => 'integer',
     ];
 
+    /**
+     * @return BelongsTo<Device, $this>
+     */
     public function device(): BelongsTo
     {
         return $this->belongsTo(Device::class);
     }
 
+    /**
+     * @return HasMany<PlaylistItem, $this>
+     */
     public function items(): HasMany
     {
         return $this->hasMany(PlaylistItem::class);

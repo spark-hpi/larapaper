@@ -54,12 +54,13 @@ new class extends Component
 } ?>
 
 <div>
-    @if(config('app.version') && $isUpdateAvailable && $latestVersion)
-        <flux:callout class="text-xs mt-6" icon="arrow-down-circle">
+    @if (config('app.version') && $isUpdateAvailable && $latestVersion)
+        <flux:callout class="mt-6 text-xs" icon="arrow-down-circle">
             <flux:callout.heading>Update available</flux:callout.heading>
             <flux:callout.text>
-                There is a newer version {{ $latestVersion }} available. Update to the latest version for the best experience.
-                <flux:callout.link href="{{route('settings.update')}}" wire:navigate>Release notes</flux:callout.link>
+                There is a newer version {{ $latestVersion }} available. Update to the latest version for the best
+                experience.
+                <flux:callout.link href="{{ route('settings.update') }}" wire:navigate>Release notes</flux:callout.link>
             </flux:callout.text>
         </flux:callout>
     @endif

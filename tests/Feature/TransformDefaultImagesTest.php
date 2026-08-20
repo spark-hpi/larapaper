@@ -37,8 +37,8 @@ test('command transforms default images for all device models', function (): voi
         $setupPath = "images/default-screens/setup-logo_{$filename}";
         $sleepPath = "images/default-screens/sleep_{$filename}";
 
-        expect(Storage::disk('public')->exists($setupPath))->toBeTrue();
-        expect(Storage::disk('public')->exists($sleepPath))->toBeTrue();
+        expect(Storage::disk('public')->exists($setupPath))->toBeTrue()
+            ->and(Storage::disk('public')->exists($sleepPath))->toBeTrue();
     }
 });
 
@@ -49,8 +49,8 @@ test('getDeviceSpecificDefaultImage falls back to original images for device wit
     $setupImage = ImageGenerationService::getDeviceSpecificDefaultImage($device, 'setup-logo');
     $sleepImage = ImageGenerationService::getDeviceSpecificDefaultImage($device, 'sleep');
 
-    expect($setupImage)->toBe('images/setup-logo.bmp');
-    expect($sleepImage)->toBe('images/sleep.bmp');
+    expect($setupImage)->toBe('images/setup-logo.bmp')
+        ->and($sleepImage)->toBe('images/sleep.bmp');
 });
 
 test('generateDefaultScreenImage creates images from Blade templates', function (): void {
@@ -59,16 +59,16 @@ test('generateDefaultScreenImage creates images from Blade templates', function 
     $setupUuid = ImageGenerationService::generateDefaultScreenImage($device, 'setup-logo');
     $sleepUuid = ImageGenerationService::generateDefaultScreenImage($device, 'sleep');
 
-    expect($setupUuid)->not->toBeEmpty();
-    expect($sleepUuid)->not->toBeEmpty();
-    expect($setupUuid)->not->toBe($sleepUuid);
+    expect($setupUuid)->not->toBeEmpty()
+        ->and($sleepUuid)->not->toBeEmpty()
+        ->and($setupUuid)->not->toBe($sleepUuid);
 
     // Check that the generated images exist
     $setupPath = "images/generated/{$setupUuid}.png";
     $sleepPath = "images/generated/{$sleepUuid}.png";
 
-    expect(Storage::disk('public')->exists($setupPath))->toBeTrue();
-    expect(Storage::disk('public')->exists($sleepPath))->toBeTrue();
+    expect(Storage::disk('public')->exists($setupPath))->toBeTrue()
+        ->and(Storage::disk('public')->exists($sleepPath))->toBeTrue();
 })->skipOnCI();
 
 test('generateDefaultScreenImage throws exception for invalid image type', function (): void {

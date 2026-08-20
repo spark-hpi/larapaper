@@ -49,7 +49,6 @@ final class WebhookMessage extends Notification
      * Set the Webhook parameters to be URL encoded.
      *
      * @param  mixed  $query
-     * @return $this
      */
     public function query($query): self
     {
@@ -62,7 +61,6 @@ final class WebhookMessage extends Notification
      * Set the Webhook data to be JSON encoded.
      *
      * @param  mixed  $data
-     * @return $this
      */
     public function data($data): self
     {
@@ -76,7 +74,6 @@ final class WebhookMessage extends Notification
      *
      * @param  string  $name
      * @param  string  $value
-     * @return $this
      */
     public function header($name, $value): self
     {
@@ -89,7 +86,6 @@ final class WebhookMessage extends Notification
      * Set the Webhook request UserAgent.
      *
      * @param  string  $userAgent
-     * @return $this
      */
     public function userAgent($userAgent): self
     {
@@ -100,8 +96,6 @@ final class WebhookMessage extends Notification
 
     /**
      * Indicate that the request should be verified.
-     *
-     * @return $this
      */
     public function verify($value = true): self
     {

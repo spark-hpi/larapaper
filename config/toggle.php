@@ -16,7 +16,7 @@ return [
     |
     */
 
-    'driver' => env('TOGGLE_DRIVER', 'config'),
+    'driver' => env('TOGGLE_DRIVER', 'database'),
 
     /*
     |--------------------------------------------------------------------------
@@ -74,7 +74,24 @@ return [
     */
 
     'flags' => [
-        // 'example-flag' => env('TOGGLE_EXAMPLE_FLAG', false),
+        'mcp' => env('TOGGLE_MCP', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Lab Experiments
+    |--------------------------------------------------------------------------
+    |
+    | Display metadata for experimental feature toggles shown on the Lab page.
+    | Flag values must remain booleans in "flags" above for the toggle package.
+    |
+    */
+
+    'experiments' => [
+        'mcp' => [
+            'title' => 'MCP Server',
+            'description' => 'Expose a Model Context Protocol server so AI tools can list, create, update, and render your recipes. Requires an MCP API token.',
+        ],
     ],
 
     /*

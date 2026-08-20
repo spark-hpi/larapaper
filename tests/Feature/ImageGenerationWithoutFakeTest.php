@@ -3,9 +3,6 @@
 use App\Models\Device;
 use App\Models\DeviceModel;
 use App\Services\ImageGenerationService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-
-uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     Storage::fake('public');
@@ -48,8 +45,8 @@ it('generates 4-color 2-bit PNG with device model', function (): void {
 
     // Verify it's a valid PNG file
     $imageInfo = getimagesize($imagePath);
-    expect($imageInfo[0])->toBe(800); // Width
-    expect($imageInfo[1])->toBe(480); // Height
-    expect($imageInfo[2])->toBe(IMAGETYPE_PNG); // PNG type
+    // Width
+    // Height
+    expect($imageInfo)->toMatchArray([0 => 800, 1 => 480, 2 => IMAGETYPE_PNG]); // PNG type
 
 })->skipOnCI();

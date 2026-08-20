@@ -38,8 +38,8 @@ test('command transforms default images for all device models', function (): voi
         $setupPath = "images/default-screens/setup-logo_{$filename}";
         $sleepPath = "images/default-screens/sleep_{$filename}";
 
-        expect(Storage::disk('public')->exists($setupPath))->toBeTrue();
-        expect(Storage::disk('public')->exists($sleepPath))->toBeTrue();
+        expect(Storage::disk('public')->exists($setupPath))->toBeTrue()
+            ->and(Storage::disk('public')->exists($sleepPath))->toBeTrue();
     }
 });
 
@@ -62,8 +62,8 @@ test('getDeviceSpecificDefaultImage returns correct path for device with model',
     $setupImage = ImageGenerationService::getDeviceSpecificDefaultImage($device, 'setup-logo');
     $sleepImage = ImageGenerationService::getDeviceSpecificDefaultImage($device, 'sleep');
 
-    expect($setupImage)->toBe($setupPath);
-    expect($sleepImage)->toBe($sleepPath);
+    expect($setupImage)->toBe($setupPath)
+        ->and($sleepImage)->toBe($sleepPath);
 });
 
 test('getDeviceSpecificDefaultImage falls back to original images for device without model', function (): void {
@@ -73,8 +73,8 @@ test('getDeviceSpecificDefaultImage falls back to original images for device wit
     $setupImage = ImageGenerationService::getDeviceSpecificDefaultImage($device, 'setup-logo');
     $sleepImage = ImageGenerationService::getDeviceSpecificDefaultImage($device, 'sleep');
 
-    expect($setupImage)->toBe('images/setup-logo.bmp');
-    expect($sleepImage)->toBe('images/sleep.bmp');
+    expect($setupImage)->toBe('images/setup-logo.bmp')
+        ->and($sleepImage)->toBe('images/sleep.bmp');
 });
 
 test('generateDefaultScreenImage creates images from Blade templates', function (): void {
@@ -83,9 +83,9 @@ test('generateDefaultScreenImage creates images from Blade templates', function 
     $setupUuid = ImageGenerationService::generateDefaultScreenImage($device, 'setup-logo');
     $sleepUuid = ImageGenerationService::generateDefaultScreenImage($device, 'sleep');
 
-    expect($setupUuid)->not->toBeEmpty();
-    expect($sleepUuid)->not->toBeEmpty();
-    expect($setupUuid)->not->toBe($sleepUuid);
+    expect($setupUuid)->not->toBeEmpty()
+        ->and($sleepUuid)->not->toBeEmpty()
+        ->and($setupUuid)->not->toBe($sleepUuid);
 
     $setupPath = "images/generated/{$setupUuid}.png";
     $sleepPath = "images/generated/{$sleepUuid}.png";
@@ -93,8 +93,8 @@ test('generateDefaultScreenImage creates images from Blade templates', function 
     Storage::disk('public')->put($setupPath, 'fake-generated-setup-image');
     Storage::disk('public')->put($sleepPath, 'fake-generated-sleep-image');
 
-    expect(Storage::disk('public')->exists($setupPath))->toBeTrue();
-    expect(Storage::disk('public')->exists($sleepPath))->toBeTrue();
+    expect(Storage::disk('public')->exists($setupPath))->toBeTrue()
+        ->and(Storage::disk('public')->exists($sleepPath))->toBeTrue();
 });
 
 test('generateDefaultScreenImage throws exception for invalid image type', function (): void {

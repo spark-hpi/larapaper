@@ -9,8 +9,6 @@ use App\Models\Plugin;
 use App\Models\User;
 use Livewire\Livewire;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 test('sortPlaylistItem reorders playlist items by zero-based position', function (): void {
     $user = User::factory()->create();
     $device = Device::factory()->create(['user_id' => $user->id]);
@@ -25,9 +23,9 @@ test('sortPlaylistItem reorders playlist items by zero-based position', function
     Livewire::test('playlists.index')
         ->call('sortPlaylistItem', $second->id, 0);
 
-    expect(PlaylistItem::query()->find($second->id)?->order)->toBe(0);
-    expect(PlaylistItem::query()->find($first->id)?->order)->toBe(1);
-    expect(PlaylistItem::query()->find($third->id)?->order)->toBe(2);
+    expect(PlaylistItem::query()->find($second->id)?->order)->toBe(0)
+        ->and(PlaylistItem::query()->find($first->id)?->order)->toBe(1)
+        ->and(PlaylistItem::query()->find($third->id)?->order)->toBe(2);
 });
 
 test('sortPlaylistItem does not reorder when user does not own the device', function (): void {
@@ -43,8 +41,8 @@ test('sortPlaylistItem does not reorder when user does not own the device', func
 
     Livewire::test('playlists.index')->call('sortPlaylistItem', $target->id, 0);
 
-    expect(PlaylistItem::query()->find($target->id)?->order)->toBe(1);
-    expect(PlaylistItem::query()->find($first->id)?->order)->toBe(0);
+    expect(PlaylistItem::query()->find($target->id)?->order)->toBe(1)
+        ->and(PlaylistItem::query()->find($first->id)?->order)->toBe(0);
 });
 
 test('clearPluginImageCache nulls current_image and metadata for the playlist item plugin', function (): void {
@@ -69,8 +67,8 @@ test('clearPluginImageCache nulls current_image and metadata for the playlist it
         ->assertDispatched('toast-show');
 
     $plugin->refresh();
-    expect($plugin->current_image)->toBeNull();
-    expect($plugin->current_image_metadata)->toBeNull();
+    expect($plugin->current_image)->toBeNull()
+        ->and($plugin->current_image_metadata)->toBeNull();
 });
 
 test('clearPluginImageCache does nothing when plugin is not type recipe', function (): void {
@@ -93,8 +91,8 @@ test('clearPluginImageCache does nothing when plugin is not type recipe', functi
         ->call('clearPluginImageCache', $item->id)
         ->assertNotDispatched('toast-show');
 
-    expect($plugin->fresh()->current_image)->toBe('webhook-uuid');
-    expect($plugin->fresh()->current_image_metadata)->toBeArray();
+    expect($plugin->fresh()->current_image)->toBe('webhook-uuid')
+        ->and($plugin->fresh()->current_image_metadata)->toBeArray();
 });
 
 test('clearPluginImageCache does nothing for mashup playlist items', function (): void {
@@ -126,10 +124,10 @@ test('clearPluginImageCache does nothing for mashup playlist items', function ()
     Livewire::test('playlists.index')
         ->call('clearPluginImageCache', $item->id);
 
-    expect($p1->fresh()->current_image)->toBe('uuid-one');
-    expect($p1->fresh()->current_image_metadata)->toBeArray();
-    expect($p2->fresh()->current_image)->toBe('uuid-two');
-    expect($p2->fresh()->current_image_metadata)->toBeArray();
+    expect($p1->fresh()->current_image)->toBe('uuid-one')
+        ->and($p1->fresh()->current_image_metadata)->toBeArray()
+        ->and($p2->fresh()->current_image)->toBe('uuid-two')
+        ->and($p2->fresh()->current_image_metadata)->toBeArray();
 });
 
 test('clearPluginImageCache aborts when user does not own the device', function (): void {

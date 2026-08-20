@@ -22,7 +22,7 @@ class PluginActionController extends Controller
     {
         $handler = $this->registry->get($plugin->plugin_type);
 
-        if ($handler === null) {
+        if (! $handler instanceof \App\Plugins\PluginHandler) {
             return response()->json([
                 'error' => "No handler registered for plugin type [{$plugin->plugin_type}]",
             ], 400);
