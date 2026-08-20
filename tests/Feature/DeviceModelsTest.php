@@ -90,6 +90,16 @@ it('redirects unauthenticated users from the device models page', function (): v
     $response->assertRedirect('/login');
 });
 
+it('renders the device model modal at the wider width', function (): void {
+    $user = User::factory()->create();
+    DeviceModel::factory()->create();
+
+    $response = $this->actingAs($user)->get('/device-models');
+
+    $response->assertSuccessful();
+    $response->assertSee('md:w-[36rem]', false);
+});
+
 it('update from API runs job and refreshes device models', function (): void {
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -123,4 +133,14 @@ it('update from API runs job and refreshes device models', function (): void {
 
     $deviceModels = $component->get('deviceModels');
     expect($deviceModels->pluck('name')->toArray())->toContain('api-model');
+});
+
+it('renders an empty Actions column header on device models', function (): void {
+    $user = User::factory()->create();
+    DeviceModel::factory()->create();
+
+    $response = $this->actingAs($user)->get('/device-models');
+
+    $response->assertSuccessful();
+    $response->assertDontSee('Actions');
 });

@@ -285,7 +285,7 @@ new class extends Component
                     </flux:dropdown>
                 </flux:button.group>
             </div>
-            <flux:modal name="device-model-modal" class="md:w-96">
+            <flux:modal name="device-model-modal" class="md:w-[36rem]">
                 <div class="space-y-6">
                     <div>
                         <flux:heading size="lg">
@@ -440,7 +440,7 @@ new class extends Component
                     </th>
                     <th class="py-3 px-3 first:pl-0 last:pr-0 text-left text-sm font-medium text-zinc-800 dark:text-white"
                         data-flux-column>
-                        <div class="whitespace-nowrap flex group-[]/right-align:justify-end">Actions</div>
+                        <div class="whitespace-nowrap flex group-[]/right-align:justify-end"></div>
                     </th>
                 </tr>
                 </thead>

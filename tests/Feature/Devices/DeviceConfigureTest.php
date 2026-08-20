@@ -222,3 +222,66 @@ test('devices configure clearPluginImageCache does nothing when plugin is not ty
 
     expect($plugin->fresh()->current_image)->toBe('webhook-uuid');
 });
+
+test('configure view displays refresh interval badge', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'default_refresh_interval' => 900,
+    ]);
+
+    $response = actingAs($user)
+        ->get(route('devices.configure', $device));
+
+    $response->assertOk()
+        ->assertSee('900s');
+});
+
+test('configure view displays proxy toggle', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $user->id]);
+
+    $response = actingAs($user)
+        ->get(route('devices.configure', $device));
+
+    $response->assertOk()
+        ->assertSee('☁️ Proxy');
+});
+
+test('user can toggle proxy cloud from the configure page', function (): void {
+    $user = User::factory()->create();
+    actingAs($user);
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'proxy_cloud' => false,
+    ]);
+
+    $response = Livewire::test('devices.configure', ['device' => $device])
+        ->call('toggleProxyCloud', $device);
+
+    $response->assertHasNoErrors();
+    expect($device->fresh()->proxy_cloud)->toBeTrue();
+
+    Livewire::test('devices.configure', ['device' => $device])
+        ->call('toggleProxyCloud', $device);
+
+    expect($device->fresh()->proxy_cloud)->toBeFalse();
+});
+
+test('user cannot toggle proxy cloud for other users devices', function (): void {
+    $user = User::factory()->create();
+    actingAs($user);
+    $device = Device::factory()->create(['user_id' => $user->id]);
+
+    $otherUser = User::factory()->create();
+    $otherDevice = Device::factory()->create([
+        'user_id' => $otherUser->id,
+        'proxy_cloud' => false,
+    ]);
+
+    $response = Livewire::test('devices.configure', ['device' => $device])
+        ->call('toggleProxyCloud', $otherDevice->id);
+
+    $response->assertStatus(403);
+    expect($otherDevice->fresh()->proxy_cloud)->toBeFalse();
+});
