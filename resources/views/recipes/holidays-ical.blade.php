@@ -23,14 +23,13 @@
             }
 
             return [
-                'summary'  => $event['SUMMARY'] ?? 'Untitled event',
+                'summary' => $event['SUMMARY'] ?? 'Untitled event',
                 'location' => $event['LOCATION'] ?? '—',
-                'start'    => $start,
-                'end'      => $end,
+                'start' => $start,
+                'end' => $end,
             ];
         })
-        ->filter(fn ($event) =>
-            $event['start'] &&
+        ->filter(fn ($event) => $event['start'] &&
             (
                 $event['start']->greaterThanOrEqualTo($today) ||
                 ($event['end'] && $event['end']->greaterThanOrEqualTo($today))
@@ -41,49 +40,48 @@
         ->values();
 @endphp
 
-
-<x-trmnl::view size="{{$size}}">
+<x-trmnl::view size="{{ $size }}">
     <x-trmnl::layout class="layout--col gap--small">
         <x-trmnl::table>
-             <colgroup>
-                <col span="3" style="width: 33%">
+            <colgroup>
+                <col span="3" style="width: 33%" />
             </colgroup>
             <thead>
-            <tr>
-                <th>
-                    <x-trmnl::title>Date</x-trmnl::title>
-                </th>
-                <th>
-                    <x-trmnl::title>Event</x-trmnl::title>
-                </th>
-                <th>
-                    <x-trmnl::title>Location</x-trmnl::title>
-                </th>
-            </tr>
+                <tr>
+                    <th>
+                        <x-trmnl::title>Date</x-trmnl::title>
+                    </th>
+                    <th>
+                        <x-trmnl::title>Event</x-trmnl::title>
+                    </th>
+                    <th>
+                        <x-trmnl::title>Location</x-trmnl::title>
+                    </th>
+                </tr>
             </thead>
             <tbody>
-            @forelse($events as $event)
-                <tr>
-                    <td>
-                        <x-trmnl::label>{{ $event['start']?->format('D, M j') }}</x-trmnl::label>
-                    </td>
-                    <td>
-                        <x-trmnl::label variant="primary">{{ $event['summary'] }}</x-trmnl::label>
-                    </td>
-                    <td>
-                        <x-trmnl::label variant="inverted">{{ Str::limit($event['location'] ?? '—',100) }}</x-trmnl::label>
-                    </td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="4">
-                        <x-trmnl::label>No events available</x-trmnl::label>
-                    </td>
-                </tr>
-            @endforelse
+                @forelse ($events as $event)
+                    <tr>
+                        <td>
+                            <x-trmnl::label>{{ $event['start']?->format('D, M j') }}</x-trmnl::label>
+                        </td>
+                        <td>
+                            <x-trmnl::label variant="primary">{{ $event['summary'] }}</x-trmnl::label>
+                        </td>
+                        <td>
+                            <x-trmnl::label variant="inverted">{{ Str::limit($event['location'] ?? '—',100) }}</x-trmnl::label>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="4">
+                            <x-trmnl::label>No events available</x-trmnl::label>
+                        </td>
+                    </tr>
+                @endforelse
             </tbody>
         </x-trmnl::table>
     </x-trmnl::layout>
 
-    <x-trmnl::title-bar title="Public Holidays" instance="updated: {{ now()->format('M j, H:i') }}"/>
+    <x-trmnl::title-bar title="Public Holidays" instance="updated: {{ now()->format('M j, H:i') }}" />
 </x-trmnl::view>

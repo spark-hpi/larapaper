@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 
 class DeviceLogController extends Controller
 {
-    public function __construct(private ResolveDeviceByApiKey $resolveDevice) {}
+    public function __construct(private readonly ResolveDeviceByApiKey $resolveDevice) {}
 
     public function store(StoreDeviceLogRequest $request): JsonResponse
     {

@@ -34,10 +34,10 @@ test('mashup create command creates mashup successfully', function (): void {
         ->whereJsonContains('mashup->mashup_name', 'Test Mashup')
         ->first();
 
-    expect($playlistItem)->not->toBeNull();
-    expect($playlistItem->isMashup())->toBeTrue();
-    expect($playlistItem->getMashupLayoutType())->toBe('1Lx1R');
-    expect($playlistItem->getMashupPluginIds())->toContain($plugin1->id, $plugin2->id);
+    expect($playlistItem)->not->toBeNull()
+        ->and($playlistItem->isMashup())->toBeTrue()
+        ->and($playlistItem->getMashupLayoutType())->toBe('1Lx1R')
+        ->and($playlistItem->getMashupPluginIds())->toContain($plugin1->id, $plugin2->id);
 });
 
 test('mashup create command exits when no devices found', function (): void {
@@ -147,8 +147,8 @@ test('mashup create command handles 1x1 layout with single plugin', function ():
         ->whereJsonContains('mashup->mashup_name', 'Single Plugin Mashup')
         ->first();
 
-    expect($playlistItem)->not->toBeNull();
-    expect($playlistItem->getMashupLayoutType())->toBe('1x1');
-    expect($playlistItem->getMashupPluginIds())->toHaveCount(1);
-    expect($playlistItem->getMashupPluginIds())->toContain($plugin->id);
+    expect($playlistItem)->not->toBeNull()
+        ->and($playlistItem->getMashupLayoutType())->toBe('1x1')
+        ->and($playlistItem->getMashupPluginIds())->toHaveCount(1)
+        ->and($playlistItem->getMashupPluginIds())->toContain($plugin->id);
 });

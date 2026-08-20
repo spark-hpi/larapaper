@@ -117,8 +117,7 @@ it('shows error when plugin not found', function (): void {
 
     $component->call('installPlugin', 'non-existent-plugin');
 
-    // The component should dispatch an error notification
-    $component->assertHasErrors();
+    $component->assertDispatched('toast-show');
 });
 
 it('shows error when zip_url is missing', function (): void {
@@ -149,9 +148,7 @@ it('shows error when zip_url is missing', function (): void {
 
     $component->call('installPlugin', 'test-plugin');
 
-    // The component should dispatch an error notification
-    $component->assertHasErrors();
-
+    $component->assertDispatched('toast-show');
 });
 
 it('can preview a plugin', function (): void {

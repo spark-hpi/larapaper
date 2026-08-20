@@ -2,17 +2,18 @@
 
 declare(strict_types=1);
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
-uses(RefreshDatabase::class);
+beforeEach(function (): void {
+    Http::preventStrayRequests();
+});
 
 test('firmware check command has correct signature', function (): void {
     $command = $this->app->make(App\Console\Commands\FirmwareCheckCommand::class);
 
-    expect($command->getName())->toBe('trmnl:firmware:check');
-    expect($command->getDescription())->toBe('Checks for the latest firmware and downloads it if flag --download is passed.');
+    expect($command->getName())->toBe('trmnl:firmware:check')
+        ->and($command->getDescription())->toBe('Checks for the latest firmware and downloads it if flag --download is passed.');
 });
 
 test('firmware check command runs without errors', function (): void {
@@ -56,7 +57,7 @@ test('firmware check command runs with download flag', function (): void {
 
     // Verify that the firmware was downloaded (storage_location should be set)
     $firmware = App\Models\Firmware::where('version_tag', '1.0.0')->first();
-    expect($firmware->storage_location)->toBe('firmwares/FW1.0.0.bin');
+    expect($firmware->storage_location)->toBe('firmwares/trmnl/FW1.0.0.bin');
 });
 
 test('firmware check command can run successfully', function (): void {

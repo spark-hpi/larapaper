@@ -6,10 +6,7 @@ use App\Models\Device;
 use App\Models\DeviceModel;
 use App\Models\Plugin;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
-
-uses(RefreshDatabase::class);
 
 test('preview defaults to the first registered device model', function (): void {
     $user = User::factory()->create();
@@ -71,9 +68,9 @@ test('preview device selector does not duplicate user device models in other gro
         ->flatMap(fn (array $group) => $group['models'])
         ->pluck('id');
 
-    expect($allModelIds->duplicates()->isEmpty())->toBeTrue();
-    expect($groups['user_devices']['models']->pluck('id'))->toContain($trmnlDeviceModel->id);
-    expect($groups['trmnl']['models']->pluck('id'))->not->toContain($trmnlDeviceModel->id);
+    expect($allModelIds->duplicates()->isEmpty())->toBeTrue()
+        ->and($groups['user_devices']['models']->pluck('id'))->toContain($trmnlDeviceModel->id)
+        ->and($groups['trmnl']['models']->pluck('id'))->not->toContain($trmnlDeviceModel->id);
 });
 
 test('preview falls back to trmnl og when user has no device model', function (): void {
@@ -120,13 +117,11 @@ test('render preview dispatches screen dimensions from selected device model', f
     Livewire::test('plugins.recipe', ['plugin' => $plugin])
         ->set('preview_device_model_id', $deviceModel->id)
         ->call('renderPreview', 'full')
-        ->assertDispatched('preview-updated', function (string $name, array $params): bool {
-            return $name === 'preview-updated'
-                && $params['screenWidth'] === 1872
-                && $params['screenHeight'] === 1404
-                && is_string($params['preview'] ?? null)
-                && $params['preview'] !== '';
-        });
+        ->assertDispatched('preview-updated', fn (string $name, array $params): bool => $name === 'preview-updated'
+            && $params['screenWidth'] === 1872
+            && $params['screenHeight'] === 1404
+            && is_string($params['preview'] ?? null)
+            && $params['preview'] !== '');
 });
 
 test('add to playlist modal gates layout block with alpine using wire state', function (): void {
@@ -142,5 +137,6 @@ test('add to playlist modal gates layout block with alpine using wire state', fu
     ]);
 
     Livewire::test('plugins.recipe', ['plugin' => $plugin])
-        ->assertSee('($wire.checked_devices ?? []).length > 0 && ($wire.checked_devices ?? []).some', false);
+        ->assertSee('($wire.checked_devices ?? []).length > 0', false)
+        ->assertSee('($wire.checked_devices ?? []).some((id) =>', false);
 });

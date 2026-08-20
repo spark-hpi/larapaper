@@ -4,7 +4,7 @@ use App\Models\User;
 use Livewire\Livewire;
 use OffloadProject\Toggle\Facades\Toggle;
 
-beforeEach(function () {
+beforeEach(function (): void {
     $this->user = User::factory()->create();
     $this->actingAs($this->user);
 
@@ -15,14 +15,14 @@ beforeEach(function () {
     Toggle::enable('test-feature');
 });
 
-test('lab settings page is accessible', function () {
+test('lab settings page is accessible', function (): void {
     $this->get(route('settings.lab'))
         ->assertOk()
         ->assertSee('Lab')
         ->assertSee('Experimental features');
 });
 
-test('can toggle feature on and off', function () {
+test('can toggle feature on and off', function (): void {
     Toggle::disable('test-feature');
     expect(Toggle::active('test-feature'))->toBeFalse();
 
@@ -36,4 +36,12 @@ test('can toggle feature on and off', function () {
         ->call('toggle', 'test-feature', false);
 
     expect(Toggle::active('test-feature'))->toBeFalse();
+});
+
+test('lab settings page shows mcp title and description from config', function (): void {
+    Toggle::enable('mcp');
+
+    Livewire::test('pages::settings.lab')
+        ->assertSee('MCP')
+        ->assertSee('Expose a Model Context Protocol server so AI tools can list, create, update, and render your recipes. Requires an MCP API token.');
 });

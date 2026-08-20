@@ -2,9 +2,6 @@
 
 use App\Models\Plugin;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-
-uses(RefreshDatabase::class);
 
 test('hasMissingRequiredConfigurationFields returns true when required field is null', function (): void {
     $user = User::factory()->create();

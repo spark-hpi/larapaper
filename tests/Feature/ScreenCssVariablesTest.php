@@ -17,9 +17,9 @@ test('screen component outputs :root with --screen-w and --screen-h when cssVari
         ],
     ])->render();
 
-    expect($html)->toContain(':root');
-    expect($html)->toContain('--screen-w: 800px');
-    expect($html)->toContain('--screen-h: 480px');
+    expect($html)->toContain(':root')
+        ->toContain('--screen-w: 800px')
+        ->toContain('--screen-h: 480px');
 });
 
 test('DeviceModel css_variables attribute merges --screen-w and --screen-h from dimensions when not set', function (): void {
@@ -31,8 +31,8 @@ test('DeviceModel css_variables attribute merges --screen-w and --screen-h from 
 
     $vars = $deviceModel->css_variables;
 
-    expect($vars)->toHaveKey('--screen-w', '800px');
-    expect($vars)->toHaveKey('--screen-h', '480px');
+    expect($vars)->toHaveKey('--screen-w', '800px')
+        ->toHaveKey('--screen-h', '480px');
 });
 
 test('DeviceModel css_variables attribute does not override --screen-w and --screen-h when already set', function (): void {
@@ -46,9 +46,7 @@ test('DeviceModel css_variables attribute does not override --screen-w and --scr
     ]);
 
     $vars = $deviceModel->css_variables;
-
-    expect($vars['--screen-w'])->toBe('1200px');
-    expect($vars['--screen-h'])->toBe('900px');
+    expect($vars)->toMatchArray(['--screen-w' => '1200px', '--screen-h' => '900px']);
 });
 
 test('DeviceModel css_variables attribute fills only missing --screen-w or --screen-h from dimensions', function (): void {
@@ -61,9 +59,7 @@ test('DeviceModel css_variables attribute fills only missing --screen-w or --scr
     ]);
 
     $vars = $deviceModel->css_variables;
-
-    expect($vars['--screen-w'])->toBe('640px');
-    expect($vars['--screen-h'])->toBe('480px');
+    expect($vars)->toMatchArray(['--screen-w' => '640px', '--screen-h' => '480px']);
 });
 
 test('DeviceModel css_variables attribute returns raw vars when strategy is not v2', function (): void {
@@ -95,6 +91,6 @@ test('device model css_variables are available via device relationship for rende
 
     $vars = $device->deviceModel?->css_variables ?? [];
 
-    expect($vars)->toHaveKey('--screen-w', '800px');
-    expect($vars)->toHaveKey('--screen-h', '480px');
+    expect($vars)->toHaveKey('--screen-w', '800px')
+        ->toHaveKey('--screen-h', '480px');
 });

@@ -19,11 +19,17 @@ class PlaylistItem extends Model
         'mashup' => 'json',
     ];
 
+    /**
+     * @return BelongsTo<Playlist, $this>
+     */
     public function playlist(): BelongsTo
     {
         return $this->belongsTo(Playlist::class);
     }
 
+    /**
+     * @return BelongsTo<Plugin, $this>
+     */
     public function plugin(): BelongsTo
     {
         return $this->belongsTo(Plugin::class);
@@ -140,7 +146,7 @@ class PlaylistItem extends Model
         if (! $this->isMashup()) {
             return view('trmnl-layouts.single', [
                 'colorDepth' => $device?->colorDepth(),
-                'deviceVariant' => $device?->deviceModel?->css_name ?? $device?->deviceVariant() ?? 'og',
+                'deviceVariant' => $device?->deviceModel->css_name ?? $device?->deviceVariant() ?? 'og',
                 'scaleLevel' => $device?->scaleLevel(),
                 'cssVariables' => $device?->deviceModel?->css_variables,
                 'frameworkVersion' => $this->plugin instanceof Plugin
@@ -169,7 +175,7 @@ class PlaylistItem extends Model
 
         return view('trmnl-layouts.mashup', [
             'colorDepth' => $device?->colorDepth(),
-            'deviceVariant' => $device?->deviceModel?->css_name ?? $device?->deviceVariant() ?? 'og',
+            'deviceVariant' => $device?->deviceModel->css_name ?? $device?->deviceVariant() ?? 'og',
             'scaleLevel' => $device?->scaleLevel(),
             'cssVariables' => $device?->deviceModel?->css_variables,
             'frameworkVersion' => $frameworkVersion,

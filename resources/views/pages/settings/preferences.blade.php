@@ -46,17 +46,16 @@ new class extends Component
 
         <x-pages::settings.layout heading="Preferences" subheading="Update your preferences">
             <form wire:submit="updatePreferences" class="my-6 w-full space-y-6">
-
                 <flux:select wire:model="timezone" label="Timezone">
                     <flux:select.option value="" disabled>Select timezone...</flux:select.option>
-                    @foreach(timezone_identifiers_list() as $tz)
+                    @foreach (timezone_identifiers_list() as $tz)
                         <flux:select.option value="{{ $tz }}">{{ $tz }}</flux:select.option>
                     @endforeach
                 </flux:select>
 
                 <flux:select wire:model="assign_new_device_id" label="Auto-Joined Devices should mirror">
                     <flux:select.option value="">None</flux:select.option>
-                    @foreach(auth()->user()->devices->where('mirror_device_id', null) as $device)
+                    @foreach (auth()->user()->devices->where('mirror_device_id', null) as $device)
                         <flux:select.option value="{{ $device->id }}">
                             {{ $device->name }} ({{ $device->friendly_id }})
                         </flux:select.option>
@@ -67,7 +66,6 @@ new class extends Component
                     <flux:button variant="primary" type="submit">{{ __('Save') }}</flux:button>
                 </div>
             </form>
-
         </x-pages::settings.layout>
     </div>
 </section>

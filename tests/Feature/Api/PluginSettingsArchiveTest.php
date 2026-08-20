@@ -62,9 +62,9 @@ LIQUID;
         ->where('name', 'Sample Imported')
         ->first();
 
-    expect($imported)->not->toBeNull();
-    expect($imported->markup_language)->toBe('liquid');
-    expect($imported->render_markup)->toContain('<h1>{{ config.title }}</h1>');
+    expect($imported)->not->toBeNull()
+        ->and($imported->markup_language)->toBe('liquid')
+        ->and($imported->render_markup)->toContain('<h1>{{ config.title }}</h1>');
     // Configuration should have default for title (set on create)
     expect($imported->configuration['title'] ?? null)->toBe('Hello');
 });

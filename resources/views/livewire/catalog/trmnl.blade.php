@@ -175,11 +175,11 @@ class extends Component
             );
 
             $this->dispatch('plugin-installed');
-            Flux::modal('import-from-trmnl-catalog')->close();
+            Flux::toast(variant: 'success', text: "\"{$plugin->name}\" installed successfully.");
 
         } catch (Exception $e) {
             Log::error('Plugin installation failed: '.$e->getMessage());
-            $this->addError('installation', 'Error installing plugin: '.$e->getMessage());
+            Flux::toast(variant: 'danger', text: 'Error installing plugin: '.$e->getMessage());
         }
     }
 
@@ -270,10 +270,6 @@ class extends Component
         <flux:badge color="zinc">Newest</flux:badge>
     </div>
 
-    @error('installation')
-        <flux:callout variant="danger" icon="x-circle" heading="{{$message}}" />
-    @enderror
-
     @if(empty($recipes))
         <div class="text-center py-8">
             <flux:icon name="exclamation-triangle" class="mx-auto h-12 w-12 text-zinc-400" />
@@ -363,7 +359,7 @@ class extends Component
         </div>
 
         <div wire:loading.remove wire:target="previewRecipe">
-            @if($previewingRecipe && !empty($previewData))
+            @if($previewingRecipe && ! empty($previewData))
                 <div>
                     <flux:heading size="lg" class="mb-2">Preview {{ $previewData['name'] ?? 'Recipe' }}</flux:heading>
                 </div>

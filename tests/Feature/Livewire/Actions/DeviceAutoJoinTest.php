@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Livewire\Actions\DeviceAutoJoin;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -14,7 +13,7 @@ test('device auto join component can be rendered for admins', function (): void 
 
     Livewire::actingAs($user)
         ->test(DeviceAutoJoin::class)
-        ->assertSee('Permit Auto-Join')
+        ->assertSee('Auto-Join Permitted')
         ->assertSet('deviceAutojoin', false);
 });
 
@@ -87,6 +86,17 @@ test('device auto join component renders correct view', function (): void {
     Livewire::actingAs($user)
         ->test(DeviceAutoJoin::class)
         ->assertViewIs('livewire.actions.device-auto-join');
+});
+
+test('device auto join is persisted in the layout so wire navigate does not remount it', function (): void {
+    $user = User::factory()->create(['is_admin' => true]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertSee('x-persist="device-auto-join-desktop"', false)
+        ->assertSee('x-persist="device-auto-join-mobile"', false)
+        ->assertSee('Auto-Join Permitted');
 });
 
 test('device auto join component handles multiple updates correctly', function (): void {

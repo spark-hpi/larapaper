@@ -7,6 +7,7 @@ use App\Models\Playlist;
 use App\Models\PlaylistItem;
 use App\Models\Plugin;
 use App\Models\User;
+use App\Services\DeviceScreenFilename;
 use App\Services\ImageGenerationService;
 use Bnussbau\EpaperPipeline\EpaperPipeline;
 use Illuminate\Support\Facades\Http;
@@ -14,8 +15,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
-
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
 
 beforeEach(function (): void {
     EpaperPipeline::fake();
@@ -38,10 +37,12 @@ test('device can fetch display data with valid credentials', function (): void {
         'fw-version' => '1.0.0',
     ])->get('/api/display');
 
+    $path = 'images/generated/test-image.bmp';
+
     $response->assertOk()
         ->assertJson([
             'status' => '0',
-            'filename' => 'test-image.bmp',
+            'filename' => app(DeviceScreenFilename::class)->make($path, 'device:'.$device->id, DeviceScreenFilename::PREFIX_SYSTEM),
             'refresh_rate' => 900,
             'reset_firmware' => false,
             'update_firmware' => false,
@@ -173,8 +174,9 @@ test('new device is auto-assigned and mirrors specified device', function (): vo
         ->mirror_device_id->toBe($sourceDevice->id);
 
     // Verify the response contains the source device's image
+    $path = 'images/generated/source-image.bmp';
     $response->assertJson([
-        'filename' => 'source-image.bmp',
+        'filename' => app(DeviceScreenFilename::class)->make($path, 'mirror:'.$sourceDevice->id, DeviceScreenFilename::PREFIX_SYSTEM),
     ]);
 });
 
@@ -220,9 +222,8 @@ test('device can submit logs', function (): void {
         ->assertJson(['status' => '200']);
 
     expect($device->fresh()->last_log_request)
-        ->toBe($logData);
-
-    expect($device->logs()->count())->toBe(1);
+        ->toBe($logData)
+        ->and($device->logs()->count())->toBe(1);
 });
 
 test('device can submit logs in revised format', function (): void {
@@ -246,9 +247,8 @@ test('device can submit logs in revised format', function (): void {
         ->assertJson(['status' => '200']);
 
     expect($device->fresh()->last_log_request)
-        ->toBe($logData);
-
-    expect($device->logs()->count())->toBe(1);
+        ->toBe($logData)
+        ->and($device->logs()->count())->toBe(1);
 });
 
 // test('authenticated user can update device display', function () {
@@ -475,10 +475,12 @@ test('device can mirror another device', function (): void {
         'fw-version' => '1.0.0',
     ])->get('/api/display');
 
+    $path = 'images/generated/source-image.bmp';
+
     $response->assertOk()
         ->assertJson([
             'status' => '0',
-            'filename' => 'source-image.bmp',
+            'filename' => app(DeviceScreenFilename::class)->make($path, 'mirror:'.$sourceDevice->id, DeviceScreenFilename::PREFIX_SYSTEM),
             'refresh_rate' => 900,
             'reset_firmware' => false,
             'update_firmware' => false,
@@ -504,10 +506,12 @@ test('device can fetch current screen data', function (): void {
         'access-token' => $device->api_key,
     ])->get('/api/current_screen');
 
+    $path = 'images/generated/test-image.bmp';
+
     $response->assertOk()
         ->assertJson([
             'status' => 200,
-            'filename' => 'test-image.bmp',
+            'filename' => app(DeviceScreenFilename::class)->make($path, 'device:'.$device->id, DeviceScreenFilename::PREFIX_SYSTEM),
             'refresh_rate' => 900,
             'reset_firmware' => false,
             'update_firmware' => false,
@@ -527,10 +531,15 @@ test('current_screen endpoint requires valid device credentials', function (): v
 
 test('authenticated user can fetch their devices', function (): void {
     $user = User::factory()->create();
+    $lastRefreshedAt = now()->subMinutes(5);
     $devices = Device::factory()->count(2)->create([
         'user_id' => $user->id,
         'last_battery_voltage' => 3.72,
         'last_rssi_level' => -63,
+        'last_refreshed_at' => $lastRefreshedAt,
+        'sleep_mode_enabled' => true,
+        'sleep_mode_from' => '19:45',
+        'sleep_mode_to' => '04:45',
     ]);
 
     Sanctum::actingAs($user);
@@ -547,10 +556,19 @@ test('authenticated user can fetch their devices', function (): void {
                     'mac_address',
                     'battery_voltage',
                     'rssi',
+                    'last_ping_at',
+                    'percent_charged',
+                    'wifi_strength',
+                    'hardware_last_ping_at',
+                    'sleep_mode_enabled',
+                    'sleep_start_time',
+                    'sleep_end_time',
                 ],
             ],
         ])
         ->assertJsonCount(2, 'data');
+
+    $expectedLastPingAt = $devices[0]->fresh()->last_refreshed_at?->toIso8601ZuluString();
 
     // Verify the first device's data
     $response->assertJson([
@@ -562,6 +580,13 @@ test('authenticated user can fetch their devices', function (): void {
                 'mac_address' => $devices[0]->mac_address,
                 'battery_voltage' => 3.72,
                 'rssi' => -63,
+                'last_ping_at' => $expectedLastPingAt,
+                'percent_charged' => 60,
+                'wifi_strength' => 2,
+                'hardware_last_ping_at' => $expectedLastPingAt,
+                'sleep_mode_enabled' => true,
+                'sleep_start_time' => 1185,
+                'sleep_end_time' => 285,
             ],
         ],
     ]);
@@ -613,7 +638,7 @@ test('plugin caches image until data is stale', function (): void {
     ])->get('/api/display');
 
     $firstResponse->assertOk();
-    expect($firstResponse['filename'])->not->toBe('setup-logo.bmp');
+    expect($firstResponse['filename'])->toMatch('/^plugin-[a-f0-9]{6}-\d{10}$/');
 
     // second request after 15 seconds, shouldn't generate a new image
     $plugin->update(['data_payload_updated_at' => now()->addSeconds(-15)]);
@@ -630,6 +655,8 @@ test('plugin caches image until data is stale', function (): void {
 
     // third request after 75 seconds, should generate a new image
     $plugin->update(['data_payload_updated_at' => now()->addSeconds(-75)]);
+    EpaperPipeline::fake(seed: 'stale-regeneration');
+    sleep(1);
     $thirdResponse = $this->withHeaders([
         'id' => $device->mac_address,
         'access-token' => $device->api_key,
@@ -701,6 +728,7 @@ test('plugins in playlist are rendered in order', function (): void {
     ]);
 
     // First request should show the first plugin
+    EpaperPipeline::fake(seed: 'plugin-1');
     $firstResponse = $this->withHeaders([
         'id' => $device->mac_address,
         'access-token' => $device->api_key,
@@ -708,7 +736,7 @@ test('plugins in playlist are rendered in order', function (): void {
 
     $firstResponse->assertOk();
     $firstImageFilename = $firstResponse['filename'];
-    expect($firstImageFilename)->not->toBe('setup-logo.bmp');
+    expect($firstImageFilename)->toMatch('/^plugin-[a-f0-9]{6}-\d{10}$/');
 
     // Get the first plugin's playlist item and verify it was marked as displayed
     $firstPluginItem = PlaylistItem::where('plugin_id', $firstPlugin->id)->first();
@@ -718,6 +746,7 @@ test('plugins in playlist are rendered in order', function (): void {
     $this->travel(1)->seconds();
 
     // Second request should show the second plugin
+    EpaperPipeline::fake(seed: 'plugin-2');
     $secondResponse = $this->withHeaders([
         'id' => $device->mac_address,
         'access-token' => $device->api_key,
@@ -729,7 +758,7 @@ test('plugins in playlist are rendered in order', function (): void {
     $secondResponse->assertOk();
     expect($secondResponse['filename'])
         ->not->toBe($firstImageFilename)
-        ->not->toBe('setup-logo.bmp');
+        ->toMatch('/^plugin-[a-f0-9]{6}-\d{10}$/');
 
     // Get the second plugin's playlist item and verify it was marked as displayed
     $secondPluginItem = PlaylistItem::where('plugin_id', $secondPlugin->id)->first();
@@ -820,7 +849,10 @@ test('display endpoint keeps current screen when all active playlist items are s
 
     $response->assertOk();
 
-    expect($response['filename'])->toBe('stable-screen.bmp')
+    $path = 'images/generated/stable-screen.bmp';
+    expect($response['filename'])->toBe(
+        app(DeviceScreenFilename::class)->make($path, 'device:'.$device->id, DeviceScreenFilename::PREFIX_SYSTEM)
+    )
         ->and($firstSkippedItem->fresh()->last_displayed_at)->toBeNull()
         ->and($secondSkippedItem->fresh()->last_displayed_at)->toBeNull();
 });
@@ -901,7 +933,10 @@ BLADE,
 
     $response->assertOk();
 
-    expect($response['filename'])->toBe('next-markup-plugin-image.bmp')
+    $path = 'images/generated/next-markup-plugin-image.bmp';
+    expect($response['filename'])->toBe(
+        app(DeviceScreenFilename::class)->make($path, 'plugin:'.$nextPlugin->id, DeviceScreenFilename::PREFIX_PLUGIN)
+    )
         ->and($skippedItem->fresh()->last_displayed_at)->toBeNull();
 });
 
@@ -1000,7 +1035,10 @@ test('display endpoint continues normal playlist rotation after skipping an item
     ])->get('/api/display');
 
     $firstResponse->assertOk();
-    expect($firstResponse['filename'])->toBe('rotation-visible-b.bmp')
+    $path = 'images/generated/rotation-visible-b.bmp';
+    expect($firstResponse['filename'])->toBe(
+        app(DeviceScreenFilename::class)->make($path, 'plugin:'.$secondPlugin->id, DeviceScreenFilename::PREFIX_PLUGIN)
+    )
         ->and($skippedItem->fresh()->last_displayed_at)->toBeNull()
         ->and($secondVisibleItem->fresh()->last_displayed_at)->not->toBeNull()
         ->and($thirdVisibleItem->fresh()->last_displayed_at)->toBeNull();
@@ -1016,7 +1054,10 @@ test('display endpoint continues normal playlist rotation after skipping an item
     ])->get('/api/display');
 
     $secondResponse->assertOk();
-    expect($secondResponse['filename'])->toBe('rotation-visible-c.bmp')
+    $path = 'images/generated/rotation-visible-c.bmp';
+    expect($secondResponse['filename'])->toBe(
+        app(DeviceScreenFilename::class)->make($path, 'plugin:'.$thirdPlugin->id, DeviceScreenFilename::PREFIX_PLUGIN)
+    )
         ->and($skippedItem->fresh()->last_displayed_at)->toBeNull()
         ->and($secondVisibleItem->fresh()->last_displayed_at)->not->toBeNull()
         ->and($thirdVisibleItem->fresh()->last_displayed_at)->not->toBeNull();
@@ -1095,7 +1136,10 @@ test('display endpoint does not re-poll fresh skip payloads on later rotation pa
     ])->get('/api/display');
 
     $firstResponse->assertOk();
-    expect($firstResponse['filename'])->toBe('visible-after-skip-image.bmp');
+    $path = 'images/generated/visible-after-skip-image.bmp';
+    expect($firstResponse['filename'])->toBe(
+        app(DeviceScreenFilename::class)->make($path, 'plugin:'.$visiblePlugin->id, DeviceScreenFilename::PREFIX_PLUGIN)
+    );
 
     $this->travel(1)->seconds();
 
@@ -1108,7 +1152,9 @@ test('display endpoint does not re-poll fresh skip payloads on later rotation pa
     ])->get('/api/display');
 
     $secondResponse->assertOk();
-    expect($secondResponse['filename'])->toBe('visible-after-skip-image.bmp');
+    expect($secondResponse['filename'])->toBe(
+        app(DeviceScreenFilename::class)->make($path, 'plugin:'.$visiblePlugin->id, DeviceScreenFilename::PREFIX_PLUGIN)
+    );
 
     Http::assertSentCount(1);
 });
@@ -1195,7 +1241,10 @@ BLADE,
     ])->get('/api/display');
 
     $firstResponse->assertOk();
-    expect($firstResponse['filename'])->toBe('visible-after-markup-skip-image.bmp')
+    $path = 'images/generated/visible-after-markup-skip-image.bmp';
+    expect($firstResponse['filename'])->toBe(
+        app(DeviceScreenFilename::class)->make($path, 'plugin:'.$visiblePlugin->id, DeviceScreenFilename::PREFIX_PLUGIN)
+    )
         ->and($skippedItem->fresh()->last_displayed_at)->toBeNull()
         ->and($skipPlugin->fresh()->current_image)->toBeNull()
         ->and($visibleItem->fresh()->last_displayed_at)->not->toBeNull();
@@ -1211,7 +1260,9 @@ BLADE,
     ])->get('/api/display');
 
     $secondResponse->assertOk();
-    expect($secondResponse['filename'])->toBe('visible-after-markup-skip-image.bmp')
+    expect($secondResponse['filename'])->toBe(
+        app(DeviceScreenFilename::class)->make($path, 'plugin:'.$visiblePlugin->id, DeviceScreenFilename::PREFIX_PLUGIN)
+    )
         ->and($skippedItem->fresh()->last_displayed_at)->toBeNull()
         ->and($skipPlugin->fresh()->current_image)->toBeNull();
 
@@ -1377,14 +1428,12 @@ test('display endpoint logs telemetry data on update', function (): void {
 
     Log::shouldHaveReceived('debug')
         ->once()
-        ->with('Device telemetry update', Mockery::on(function (array $context) use ($device): bool {
-            return $context['device_id'] === $device->id
-                && ($context['last_rssi_level'] ?? null) == -70
-                && ($context['last_firmware_version'] ?? null) === '1.0.0'
-                && ($context['last_battery_charging'] ?? null) === true
-                && ($context['last_usb_connected'] ?? null) === true
-                && isset($context['last_refreshed_at']);
-        }));
+        ->with('Device telemetry update', Mockery::on(fn (array $context): bool => $context['device_id'] === $device->id
+            && ($context['last_rssi_level'] ?? null) === '-70'
+            && ($context['last_firmware_version'] ?? null) === '1.0.0'
+            && ($context['last_battery_charging'] ?? null) === true
+            && ($context['last_usb_connected'] ?? null) === true
+            && isset($context['last_refreshed_at'])));
 });
 
 test('display endpoint updates last_refreshed_at timestamp for mirrored devices', function (): void {
@@ -1499,9 +1548,12 @@ test('device in sleep mode returns sleep image and correct refresh rate', functi
 
     $response->assertOk();
 
-    // The filename should be a UUID-based PNG file since we're generating from template
-    expect($response['filename'])->toMatch('/^[a-f0-9-]+\.png$/');
-    expect($response['refresh_rate'])->toBeGreaterThan(0);
+    $json = $response->json();
+    $imagePath = 'images/generated/'.basename(parse_url((string) $json['image_url'], PHP_URL_PATH));
+    expect($json['filename'])->toBe(
+        app(DeviceScreenFilename::class)->make($imagePath, 'sleep', DeviceScreenFilename::PREFIX_SYSTEM)
+    )->toMatch('/^'.preg_quote(DeviceScreenFilename::PREFIX_SYSTEM, '/').'[a-f0-9]{6}-\d{10}$/')
+        ->and($json['refresh_rate'])->toBeGreaterThan(0);
 
     Carbon\Carbon::setTestNow(); // Clear test time
 });
@@ -1527,9 +1579,11 @@ test('device not in sleep mode returns normal image', function (): void {
         'fw-version' => '1.0.0',
     ])->get('/api/display');
 
+    $path = 'images/generated/test-image.bmp';
+
     $response->assertOk()
         ->assertJson([
-            'filename' => 'test-image.bmp',
+            'filename' => app(DeviceScreenFilename::class)->make($path, 'device:'.$device->id, DeviceScreenFilename::PREFIX_SYSTEM),
         ]);
 
     Carbon\Carbon::setTestNow(); // Clear test time
@@ -1572,10 +1626,38 @@ test('device returns sleep.png and correct refresh time when paused', function (
     $response->assertOk();
     $json = $response->json();
 
-    // The filename should be a UUID-based PNG file since we're generating from template
-    expect($json['filename'])->toMatch('/^[a-f0-9-]+\.png$/');
-    expect($json['image_url'])->toContain('images/generated/');
-    expect($json['refresh_rate'])->toBeLessThanOrEqual(3600); // ~60 min
+    $imagePath = 'images/generated/'.basename(parse_url((string) $json['image_url'], PHP_URL_PATH));
+    expect($json['filename'])->toBe(
+        app(DeviceScreenFilename::class)->make($imagePath, 'sleep', DeviceScreenFilename::PREFIX_SYSTEM)
+    )->toMatch('/^'.preg_quote(DeviceScreenFilename::PREFIX_SYSTEM, '/').'[a-f0-9]{6}-\d{10}$/')
+        ->and($json['image_url'])->toContain('images/generated/')
+        ->and($json['refresh_rate'])->toBeLessThanOrEqual(3600); // ~60 min
+});
+
+test('device paused for long period returns refresh rate capped at 24 hours', function (): void {
+    $device = Device::factory()->create([
+        'mac_address' => '00:11:22:33:44:55',
+        'api_key' => 'test-api-key',
+        'pause_until' => now()->addDays(7),
+    ]);
+
+    $response = $this->withHeaders([
+        'id' => $device->mac_address,
+        'access-token' => $device->api_key,
+        'rssi' => -70,
+        'battery_voltage' => 3.8,
+        'fw-version' => '1.0.0',
+    ])->get('/api/display');
+
+    $response->assertOk();
+    $json = $response->json();
+
+    $imagePath = 'images/generated/'.basename(parse_url((string) $json['image_url'], PHP_URL_PATH));
+    expect($json['filename'])->toBe(
+        app(DeviceScreenFilename::class)->make($imagePath, 'sleep', DeviceScreenFilename::PREFIX_SYSTEM)
+    )->toMatch('/^'.preg_quote(DeviceScreenFilename::PREFIX_SYSTEM, '/').'[a-f0-9]{6}-\d{10}$/')
+        ->and($json['image_url'])->toContain('images/generated/')
+        ->and($json['refresh_rate'])->toBeLessThanOrEqual(86400);
 });
 
 test('screens endpoint accepts nullable file_name', function (): void {
@@ -1698,10 +1780,12 @@ test('display endpoint matches MAC address case-insensitively', function (): voi
         'fw-version' => '1.0.0',
     ])->get('/api/display');
 
+    $path = 'images/generated/test-image.bmp';
+
     $response->assertOk()
         ->assertJson([
             'status' => '0',
-            'filename' => 'test-image.bmp',
+            'filename' => app(DeviceScreenFilename::class)->make($path, 'device:'.$device->id, DeviceScreenFilename::PREFIX_SYSTEM),
         ]);
 });
 

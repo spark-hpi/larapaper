@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Enums\FirmwareModel;
 use App\Models\Firmware;
 use Exception;
 use Illuminate\Bus\Queueable;
@@ -11,7 +12,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
-use Log;
+use Illuminate\Support\Facades\Log;
 
 class FirmwarePollJob implements ShouldQueue
 {
@@ -26,30 +27,38 @@ class FirmwarePollJob implements ShouldQueue
 
             $response = Http::get($firmwareEndpoint)->json();
 
-            if (! is_array($response) || ! isset($response['version']) || ! isset($response['url'])) {
+            if (! is_array($response) || ! isset($response['version'], $response['url'])) {
                 Log::error('Invalid firmware response format received');
 
                 return;
             }
 
-            $latestFirmware = Firmware::updateOrCreate(
-                ['version_tag' => $response['version']],
-                [
-                    'url' => $response['url'],
-                    'latest' => true,
-                ]
-            );
+            $model = FirmwareModel::tryFrom($response['model'] ?? '') ?? FirmwareModel::Trmnl;
+            $version = $response['version'];
+            $url = $response['url'];
 
-            Firmware::where('id', '!=', $latestFirmware->id)->update(['latest' => false]);
+            $this->persistFirmware($model, $version, $url);
 
-            if ($this->download && $latestFirmware->url && $latestFirmware->storage_location === null) {
-                FirmwareDownloadJob::dispatchSync($latestFirmware);
+            $xUrl = FirmwareModel::xUrlFromOg($url);
+
+            if ($xUrl !== null && Http::head($xUrl)->successful()) {
+                $this->persistFirmware(FirmwareModel::TrmnlX, $version, $xUrl);
             }
-
         } catch (ConnectionException $e) {
             Log::error('Firmware download failed: '.$e->getMessage());
         } catch (Exception $e) {
             Log::error('Unexpected error in firmware polling: '.$e->getMessage());
         }
+    }
+
+    private function persistFirmware(FirmwareModel $model, string $version, string $url): Firmware
+    {
+        $firmware = Firmware::upsertAsLatest($model, $version, $url);
+
+        if ($this->download && $firmware->needsDownload()) {
+            FirmwareDownloadJob::dispatchSync($firmware);
+        }
+
+        return $firmware;
     }
 }

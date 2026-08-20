@@ -2,9 +2,6 @@
 
 use App\Models\Plugin;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-
-uses(RefreshDatabase::class);
 
 test('renders plugin with inline templates', function (): void {
     $plugin = Plugin::factory()->create([
@@ -61,14 +58,12 @@ LIQUID
 
     // Should render both templates
     // Check for any of the facts (since random number generation is non-deterministic)
-    $this->assertTrue(
-        str_contains((string) $result, 'Fact 1') ||
-        str_contains((string) $result, 'Fact 2') ||
-        str_contains((string) $result, 'Fact 3')
-    );
-    $this->assertStringContainsString('Test Plugin', $result);
-    $this->assertStringContainsString('Please try to enjoy each fact equally', $result);
-    $this->assertStringContainsString('class="view view--full"', $result);
+    expect(str_contains((string) $result, 'Fact 1') ||
+    str_contains((string) $result, 'Fact 2') ||
+    str_contains((string) $result, 'Fact 3'))->toBeTrue();
+    expect($result)->toContain('Test Plugin')
+        ->toContain('Please try to enjoy each fact equally')
+        ->toContain('class="view view--full"');
 });
 
 test('renders plugin with inline templates using with syntax', function (): void {
@@ -127,14 +122,12 @@ LIQUID
 
     // Should render both templates
     // Check for any of the facts (since random number generation is non-deterministic)
-    $this->assertTrue(
-        str_contains((string) $result, 'Fact 1') ||
-        str_contains((string) $result, 'Fact 2') ||
-        str_contains((string) $result, 'Fact 3')
-    );
-    $this->assertStringContainsString('Test Plugin', $result);
-    $this->assertStringContainsString('Please try to enjoy each fact equally', $result);
-    $this->assertStringContainsString('class="view view--full"', $result);
+    expect(str_contains((string) $result, 'Fact 1') ||
+    str_contains((string) $result, 'Fact 2') ||
+    str_contains((string) $result, 'Fact 3'))->toBeTrue();
+    expect($result)->toContain('Test Plugin')
+        ->toContain('Please try to enjoy each fact equally')
+        ->toContain('class="view view--full"');
 });
 
 test('renders plugin with simple inline template', function (): void {
@@ -158,9 +151,9 @@ LIQUID
 
     $result = $plugin->render('full');
 
-    $this->assertStringContainsString('Hello World', $result);
-    $this->assertStringContainsString('This is a test', $result);
-    $this->assertStringContainsString('class="simple"', $result);
+    expect($result)->toContain('Hello World')
+        ->toContain('This is a test')
+        ->toContain('class="simple"');
 });
 
 test('renders plugin with liquid filter find_by', function (): void {
@@ -190,9 +183,9 @@ LIQUID
     $result = $plugin->render('full');
 
     // Should render the user info for Ryan
-    $this->assertStringContainsString('Ryan', $result);
-    $this->assertStringContainsString('Age: 35', $result);
-    $this->assertStringContainsString('class="user"', $result);
+    expect($result)->toContain('Ryan');
+    expect($result)->toContain('Age: 35')
+        ->toContain('class="user"');
 });
 
 test('renders plugin with liquid filter find_by and fallback', function (): void {
@@ -214,7 +207,7 @@ LIQUID
     $result = $plugin->render('full');
 
     // Should return the fallback value
-    $this->assertStringContainsString('Not Found', $result);
+    expect($result)->toContain('Not Found');
 });
 
 test('renders plugin with liquid filter group_by', function (): void {
@@ -236,8 +229,8 @@ LIQUID
     $result = $plugin->render('full');
 
     // Should output JSON representation of grouped data
-    $this->assertStringContainsString('"35":[{"name":"Ryan","age":35}]', $result);
-    $this->assertStringContainsString('"29":[{"name":"Sara","age":29},{"name":"Jimbob","age":29}]', $result);
+    expect($result)->toContain('"35":[{"name":"Ryan","age":35}]');
+    expect($result)->toContain('"29":[{"name":"Sara","age":29},{"name":"Jimbob","age":29}]');
 });
 
 test('shared template receives trmnl context when', function (): void {
@@ -267,6 +260,6 @@ LIQUID
 
     $result = $plugin->render('full');
 
-    $this->assertStringContainsString('Jane Smith', $result);
-    $this->assertStringContainsString('class="instance"', $result);
+    expect($result)->toContain('Jane Smith')
+        ->toContain('class="instance"');
 });

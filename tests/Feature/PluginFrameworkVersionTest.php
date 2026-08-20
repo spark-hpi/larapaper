@@ -5,10 +5,7 @@ declare(strict_types=1);
 use App\Models\Plugin;
 use App\Models\User;
 use Database\Seeders\ExampleRecipesSeeder;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
-
-uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     Config::set('app.puppeteer_window_size_strategy', 'v2');
@@ -93,7 +90,7 @@ test('migration backfill sets legacy plugins to 2.3.7 but skips example recipe u
 test('example recipes seeder sets framework_version to null', function (): void {
     $user = User::factory()->create();
 
-    (new ExampleRecipesSeeder())->run($user->id);
+    new ExampleRecipesSeeder()->run($user->id);
 
     foreach (ExampleRecipesSeeder::exampleUuids() as $uuid) {
         $plugin = Plugin::where('uuid', $uuid)->first();

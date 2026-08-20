@@ -3,10 +3,7 @@
 declare(strict_types=1);
 
 use App\Jobs\FetchDeviceModelsJob;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
-
-uses(RefreshDatabase::class);
 
 test('command dispatches fetch device models job', function (): void {
     Queue::fake();

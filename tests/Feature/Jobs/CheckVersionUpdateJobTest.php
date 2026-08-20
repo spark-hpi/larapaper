@@ -84,7 +84,7 @@ test('it forces refresh when forceRefresh is true', function (): void {
     (new CheckVersionUpdateJob)->handle(app(UpdateSettings::class));
 
     // Second call with force refresh should make new request
-    $result = (new CheckVersionUpdateJob(true))->handle(app(UpdateSettings::class));
+    $result = new CheckVersionUpdateJob(true)->handle(app(UpdateSettings::class));
 
     expect($result['latest_version'])->toBe('1.2.0');
     Http::assertSentCount(2);

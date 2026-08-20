@@ -29,6 +29,7 @@
         "visibility_required": true,
         "increment_style": {
             "style": "pre"
-        }
+        },
+        "Pint/laravel_blade": true
     }
 }

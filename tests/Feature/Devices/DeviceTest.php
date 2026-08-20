@@ -3,8 +3,6 @@
 use App\Models\Device;
 use Illuminate\Support\Carbon;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 test('device can be created with basic attributes', function (): void {
     $device = Device::factory()->create([
         'name' => 'Test Device',
@@ -72,8 +70,7 @@ test('last log request is properly cast to json', function (): void {
 
     expect($device->last_log_request)
         ->toBeArray()
-        ->toHaveKey('status')
-        ->toHaveKey('timestamp');
+        ->toHaveKeys(['status', 'timestamp']);
 });
 
 test('getSleepModeEndsInSeconds returns correct value for overnight sleep window', function (): void {

@@ -74,6 +74,11 @@ class User extends Authenticatable implements PasskeyUser // implements MustVeri
             ->implode('');
     }
 
+    public function preferredTimezone(): string
+    {
+        return $this->timezone ?? config('app.timezone');
+    }
+
     public function devices(): HasMany
     {
         return $this->hasMany(Device::class);

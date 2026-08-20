@@ -23,7 +23,7 @@ test('local public disk matches asset helper when APP_URL is set to custom value
 });
 
 test('public disk does not use asset helper when s3 is set', function (): void {
-    Config::set('app.url', null);
+    Config::set('app.url');
     Config::set('filesystems.disks.public.driver', 's3');
     Config::set('filesystems.disks.public.key', 'key');
     Config::set('filesystems.disks.public.secret', 'secret');

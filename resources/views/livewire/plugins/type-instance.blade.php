@@ -211,9 +211,11 @@ new class extends Component
 ?>
 
 <div class="py-12">
-    <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-semibold dark:text-gray-100">{{ $this->handler->name() }} – {{$plugin->name}}</h2>
+    <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+        <div class="mb-6 flex items-center justify-between">
+            <h2 class="text-2xl font-semibold dark:text-gray-100">
+                {{ $this->handler->name() }} – {{ $plugin->name }}
+            </h2>
 
             <flux:button.group>
                 <flux:modal.trigger name="add-to-playlist">
@@ -241,56 +243,70 @@ new class extends Component
                     <flux:separator text="Device(s)" />
                     <div class="mt-4 mb-4">
                         <flux:checkbox.group wire:model.live="checked_devices">
-                            @foreach(auth()->user()->devices as $device)
-                                <flux:checkbox label="{{ $device->name }}" value="{{ $device->id }}"/>
+                            @foreach (auth()->user()->devices as $device)
+                                <flux:checkbox label="{{ $device->name }}" value="{{ $device->id }}" />
                             @endforeach
                         </flux:checkbox.group>
                     </div>
 
-                    @if(count($checked_devices) > 0)
+                    @if (count($checked_devices) > 0)
                         <flux:separator text="Playlist Selection" />
                         <div class="mt-4 mb-4 space-y-6">
-                            @foreach($checked_devices as $deviceId)
+                            @foreach ($checked_devices as $deviceId)
                                 @php
                                     $device = auth()->user()->devices->find($deviceId);
                                 @endphp
-                                <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4">
-                                    <div class="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3">
+                                <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+                                    <div class="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
                                         {{ $device->name }}
                                     </div>
 
                                     <div class="mb-4">
                                         <flux:select wire:model.live.debounce="device_playlists.{{ $deviceId }}">
                                             <option value="">Select Playlist or Create New</option>
-                                            @foreach($this->getDevicePlaylists($deviceId) as $playlist)
+                                            @foreach ($this->getDevicePlaylists($deviceId) as $playlist)
                                                 <option value="{{ $playlist->id }}">{{ $playlist->name }}</option>
                                             @endforeach
                                             <option value="new">Create New Playlist</option>
                                         </flux:select>
                                     </div>
 
-                                    @if(isset($device_playlists[$deviceId]) && $device_playlists[$deviceId] === 'new')
+                                    @if (isset($device_playlists[$deviceId]) && $device_playlists[$deviceId] === 'new')
                                         <div class="space-y-4">
                                             <div>
-                                                <flux:input label="Playlist Name" wire:model="device_playlist_names.{{ $deviceId }}"/>
+                                                <flux:input
+                                                    label="Playlist Name"
+                                                    wire:model="device_playlist_names.{{ $deviceId }}"
+                                                />
                                             </div>
                                             <div>
-                                                <flux:checkbox.group wire:model="device_weekdays.{{ $deviceId }}" label="Active Days (optional)">
-                                                    <flux:checkbox label="Monday" value="1"/>
-                                                    <flux:checkbox label="Tuesday" value="2"/>
-                                                    <flux:checkbox label="Wednesday" value="3"/>
-                                                    <flux:checkbox label="Thursday" value="4"/>
-                                                    <flux:checkbox label="Friday" value="5"/>
-                                                    <flux:checkbox label="Saturday" value="6"/>
-                                                    <flux:checkbox label="Sunday" value="0"/>
+                                                <flux:checkbox.group
+                                                    wire:model="device_weekdays.{{ $deviceId }}"
+                                                    label="Active Days (optional)"
+                                                >
+                                                    <flux:checkbox label="Monday" value="1" />
+                                                    <flux:checkbox label="Tuesday" value="2" />
+                                                    <flux:checkbox label="Wednesday" value="3" />
+                                                    <flux:checkbox label="Thursday" value="4" />
+                                                    <flux:checkbox label="Friday" value="5" />
+                                                    <flux:checkbox label="Saturday" value="6" />
+                                                    <flux:checkbox label="Sunday" value="0" />
                                                 </flux:checkbox.group>
                                             </div>
                                             <div class="grid grid-cols-2 gap-4">
                                                 <div>
-                                                    <flux:input type="time" label="Active From (optional)" wire:model="device_active_from.{{ $deviceId }}"/>
+                                                    <flux:input
+                                                        type="time"
+                                                        label="Active From (optional)"
+                                                        wire:model="device_active_from.{{ $deviceId }}"
+                                                    />
                                                 </div>
                                                 <div>
-                                                    <flux:input type="time" label="Active Until (optional)" wire:model="device_active_until.{{ $deviceId }}"/>
+                                                    <flux:input
+                                                        type="time"
+                                                        label="Active Until (optional)"
+                                                        wire:model="device_active_until.{{ $deviceId }}"
+                                                    />
                                                 </div>
                                             </div>
                                         </div>
@@ -301,7 +317,7 @@ new class extends Component
                     @endif
 
                     <div class="flex">
-                        <flux:spacer/>
+                        <flux:spacer />
                         <flux:button type="submit" variant="primary">Add to Playlist</flux:button>
                     </div>
                 </form>
@@ -311,11 +327,13 @@ new class extends Component
         <flux:modal name="delete-plugin" class="min-w-88 space-y-6">
             <div>
                 <flux:heading size="lg">Delete {{ $plugin->name }}?</flux:heading>
-                <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">This will also remove this instance from your playlists.</p>
+                <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                    This will also remove this instance from your playlists.
+                </p>
             </div>
 
             <div class="flex gap-2">
-                <flux:spacer/>
+                <flux:spacer />
                 <flux:modal.close>
                     <flux:button variant="ghost">Cancel</flux:button>
                 </flux:modal.close>
@@ -327,19 +345,26 @@ new class extends Component
             <div>
                 <form wire:submit="updateName" class="mb-6">
                     <div class="mb-4">
-                        <flux:input label="Name" wire:model="name" id="name" class="block mt-1 w-full" type="text"
-                                    name="name" autofocus/>
+                        <flux:input
+                            label="Name"
+                            wire:model="name"
+                            id="name"
+                            class="mt-1 block w-full"
+                            type="text"
+                            name="name"
+                            autofocus
+                        />
                     </div>
 
                     <div class="flex">
-                        <flux:spacer/>
+                        <flux:spacer />
                         <flux:button type="submit" variant="primary" class="w-full">Save</flux:button>
                     </div>
                 </form>
 
-                @if(count($this->handler->fields()) > 0)
+                @if (count($this->handler->fields()) > 0)
                     <form wire:submit="updateConfiguration" class="mb-6 space-y-4">
-                        @foreach($this->handler->fields() as $field)
+                        @foreach ($this->handler->fields() as $field)
                             @php
                                 $key = $field['key'];
                                 $type = $field['type'] ?? 'text';
@@ -352,12 +377,8 @@ new class extends Component
                                 };
                             @endphp
                             <div>
-                                @if($type === 'textarea')
-                                    <flux:textarea
-                                        :label="$label"
-                                        wire:model="configuration.{{ $key }}"
-                                        rows="4"
-                                    />
+                                @if ($type === 'textarea')
+                                    <flux:textarea :label="$label" wire:model="configuration.{{ $key }}" rows="4" />
                                 @else
                                     <flux:input
                                         :type="$inputType"
@@ -365,23 +386,28 @@ new class extends Component
                                         wire:model="configuration.{{ $key }}"
                                     />
                                 @endif
-                                @if($help)
+                                @if ($help)
                                     <flux:description class="mt-1">{{ $help }}</flux:description>
                                 @endif
                                 @error("configuration.{$key}")
-                                    <flux:callout variant="danger" icon="x-circle" heading="{{ $message }}" class="mt-2" />
+                                    <flux:callout
+                                        variant="danger"
+                                        icon="x-circle"
+                                        heading="{{ $message }}"
+                                        class="mt-2"
+                                    />
                                 @enderror
                             </div>
                         @endforeach
 
                         <div class="flex">
-                            <flux:spacer/>
+                            <flux:spacer />
                             <flux:button type="submit" variant="primary">Save Settings</flux:button>
                         </div>
                     </form>
                 @endif
 
-                @if($this->handler->settingsPartial())
+                @if ($this->handler->settingsPartial())
                     @include($this->handler->settingsPartial(), ['plugin' => $plugin])
                 @endif
             </div>
@@ -389,8 +415,12 @@ new class extends Component
             <div>
                 <div class="mb-4">
                     <flux:label>Current Image</flux:label>
-                    @if($this->getImagePath())
-                        <img src="{{ Storage::disk('public')->url($this->getImagePath()) }}" alt="{{ $plugin->name }}" class="w-full h-auto rounded-lg border border-zinc-200 dark:border-zinc-700 mt-2" />
+                    @if ($this->getImagePath())
+                        <img
+                            src="{{ Storage::disk('public')->url($this->getImagePath()) }}"
+                            alt="{{ $plugin->name }}"
+                            class="mt-2 h-auto w-full rounded-lg border border-zinc-200 dark:border-zinc-700"
+                        />
                     @else
                         <flux:callout variant="warning" class="mt-2">
                             <flux:text>No image available yet.</flux:text>

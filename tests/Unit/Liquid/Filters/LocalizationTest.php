@@ -11,8 +11,8 @@ test('l_date formats date with default format', function (): void {
     // Default format is 'Y-m-d', which should output something like '2025-01-11'
     // The exact output might vary depending on the locale, but it should contain the year, month, and day
     expect($result)->toContain('2025');
-    expect($result)->toContain('01');
-    expect($result)->toContain('11');
+    expect($result)->toContain('01')
+        ->toContain('11');
 });
 
 test('l_date formats date with custom format', function (): void {
@@ -45,8 +45,8 @@ test('l_word translates common words', function (): void {
 test('l_word returns original word if no translation exists', function (): void {
     $filter = new Localization();
 
-    expect($filter->l_word('hello', 'es-ES'))->toBe('hello');
-    expect($filter->l_word('world', 'ko'))->toBe('world');
+    expect($filter->l_word('hello', 'es-ES'))->toBe('hello')
+        ->and($filter->l_word('world', 'ko'))->toBe('world');
 });
 
 test('l_word is case-insensitive', function (): void {
@@ -69,8 +69,8 @@ test('l_date handles locale parameter', function (): void {
 
     // The result should still contain the date components
     expect($result)->toContain('2025');
-    expect($result)->toContain('01');
-    expect($result)->toContain('11');
+    expect($result)->toContain('01')
+        ->toContain('11');
 });
 
 test('l_date handles null locale parameter', function (): void {
@@ -81,8 +81,8 @@ test('l_date handles null locale parameter', function (): void {
 
     // Should work the same as default
     expect($result)->toContain('2025');
-    expect($result)->toContain('01');
-    expect($result)->toContain('11');
+    expect($result)->toContain('01')
+        ->toContain('11');
 });
 
 test('l_date handles different date formats with locale', function (): void {
@@ -104,8 +104,8 @@ test('l_date handles DateTimeInterface objects with locale', function (): void {
 
     // Should still format correctly
     expect($result)->toContain('2025');
-    expect($result)->toContain('01');
-    expect($result)->toContain('11');
+    expect($result)->toContain('01')
+        ->toContain('11');
 });
 
 test('l_date handles invalid date gracefully', function (): void {
@@ -120,7 +120,7 @@ test('l_date handles invalid date gracefully', function (): void {
 test('l_word handles empty string', function (): void {
     $filter = new Localization();
 
-    expect($filter->l_word('', 'de'))->toBe('');
+    expect($filter->l_word('', 'de'))->toBeEmpty();
 });
 
 test('l_word handles special characters', function (): void {

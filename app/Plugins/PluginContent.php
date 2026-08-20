@@ -9,14 +9,14 @@ use App\Plugins\Enums\PluginOutput;
  *
  * Exactly one of $html, $binary, or $uuid is populated depending on $type.
  */
-final class PluginContent
+final readonly class PluginContent
 {
     private function __construct(
-        public readonly PluginOutput $type,
-        public readonly ?string $html = null,
-        public readonly ?string $binary = null,
-        public readonly ?string $uuid = null,
-        public readonly ?string $extension = null,
+        public PluginOutput $type,
+        public ?string $html = null,
+        public ?string $binary = null,
+        public ?string $uuid = null,
+        public ?string $extension = null,
     ) {}
 
     public static function html(string $markup): self

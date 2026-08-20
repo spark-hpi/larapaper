@@ -15,8 +15,8 @@ class PluginArchiveController extends Controller
 {
     use AuthorizesRequests;
     public function __construct(
-        private PluginExportService $exporter,
-        private PluginImportService $importer,
+        private readonly PluginExportService $exporter,
+        private readonly PluginImportService $importer,
     ) {}
 
     public function export(string $trmnlp_id): BinaryFileResponse

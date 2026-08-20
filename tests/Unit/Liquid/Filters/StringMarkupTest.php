@@ -5,29 +5,29 @@ use App\Liquid\Filters\StringMarkup;
 test('pluralize returns singular form with count 1', function (): void {
     $filter = new StringMarkup();
 
-    expect($filter->pluralize('book', 1))->toBe('1 book');
-    expect($filter->pluralize('person', 1))->toBe('1 person');
+    expect($filter->pluralize('book', 1))->toBe('1 book')
+        ->and($filter->pluralize('person', 1))->toBe('1 person');
 });
 
 test('pluralize returns plural form with count greater than 1', function (): void {
     $filter = new StringMarkup();
 
-    expect($filter->pluralize('book', 2))->toBe('2 books');
-    expect($filter->pluralize('person', 4))->toBe('4 people');
+    expect($filter->pluralize('book', 2))->toBe('2 books')
+        ->and($filter->pluralize('person', 4))->toBe('4 people');
 });
 
 test('pluralize handles irregular plurals correctly', function (): void {
     $filter = new StringMarkup();
 
-    expect($filter->pluralize('child', 3))->toBe('3 children');
-    expect($filter->pluralize('sheep', 5))->toBe('5 sheep');
+    expect($filter->pluralize('child', 3))->toBe('3 children')
+        ->and($filter->pluralize('sheep', 5))->toBe('5 sheep');
 });
 
 test('pluralize uses default count of 2 when not specified', function (): void {
     $filter = new StringMarkup();
 
-    expect($filter->pluralize('book'))->toBe('2 books');
-    expect($filter->pluralize('person'))->toBe('2 people');
+    expect($filter->pluralize('book'))->toBe('2 books')
+        ->and($filter->pluralize('person'))->toBe('2 people');
 });
 
 test('markdown_to_html converts basic markdown to HTML', function (): void {
@@ -38,8 +38,8 @@ test('markdown_to_html converts basic markdown to HTML', function (): void {
     // So we'll check for the presence of HTML tags rather than the exact output
     $result = $filter->markdown_to_html($markdown);
 
-    expect($result)->toContain('<em>italic</em>');
-    expect($result)->toContain('<strong>bold</strong>');
+    expect($result)->toContain('<em>italic</em>')
+        ->toContain('<strong>bold</strong>');
 });
 
 test('markdown_to_html converts links correctly', function (): void {
@@ -127,18 +127,18 @@ test('markdown_to_html handles complex markdown', function (): void {
 
     $result = $filter->markdown_to_html($markdown);
 
-    expect($result)->toContain('<h1>Heading</h1>');
-    expect($result)->toContain('<strong>bold</strong>');
-    expect($result)->toContain('<em>italic</em>');
-    expect($result)->toContain('<ul>');
-    expect($result)->toContain('<li>List item 1</li>');
-    expect($result)->toContain('<a href="https://example.com">Link</a>');
+    expect($result)->toContain('<h1>Heading</h1>')
+        ->toContain('<strong>bold</strong>')
+        ->toContain('<em>italic</em>')
+        ->toContain('<ul>')
+        ->toContain('<li>List item 1</li>')
+        ->toContain('<a href="https://example.com">Link</a>');
 });
 
 test('strip_html handles empty string', function (): void {
     $filter = new StringMarkup();
 
-    expect($filter->strip_html(''))->toBe('');
+    expect($filter->strip_html(''))->toBeEmpty();
 });
 
 test('strip_html handles string without HTML tags', function (): void {
@@ -158,13 +158,13 @@ test('strip_html handles self-closing tags', function (): void {
 test('pluralize handles zero count', function (): void {
     $filter = new StringMarkup();
 
-    expect($filter->pluralize('book', 0))->toBe('0 books');
-    expect($filter->pluralize('person', 0))->toBe('0 people');
+    expect($filter->pluralize('book', 0))->toBe('0 books')
+        ->and($filter->pluralize('person', 0))->toBe('0 people');
 });
 
 test('pluralize handles negative count', function (): void {
     $filter = new StringMarkup();
 
-    expect($filter->pluralize('book', -1))->toBe('-1 book');
-    expect($filter->pluralize('person', -5))->toBe('-5 people');
+    expect($filter->pluralize('book', -1))->toBe('-1 book')
+        ->and($filter->pluralize('person', -5))->toBe('-5 people');
 });

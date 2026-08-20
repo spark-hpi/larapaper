@@ -8,8 +8,6 @@ use App\Services\Plugin\ServerlessTransformService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 test('clearCurrentImage nulls current_image and current_image_metadata', function (): void {
     $plugin = Plugin::factory()->create([
         'current_image' => 'cached-uuid',
@@ -19,8 +17,8 @@ test('clearCurrentImage nulls current_image and current_image_metadata', functio
     $plugin->clearCurrentImage();
 
     $plugin->refresh();
-    expect($plugin->current_image)->toBeNull();
-    expect($plugin->current_image_metadata)->toBeNull();
+    expect($plugin->current_image)->toBeNull()
+        ->and($plugin->current_image_metadata)->toBeNull();
 });
 
 test('plugin has required attributes', function (): void {
@@ -128,12 +126,8 @@ test('updateDataPayload handles multiple URLs with IDX_ prefixes', function (): 
 
     $plugin->updateDataPayload();
 
-    expect($plugin->data_payload)->toHaveKey('IDX_0');
-    expect($plugin->data_payload)->toHaveKey('IDX_1');
-    expect($plugin->data_payload)->toHaveKey('IDX_2');
-    expect($plugin->data_payload['IDX_0'])->toBe(['data' => 'test1']);
-    expect($plugin->data_payload['IDX_1'])->toBe(['temp' => 25]);
-    expect($plugin->data_payload['IDX_2'])->toBe(['headline' => 'test']);
+    expect($plugin->data_payload)->toHaveKeys(['IDX_0', 'IDX_1', 'IDX_2'])
+        ->toMatchArray(['IDX_0' => ['data' => 'test1'], 'IDX_1' => ['temp' => 25], 'IDX_2' => ['headline' => 'test']]);
 });
 
 test('updateDataPayload skips empty lines in polling_url and maintains sequential IDX keys', function (): void {
@@ -154,12 +148,9 @@ test('updateDataPayload skips empty lines in polling_url and maintains sequentia
 
     // payload should only have 2 items, and they should be indexed 0 and 1
     expect($plugin->data_payload)->toHaveCount(2);
-    expect($plugin->data_payload)->toHaveKey('IDX_0');
-    expect($plugin->data_payload)->toHaveKey('IDX_1');
-
+    expect($plugin->data_payload)->toHaveKeys(['IDX_0', 'IDX_1']);
     // data is correct
-    expect($plugin->data_payload['IDX_0'])->toBe(['item' => 'first']);
-    expect($plugin->data_payload['IDX_1'])->toBe(['item' => 'second']);
+    expect($plugin->data_payload)->toMatchArray(['IDX_0' => ['item' => 'first'], 'IDX_1' => ['item' => 'second']]);
 
     // no empty index exists
     expect($plugin->data_payload)->not->toHaveKey('IDX_2');
@@ -182,8 +173,7 @@ test('updateDataPayload handles single URL without nesting', function (): void {
 
     $plugin->updateDataPayload();
 
-    expect($plugin->data_payload)->toBe(['data' => 'test']);
-    expect($plugin->data_payload)->not->toHaveKey('IDX_0');
+    expect($plugin->data_payload)->toBe(['data' => 'test'])->not->toHaveKey('IDX_0');
 });
 
 test('updateDataPayload resolves Liquid variables in polling_header', function (): void {
@@ -274,9 +264,9 @@ test('plugin can get configuration value by key', function (): void {
     $config = ['timezone' => 'UTC', 'refresh_interval' => 30];
     $plugin = Plugin::factory()->create(['configuration' => $config]);
 
-    expect($plugin->getConfiguration('timezone'))->toBe('UTC');
-    expect($plugin->getConfiguration('refresh_interval'))->toBe(30);
-    expect($plugin->getConfiguration('nonexistent', 'default'))->toBe('default');
+    expect($plugin->getConfiguration('timezone'))->toBe('UTC')
+        ->and($plugin->getConfiguration('refresh_interval'))->toBe(30)
+        ->and($plugin->getConfiguration('nonexistent', 'default'))->toBe('default');
 });
 
 test('plugin configuration template is cast to array', function (): void {
@@ -378,13 +368,11 @@ test('plugin can extract default values from custom fields configuration templat
 
     expect($plugin->configuration)
         ->toBeArray()
-        ->toHaveKey('reading_days')
-        ->toHaveKey('refresh_interval')
-        ->not->toHaveKey('timezone');
-
-    expect($plugin->getConfiguration('reading_days'))->toBe('Monday,Friday,Saturday,Sunday');
-    expect($plugin->getConfiguration('refresh_interval'))->toBe(30);
-    expect($plugin->getConfiguration('timezone'))->toBeNull();
+        ->toHaveKeys(['reading_days', 'refresh_interval'])
+        ->not->toHaveKey('timezone')
+        ->and($plugin->getConfiguration('reading_days'))->toBe('Monday,Friday,Saturday,Sunday')
+        ->and($plugin->getConfiguration('refresh_interval'))->toBe(30)
+        ->and($plugin->getConfiguration('timezone'))->toBeNull();
 });
 
 test('resolveLiquidVariables resolves configuration variables correctly', function (): void {
@@ -604,9 +592,8 @@ test('updateDataPayload resolves entire polling_url field first then splits by n
 
     // Should have split the multi-line URL and generated two requests
     expect($plugin->data_payload)->toHaveKey('IDX_0');
-    expect($plugin->data_payload)->toHaveKey('IDX_1');
-    expect($plugin->data_payload['IDX_0'])->toBe(['data' => 'test1']);
-    expect($plugin->data_payload['IDX_1'])->toBe(['data' => 'test2']);
+    expect($plugin->data_payload)->toHaveKey('IDX_1')
+        ->toMatchArray(['IDX_0' => ['data' => 'test1'], 'IDX_1' => ['data' => 'test2']]);
 });
 
 test('updateDataPayload handles multi-line polling_url with for loop using external renderer', function (): void {
@@ -645,9 +632,8 @@ LIQUID
 
     // Should have used external renderer and generated two URLs
     expect($plugin->data_payload)->toHaveKey('IDX_0');
-    expect($plugin->data_payload)->toHaveKey('IDX_1');
-    expect($plugin->data_payload['IDX_0'])->toBe(['data' => 'test1']);
-    expect($plugin->data_payload['IDX_1'])->toBe(['data' => 'test2']);
+    expect($plugin->data_payload)->toHaveKey('IDX_1')
+        ->toMatchArray(['IDX_0' => ['data' => 'test1'], 'IDX_1' => ['data' => 'test2']]);
 
     Illuminate\Support\Facades\Process::assertRan(function ($process): bool {
         $command = is_array($process->command) ? implode(' ', $process->command) : (string) $process->command;

@@ -34,11 +34,11 @@ LIQUID
     $result = $plugin->render('full');
 
     // Should output the high tide data
-    $this->assertStringContainsString('"t":"2025-08-26 01:48"', $result);
-    $this->assertStringContainsString('"v":"4.624"', $result);
-    $this->assertStringContainsString('"type":"H"', $result);
+    expect($result)->toContain('"t":"2025-08-26 01:48"');
+    expect($result)->toContain('"v":"4.624"')
+        ->toContain('"type":"H"');
     // Should not contain the low tide data
-    $this->assertStringNotContainsString('"type":"L"', $result);
+    expect($result)->not->toContain('"type":"L"');
 });
 
 test('where filter works directly in for loop with preprocessing', function (): void {
@@ -59,11 +59,11 @@ LIQUID
     $result = $plugin->render('full');
 
     // Should output the high tide data
-    $this->assertStringContainsString('"t":"2025-08-26 01:48"', $result);
-    $this->assertStringContainsString('"v":"4.624"', $result);
-    $this->assertStringContainsString('"type":"H"', $result);
+    expect($result)->toContain('"t":"2025-08-26 01:48"');
+    expect($result)->toContain('"v":"4.624"')
+        ->toContain('"type":"H"');
     // Should not contain the low tide data
-    $this->assertStringNotContainsString('"type":"L"', $result);
+    expect($result)->not->toContain('"type":"L"');
 });
 
 test('where filter works directly in for loop with multiple matches', function (): void {
@@ -84,12 +84,12 @@ LIQUID
     $result = $plugin->render('full');
 
     // Should output both high tide data entries
-    $this->assertStringContainsString('"t":"2025-08-26 01:48"', $result);
-    $this->assertStringContainsString('"t":"2025-08-26 14:30"', $result);
-    $this->assertStringContainsString('"v":"4.624"', $result);
-    $this->assertStringContainsString('"v":"4.8"', $result);
+    expect($result)->toContain('"t":"2025-08-26 01:48"');
+    expect($result)->toContain('"t":"2025-08-26 14:30"')
+        ->toContain('"v":"4.624"')
+        ->toContain('"v":"4.8"');
     // Should not contain the low tide data
-    $this->assertStringNotContainsString('"type":"L"', $result);
+    expect($result)->not->toContain('"type":"L"');
 });
 
 it('encodes arrays for url_encode as JSON with spaces after commas and then percent-encodes', function (): void {
@@ -140,15 +140,14 @@ LIQUID
     // Debug: Let's see what the actual output is
     // The issue might be that the HTML contains "1" in other places
     // Let's check if the filtered numbers are actually in the content
-    $this->assertStringContainsString('3', $result);
-    $this->assertStringContainsString('4', $result);
-    $this->assertStringContainsString('5', $result);
+    expect($result)->toContain('3');
+    expect($result)->toContain('4')
+        ->toContain('5');
 
     // Instead of checking for absence of 1 and 2, let's verify the count
     // The filtered result should only contain 3, 4, 5
     $filteredContent = strip_tags((string) $result);
-    $this->assertStringNotContainsString('1', $filteredContent);
-    $this->assertStringNotContainsString('2', $filteredContent);
+    expect($filteredContent)->not->toContain('1')->not->toContain('2');
 });
 
 test('where_exp filter works with object properties', function (): void {
@@ -169,10 +168,10 @@ LIQUID
     $result = $plugin->render('full');
 
     // Should output users >= 30
-    $this->assertStringContainsString('Bob (30)', $result);
-    $this->assertStringContainsString('Charlie (35)', $result);
+    expect($result)->toContain('Bob (30)');
+    expect($result)->toContain('Charlie (35)');
     // Should not contain users < 30
-    $this->assertStringNotContainsString('Alice (25)', $result);
+    expect($result)->not->toContain('Alice (25)');
 });
 
 test('qr_code filter generates SVG QR code with qr-code class', function (): void {
@@ -184,12 +183,12 @@ test('qr_code filter generates SVG QR code with qr-code class', function (): voi
     $result = $plugin->render('full');
 
     // Should contain SVG elements
-    $this->assertStringContainsString('<svg', $result);
-    $this->assertStringContainsString('</svg>', $result);
+    expect($result)->toContain('<svg');
+    expect($result)->toContain('</svg>');
     // Should contain qr-code class
-    $this->assertStringContainsString('class="qr-code"', $result);
+    expect($result)->toContain('class="qr-code"');
     // Should contain QR code path elements
-    $this->assertStringContainsString('<path', $result);
+    expect($result)->toContain('<path');
 });
 
 test('qr_code filter works with custom text', function (): void {
@@ -201,10 +200,10 @@ test('qr_code filter works with custom text', function (): void {
     $result = $plugin->render('full');
 
     // Should generate valid SVG
-    $this->assertStringContainsString('<svg', $result);
-    $this->assertStringContainsString('</svg>', $result);
+    expect($result)->toContain('<svg');
+    expect($result)->toContain('</svg>');
     // Should contain qr-code class
-    $this->assertStringContainsString('class="qr-code"', $result);
+    expect($result)->toContain('class="qr-code"');
 });
 
 test('qr_code filter calculates correct size for module_size 11', function (): void {
@@ -216,8 +215,8 @@ test('qr_code filter calculates correct size for module_size 11', function (): v
     $result = $plugin->render('full');
 
     // Should have width="319" and height="319" (29 * 11 = 319)
-    $this->assertStringContainsString('width="319"', $result);
-    $this->assertStringContainsString('height="319"', $result);
+    expect($result)->toContain('width="319"');
+    expect($result)->toContain('height="319"');
 });
 
 test('qr_code filter calculates correct size for module_size 16', function (): void {
@@ -229,8 +228,8 @@ test('qr_code filter calculates correct size for module_size 16', function (): v
     $result = $plugin->render('full');
 
     // Should have width="464" and height="464" (29 * 16 = 464)
-    $this->assertStringContainsString('width="464"', $result);
-    $this->assertStringContainsString('height="464"', $result);
+    expect($result)->toContain('width="464"');
+    expect($result)->toContain('height="464"');
 });
 
 test('qr_code filter calculates correct size for module_size 10', function (): void {
@@ -242,8 +241,8 @@ test('qr_code filter calculates correct size for module_size 10', function (): v
     $result = $plugin->render('full');
 
     // Should have width="290" and height="290" (29 * 10 = 290)
-    $this->assertStringContainsString('width="290"', $result);
-    $this->assertStringContainsString('height="290"', $result);
+    expect($result)->toContain('width="290"');
+    expect($result)->toContain('height="290"');
 });
 
 test('qr_code filter calculates correct size for module_size 5', function (): void {
@@ -255,8 +254,8 @@ test('qr_code filter calculates correct size for module_size 5', function (): vo
     $result = $plugin->render('full');
 
     // Should have width="145" and height="145" (29 * 5 = 145)
-    $this->assertStringContainsString('width="145"', $result);
-    $this->assertStringContainsString('height="145"', $result);
+    expect($result)->toContain('width="145"');
+    expect($result)->toContain('height="145"');
 });
 
 test('qr_code filter supports error correction level parameter', function (): void {
@@ -268,6 +267,6 @@ test('qr_code filter supports error correction level parameter', function (): vo
     $result = $plugin->render('full');
 
     // Should generate valid SVG with qr-code class
-    $this->assertStringContainsString('<svg', $result);
-    $this->assertStringContainsString('class="qr-code"', $result);
+    expect($result)->toContain('<svg');
+    expect($result)->toContain('class="qr-code"');
 });

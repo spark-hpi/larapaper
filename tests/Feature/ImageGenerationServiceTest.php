@@ -7,11 +7,8 @@ use App\Models\Device;
 use App\Models\DeviceModel;
 use App\Services\ImageGenerationService;
 use Bnussbau\EpaperPipeline\EpaperPipeline;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
-
-uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     Storage::fake('public');
@@ -316,8 +313,8 @@ it('cache is reset when plugin markup changes', function (): void {
     $plugin->update(['render_markup' => '<div>Updated markup</div>']);
 
     $plugin->refresh();
-    expect($plugin->current_image)->toBeNull();
-    expect($plugin->current_image_metadata)->toBeNull();
+    expect($plugin->current_image)->toBeNull()
+        ->and($plugin->current_image_metadata)->toBeNull();
 });
 
 it('buildImageMetadataFromDevice returns canonical metadata shape', function (): void {
@@ -332,11 +329,8 @@ it('buildImageMetadataFromDevice returns canonical metadata shape', function ():
 
     $meta = ImageGenerationService::buildImageMetadataFromDevice($device);
 
-    expect($meta)->toHaveKeys(['width', 'height', 'rotation', 'palette_id', 'mime_type']);
-    expect($meta['width'])->toBe(800);
-    expect($meta['height'])->toBe(480);
-    expect($meta['rotation'])->toBe(0);
-    expect($meta['mime_type'])->toBe('image/png');
+    expect($meta)->toHaveKeys(['width', 'height', 'rotation', 'palette_id', 'mime_type'])
+        ->toMatchArray(['width' => 800, 'height' => 480, 'rotation' => 0, 'mime_type' => 'image/png']);
 });
 
 it('buildImageMetadataFromDeviceModel returns canonical metadata shape', function (): void {
@@ -350,18 +344,15 @@ it('buildImageMetadataFromDeviceModel returns canonical metadata shape', functio
 
     $meta = ImageGenerationService::buildImageMetadataFromDeviceModel($model);
 
-    expect($meta)->toHaveKeys(['width', 'height', 'rotation', 'palette_id', 'mime_type']);
-    expect($meta['width'])->toBe(1024);
-    expect($meta['height'])->toBe(768);
-    expect($meta['rotation'])->toBe(90);
-    expect($meta['mime_type'])->toBe('image/bmp');
+    expect($meta)->toHaveKeys(['width', 'height', 'rotation', 'palette_id', 'mime_type'])
+        ->toMatchArray(['width' => 1024, 'height' => 768, 'rotation' => 90, 'mime_type' => 'image/bmp']);
 });
 
 it('imageMetadataMatches returns false when stored is null or empty', function (): void {
     $device = Device::factory()->create(['width' => 800, 'height' => 480, 'rotate' => 0]);
 
-    expect(ImageGenerationService::imageMetadataMatches(null, $device))->toBeFalse();
-    expect(ImageGenerationService::imageMetadataMatches([], $device))->toBeFalse();
+    expect(ImageGenerationService::imageMetadataMatches(null, $device))->toBeFalse()
+        ->and(ImageGenerationService::imageMetadataMatches([], $device))->toBeFalse();
 });
 
 it('imageMetadataMatches returns true when metadata matches device', function (): void {
@@ -399,8 +390,8 @@ it('resetIfNotCacheable clears recipe cache when metadata does not match', funct
     ImageGenerationService::resetIfNotCacheable($plugin, $device);
 
     $plugin->refresh();
-    expect($plugin->current_image)->toBeNull();
-    expect($plugin->current_image_metadata)->toBeNull();
+    expect($plugin->current_image)->toBeNull()
+        ->and($plugin->current_image_metadata)->toBeNull();
 });
 
 it('resetIfNotCacheable preserves cache when metadata matches', function (): void {
@@ -496,7 +487,95 @@ it('generates BMP for legacy device with bmp3_1bit_srgb format', function (): vo
 
     // Verify it's a valid BMP file
     $imageInfo = getimagesize($imagePath);
-    expect($imageInfo[0])->toBe(800); // Width
-    expect($imageInfo[1])->toBe(480); // Height
-    expect($imageInfo[2])->toBe(IMAGETYPE_BMP); // BMP type
+    // Width
+    // Height
+    expect($imageInfo)->toMatchArray([0 => 800, 1 => 480, 2 => IMAGETYPE_BMP]); // BMP type
+});
+
+it('returns the same uuid when the same markup is rendered twice for a device', function (): void {
+    $device = Device::factory()->create([
+        'width' => 800,
+        'height' => 480,
+        'rotate' => 0,
+        'image_format' => ImageFormat::PNG_8BIT_GRAYSCALE->value,
+    ]);
+
+    $markup = '<div style="background: white; color: black;">Stable content</div>';
+
+    $firstUuid = ImageGenerationService::generateImage($markup, $device->id);
+    $secondUuid = ImageGenerationService::generateImage($markup, $device->id);
+
+    $device->refresh();
+
+    expect($secondUuid)->toBe($firstUuid)
+        ->and($device->current_screen_image)->toBe($firstUuid);
+    Storage::disk('public')->assertExists("/images/generated/{$firstUuid}.png");
+});
+
+it('returns different uuids for different rendered content', function (): void {
+    $smallDevice = Device::factory()->create([
+        'width' => 800,
+        'height' => 480,
+        'rotate' => 0,
+        'image_format' => ImageFormat::AUTO->value,
+    ]);
+    $largeDevice = Device::factory()->create([
+        'width' => 1024,
+        'height' => 768,
+        'rotate' => 0,
+        'image_format' => ImageFormat::AUTO->value,
+    ]);
+
+    $markup = '<div>Test</div>';
+    $smallUuid = ImageGenerationService::generateImage($markup, $smallDevice->id);
+    $largeUuid = ImageGenerationService::generateImage($markup, $largeDevice->id);
+
+    expect($largeUuid)->not->toBe($smallUuid);
+    Storage::disk('public')->assertExists("/images/generated/{$smallUuid}.png");
+    Storage::disk('public')->assertExists("/images/generated/{$largeUuid}.png");
+});
+
+it('does not write a duplicate file when device image content is unchanged', function (): void {
+    $device = Device::factory()->create([
+        'width' => 800,
+        'height' => 480,
+        'rotate' => 0,
+        'image_format' => ImageFormat::PNG_8BIT_GRAYSCALE->value,
+    ]);
+
+    $markup = '<div>Stable</div>';
+    $uuid = ImageGenerationService::generateImage($markup, $device->id);
+    $path = "/images/generated/{$uuid}.png";
+    Storage::disk('public')->assertExists($path);
+
+    $originalMtime = filemtime(Storage::disk('public')->path($path));
+    sleep(1);
+
+    $secondUuid = ImageGenerationService::generateImage($markup, $device->id);
+
+    expect($secondUuid)->toBe($uuid);
+    $files = Storage::disk('public')->files('/images/generated');
+    $matching = array_filter($files, fn (string $file): bool => str_starts_with(basename($file), $uuid));
+    expect($matching)->toHaveCount(1);
+    clearstatcache();
+    expect(filemtime(Storage::disk('public')->path($path)))->toBe($originalMtime);
+});
+
+it('stores a new uuid when the existing image file is missing on disk', function (): void {
+    $device = Device::factory()->create([
+        'width' => 800,
+        'height' => 480,
+        'rotate' => 0,
+        'image_format' => ImageFormat::PNG_8BIT_GRAYSCALE->value,
+        'current_screen_image' => 'missing-on-disk-uuid',
+    ]);
+
+    $markup = '<div>Fresh content</div>';
+    $uuid = ImageGenerationService::generateImage($markup, $device->id);
+
+    $device->refresh();
+
+    expect($uuid)->not->toBe('missing-on-disk-uuid')
+        ->and($device->current_screen_image)->toBe($uuid);
+    Storage::disk('public')->assertExists("/images/generated/{$uuid}.png");
 });

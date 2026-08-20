@@ -18,15 +18,15 @@ test('device model has required attributes', function (): void {
         'offset_y' => 0,
     ]);
 
-    expect($deviceModel->name)->toBe('Test Model');
-    expect($deviceModel->width)->toBe(800);
-    expect($deviceModel->height)->toBe(480);
-    expect($deviceModel->colors)->toBe(4);
-    expect($deviceModel->bit_depth)->toBe(2);
-    expect($deviceModel->scale_factor)->toBe(1.0);
-    expect($deviceModel->rotation)->toBe(0);
-    expect($deviceModel->offset_x)->toBe(0);
-    expect($deviceModel->offset_y)->toBe(0);
+    expect($deviceModel->name)->toBe('Test Model')
+        ->and($deviceModel->width)->toBe(800)
+        ->and($deviceModel->height)->toBe(480)
+        ->and($deviceModel->colors)->toBe(4)
+        ->and($deviceModel->bit_depth)->toBe(2)
+        ->and($deviceModel->scale_factor)->toBe(1.0)
+        ->and($deviceModel->rotation)->toBe(0)
+        ->and($deviceModel->offset_x)->toBe(0)
+        ->and($deviceModel->offset_y)->toBe(0);
 });
 
 test('device model casts attributes correctly', function (): void {
@@ -41,14 +41,14 @@ test('device model casts attributes correctly', function (): void {
         'offset_y' => '20',
     ]);
 
-    expect($deviceModel->width)->toBeInt();
-    expect($deviceModel->height)->toBeInt();
-    expect($deviceModel->colors)->toBeInt();
-    expect($deviceModel->bit_depth)->toBeInt();
-    expect($deviceModel->scale_factor)->toBeFloat();
-    expect($deviceModel->rotation)->toBeInt();
-    expect($deviceModel->offset_x)->toBeInt();
-    expect($deviceModel->offset_y)->toBeInt();
+    expect($deviceModel->width)->toBeInt()
+        ->and($deviceModel->height)->toBeInt()
+        ->and($deviceModel->colors)->toBeInt()
+        ->and($deviceModel->bit_depth)->toBeInt()
+        ->and($deviceModel->scale_factor)->toBeFloat()
+        ->and($deviceModel->rotation)->toBeInt()
+        ->and($deviceModel->offset_x)->toBeInt()
+        ->and($deviceModel->offset_y)->toBeInt();
 });
 
 test('get color depth attribute returns correct format for bit depth 2', function (): void {
@@ -108,15 +108,15 @@ test('get scale level attribute returns null when width is null', function (): v
 test('device model factory creates valid data', function (): void {
     $deviceModel = DeviceModel::factory()->create();
 
-    expect($deviceModel->name)->not->toBeEmpty();
-    expect($deviceModel->width)->toBeInt();
-    expect($deviceModel->height)->toBeInt();
-    expect($deviceModel->colors)->toBeInt();
-    expect($deviceModel->bit_depth)->toBeInt();
-    expect($deviceModel->scale_factor)->toBeFloat();
-    expect($deviceModel->rotation)->toBeInt();
-    expect($deviceModel->offset_x)->toBeInt();
-    expect($deviceModel->offset_y)->toBeInt();
+    expect($deviceModel->name)->not->toBeEmpty()
+        ->and($deviceModel->width)->toBeInt()
+        ->and($deviceModel->height)->toBeInt()
+        ->and($deviceModel->colors)->toBeInt()
+        ->and($deviceModel->bit_depth)->toBeInt()
+        ->and($deviceModel->scale_factor)->toBeFloat()
+        ->and($deviceModel->rotation)->toBeInt()
+        ->and($deviceModel->offset_x)->toBeInt()
+        ->and($deviceModel->offset_y)->toBeInt();
 });
 
 test('css_name returns og when puppeteer_window_size_strategy is v1', function (): void {

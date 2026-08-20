@@ -21,9 +21,9 @@ final class FetchDeviceModelsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    private const API_URL = '/api/models';
+    private const string API_URL = '/api/models';
 
-    private const PALETTES_API_URL = 'http://usetrmnl.com/api/palettes';
+    private const string PALETTES_API_URL = 'http://usetrmnl.com/api/palettes';
 
     /**
      * Create a new job instance.
