@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * @property-read DeviceModel|null $deviceModel
@@ -360,5 +361,24 @@ class Device extends Model
     public function usesTouchBar(): bool
     {
         return $this->deviceModel?->name === 'v2';
+    }
+
+    public static function generateFriendlyId(): string
+    {
+        return self::generateUniqueValue('friendly_id', 6);
+    }
+
+    public static function generateApiKey(): string
+    {
+        return self::generateUniqueValue('api_key', 22);
+    }
+
+    private static function generateUniqueValue(string $column, int $length): string
+    {
+        do {
+            $value = Str::random($length);
+        } while (self::query()->where($column, $value)->exists());
+
+        return $value;
     }
 }

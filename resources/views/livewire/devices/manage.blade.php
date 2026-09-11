@@ -79,6 +79,18 @@ new class extends Component
         }
     }
 
+    public function generateApiKey(): void
+    {
+        $this->api_key = Device::generateApiKey();
+        $this->resetValidation('api_key');
+    }
+
+    public function generateFriendlyId(): void
+    {
+        $this->friendly_id = Device::generateFriendlyId();
+        $this->resetValidation('friendly_id');
+    }
+
     public function createDevice(): void
     {
         $this->validate();
@@ -199,7 +211,7 @@ new class extends Component
                                 label="Name"
                                 wire:model="name"
                                 id="name"
-                                class="mt-1 block w-full"
+                                class="mb-1 block w-full"
                                 type="text"
                                 name="name"
                                 autofocus
@@ -211,7 +223,7 @@ new class extends Component
                                 label="Mac Address"
                                 wire:model="mac_address"
                                 id="mac_address"
-                                class="mt-1 block w-full"
+                                class="mb-1 block w-full"
                                 type="text"
                                 name="mac_address"
                                 autofocus
@@ -221,25 +233,55 @@ new class extends Component
                         <div class="mb-4">
                             <flux:input
                                 label="API Key"
+                                description="To proxy the cloud service, copy from Device Settings → Developer Perks; otherwise, create a new one."
                                 wire:model="api_key"
                                 id="api_key"
-                                class="mt-1 block w-full"
+                                class="mb-1 block w-full"
                                 type="text"
                                 name="api_key"
-                                autofocus
-                            />
+                            >
+                                <x-slot:iconTrailing>
+                                    <flux:tooltip content="Generate API key">
+                                        <flux:button
+                                            variant="subtle"
+                                            class="-me-1"
+                                            square
+                                            size="sm"
+                                            inset="left right"
+                                            icon="dices"
+                                            wire:click="generateApiKey"
+                                            aria-label="Generate API key"
+                                        />
+                                    </flux:tooltip>
+                                </x-slot:iconTrailing>
+                            </flux:input>
                         </div>
 
                         <div class="mb-4">
                             <flux:input
                                 label="Friendly Id"
+                                description="Copy from trmnl.com or generate a new one."
                                 wire:model="friendly_id"
                                 id="friendly_id"
-                                class="mt-1 block w-full"
+                                class="mb-1 block w-full"
                                 type="text"
                                 name="friendly_id"
-                                autofocus
-                            />
+                            >
+                                <x-slot:iconTrailing>
+                                    <flux:tooltip content="Generate friendly ID">
+                                        <flux:button
+                                            variant="subtle"
+                                            class="-me-1"
+                                            square
+                                            size="sm"
+                                            inset="left right"
+                                            icon="dices"
+                                            wire:click="generateFriendlyId"
+                                            aria-label="Generate friendly ID"
+                                        />
+                                    </flux:tooltip>
+                                </x-slot:iconTrailing>
+                            </flux:input>
                         </div>
 
                         <div class="mb-4">
@@ -247,7 +289,7 @@ new class extends Component
                                 label="Refresh Rate (seconds)"
                                 wire:model="default_refresh_interval"
                                 id="default_refresh_interval"
-                                class="mt-1 block w-full"
+                                class="mb-1 block w-full"
                                 type="number"
                                 name="default_refresh_interval"
                                 autofocus
