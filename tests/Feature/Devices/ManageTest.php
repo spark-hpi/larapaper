@@ -4,6 +4,7 @@ use App\Models\Device;
 use App\Models\DeviceModel;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 test('device management page can be rendered', function (): void {
     $user = User::factory()->create();
@@ -65,6 +66,33 @@ test('device creation requires required fields', function (): void {
         'default_refresh_interval',
     ]);
 });
+
+test('add device form has generate buttons for api key and friendly id', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    Livewire::test('devices.manage')
+        ->assertSee('Generate API key')
+        ->assertSee('Generate friendly ID');
+});
+
+test('user can generate a credential when adding a device', function (string $action, string $property, int $length): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    Str::createRandomStringsUsing(fn (int $length): string => str_repeat('A', $length));
+
+    try {
+        Livewire::test('devices.manage')
+            ->call($action)
+            ->assertSet($property, str_repeat('A', $length));
+    } finally {
+        Str::createRandomStringsNormally();
+    }
+})->with([
+    'friendly id' => ['generateFriendlyId', 'friendly_id', 6],
+    'api key' => ['generateApiKey', 'api_key', 22],
+]);
 
 test('user can toggle proxy cloud for their device', function (): void {
     $user = User::factory()->create();
@@ -208,4 +236,26 @@ test('unpause modal shows screen button instructions for non-v2 devices', functi
     Livewire::test('devices.manage')
         ->assertSee('physical screen button')
         ->assertDontSee('touch bar in the middle');
+});
+
+test('add device modal highlights auto join for the first user', function (): void {
+    $user = User::factory()->create(['id' => 1]);
+
+    $this->actingAs($user)
+        ->get('/devices')
+        ->assertOk()
+        ->assertSee('Or add manually')
+        ->assertSee('Click the button above to permit auto join.')
+        ->assertSee('device playlist to get started');
+});
+
+test('add device modal does not show auto join for other users', function (): void {
+    User::factory()->create(['id' => 1]);
+    $other = User::factory()->create(['id' => 2]);
+
+    $this->actingAs($other)
+        ->get('/devices')
+        ->assertOk()
+        ->assertDontSee('Or add manually')
+        ->assertDontSee('Point the device at this server to finish setup');
 });
