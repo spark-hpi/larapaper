@@ -7,8 +7,7 @@ export default defineConfig({
   logo: {
     light: 'assets/images/logo-light.svg',
     dark: 'assets/images/logo-dark.svg',
-    alt: 'LaraPaper',
-    href: '/larapaper/'
+    alt: 'LaraPaper'
   },
   favicon: 'assets/favicon.ico',
 
@@ -72,6 +71,11 @@ export default defineConfig({
           title: 'Environment variables',
           path: '/getting-started/environment-variables',
           icon: 'settings',
+        },
+        {
+          title: 'Authentication',
+          path: '/getting-started/authentication',
+          icon: 'key-round',
         },
         {
           title: 'Connecting devices',
@@ -145,6 +149,10 @@ export default defineConfig({
   ],
 
   plugins: {
+    ai: {
+      assistant: true,
+      projectId: 'docmd_kke9pivcmuzj4ww4'
+    },
     seo: {
       defaultDescription:
         'LaraPaper is a self-hostable Bring Your Own Server (BYOS) implementation for TRMNL e-paper devices, built with Laravel.',

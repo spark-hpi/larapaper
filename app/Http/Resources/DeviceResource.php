@@ -2,11 +2,12 @@
 
 namespace App\Http\Resources;
 
-use DateTimeInterface;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
+ * A device in the shape of TRMNL's Account API (GET /api/devices/{id}).
+ *
  * @mixin \App\Models\Device
  */
 class DeviceResource extends JsonResource
@@ -30,17 +31,11 @@ class DeviceResource extends JsonResource
             'wifi_strength' => $this->wifi_strength,
             'hardware_last_ping_at' => $lastPingAt,
             'sleep_mode_enabled' => $this->sleep_mode_enabled,
-            'sleep_start_time' => $this->minutesSinceMidnight($this->sleep_mode_from),
-            'sleep_end_time' => $this->minutesSinceMidnight($this->sleep_mode_to),
+            'sleep_start_time' => $this->sleepStartMinutes(),
+            'sleep_end_time' => $this->sleepEndMinutes(),
+            'sleep_until' => $this->pause_until?->toIso8601ZuluString(),
+            'firmware_version' => $this->last_firmware_version,
+            'refresh_interval' => $this->default_refresh_interval,
         ];
-    }
-
-    private function minutesSinceMidnight(?DateTimeInterface $time): ?int
-    {
-        if (! $time instanceof DateTimeInterface) {
-            return null;
-        }
-
-        return (int) $time->format('G') * 60 + (int) $time->format('i');
     }
 }

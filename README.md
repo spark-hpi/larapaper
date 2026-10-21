@@ -2,8 +2,10 @@
 
 [![tests](https://github.com/usetrmnl/larapaper/actions/workflows/test.yml/badge.svg)](https://github.com/usetrmnl/larapaper/actions/workflows/test.yml)
 
+<a href="https://trendshift.io/repositories/22936?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-22936" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/22936/daily?language=PHP" alt="usetrmnl%2Flarapaper | Trendshift" width="250" height="55"/></a>
+
 LaraPaper is a self-hostable implementation of a TRMNL server (BYOS), built with Laravel.
-It allows you to manage TRMNL-compatible devices, generate screens using **native plugins** (Screens API, Screenshot, Image Webhook), **recipes** (170+ from the [OSS community catalog](https://bnussbau.github.io/trmnl-recipe-catalog/), 1000+ from the [TRMNL catalog](https://trmnl.com/recipes), or your own), or the **API**, and can also act as a **proxy** for the native cloud service (Core). With over 330k downloads and 370+ stars, it’s the most popular community-driven BYOS.
+It allows you to manage TRMNL-compatible devices, generate screens using **native plugins** (Screens API, Screenshot, Image Webhook), **recipes** (170+ from the [OSS community catalog](https://bnussbau.github.io/trmnl-recipe-catalog/), 1000+ from the [TRMNL catalog](https://trmnl.com/recipes), or your own), or the **API**, and can also act as a **proxy** for the native cloud service (Core). With over 400k downloads and 400+ stars, it’s the most popular community-driven BYOS.
 
 ![Screenshot](README_byos-screenshot.png)
 ![Screenshot](README_byos-screenshot-dark.png)
@@ -73,7 +75,7 @@ docker compose up -d
 ```
 
 #### VPS
-If you’re using a VPS (e.g., Hetzner) and prefer an alternative to native Docker, you can install Dokploy and deploy LaraPaper using the integrated [Template](https://templates.dokploy.com/?q=trmnl+byos+laravel).
+If you’re using a VPS (e.g., Hetzner) and prefer an alternative to native Docker, you can install Dokploy and deploy LaraPaper using the integrated [Template](https://templates.dokploy.com/?q=LaraPaper).
 It’s a quick way to get started without having to manually manage Docker setup.
 
 #### PikaPods
@@ -119,6 +121,7 @@ php artisan db:seed --class=ExampleRecipesSeeder
 |-------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|-------------------|
 | `TRMNL_PROXY_BASE_URL`        | Base URL of the native TRMNL service                                                                                                        | https://trmnl.app |
 | `TRMNL_PROXY_REFRESH_MINUTES` | How often should the server fetch new images from native service                                                                            | 15                |
+| `TRMNL_BLADE_FRAMEWORK_BASE_URL` | Base URL for versioned TRMNL framework CSS/JS used when rendering recipes                                                                | https://trmnl.com |
 | `REGISTRATION_ENABLED`        | Allow user registration via Webinterface                                                                                                    | 1                 |
 | `PASSKEYS_ENABLED`            | Enable Passkeys for login (requires HTTPS)                                                                                                  | 0                 |
 | `SSL_MODE`                    | SSL Mode, if not using a Reverse Proxy ([docs](https://serversideup.net/open-source/docker-php/docs/customizing-the-image/configuring-ssl)) | `off`             |
@@ -126,6 +129,7 @@ php artisan db:seed --class=ExampleRecipesSeeder
 | `TRUSTED_PROXIES`             | If your server handles SSL termination, allow mixed mode. e.g. `"172.0.0.0/8"` or `*`                                                       | null              |
 | `PHP_OPCACHE_ENABLE`          | Enable PHP Opcache                                                                                                                          | 0                 |
 | `TRMNL_IMAGE_URL_TIMEOUT`     | How long TRMNL waits for a response on the display endpoint. (sec)                                                                          | 30                |
+| `HTTP_CLIENT_TIMEOUT`         | Outbound HTTP timeout when fetching recipe polling URLs. (sec)                                                                              | 10                |
 | `APP_TIMEZONE`                | Default timezone, which will be used by the PHP date functions. UTC is recommended.                                                         | UTC               |
 
 #### Login

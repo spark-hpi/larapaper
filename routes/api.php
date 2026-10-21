@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\CompanionController;
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\DeviceModelController;
 use App\Http\Controllers\Api\DisplayAliasController;
@@ -36,6 +37,8 @@ Route::get('/current_screen', CurrentScreenController::class);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', UserController::class);
     Route::get('/devices', [DeviceController::class, 'index']);
+    Route::get('/devices/{device}', [DeviceController::class, 'show'])->name('api.devices.show');
+    Route::patch('/devices/{device}', [DeviceController::class, 'update'])->name('api.devices.update');
     Route::get('/device-models', [DeviceModelController::class, 'index']);
 
     Route::get('/display/status', [DisplayStatusController::class, 'show'])->name('display.status');
@@ -49,6 +52,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/plugin_settings/{trmnlp_id}/archive', [PluginArchiveController::class, 'import']);
 
     Route::get('/me', [PluginSettingsController::class, 'me']);
+    Route::prefix('companion')->group(function (): void {
+        Route::get('/me', [CompanionController::class, 'me']);
+        Route::get('/plugin_settings', [CompanionController::class, 'pluginSettings']);
+        Route::post('/plugin_settings/{plugin}/data', [CompanionController::class, 'storeData']);
+    });
     Route::get('/plugin_settings', [PluginSettingsController::class, 'index']);
     Route::post('/plugin_settings', [PluginSettingsController::class, 'store']);
     Route::delete('/plugin_settings/{trmnlp_id}', [PluginSettingsController::class, 'destroy']);

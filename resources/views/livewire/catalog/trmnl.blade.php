@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Lazy;
 use Livewire\Component;
+use Stevebauman\Purify\Facades\Purify;
 
 new
 #[Lazy]
@@ -25,9 +26,14 @@ class extends Component
 
     public array $previewData = [];
 
+    public string $sortBy = 'newest';
+
+    /** @var list<string> */
+    private const ALLOWED_SORTS = ['newest', 'popularity', 'oldest'];
+
     public function mount(): void
     {
-        $this->loadNewest();
+        $this->loadRecipes();
     }
 
     public function placeholder()
@@ -44,15 +50,24 @@ class extends Component
         HTML;
     }
 
-    private function loadNewest(): void
+    private function resolvedSortBy(): string
     {
+        return in_array($this->sortBy, self::ALLOWED_SORTS, true)
+            ? $this->sortBy
+            : 'newest';
+    }
+
+    private function loadRecipes(): void
+    {
+        $sort = $this->resolvedSortBy();
+
         try {
-            $cacheKey = 'trmnl_recipes_newest_page_'.$this->page;
-            $response = Cache::remember($cacheKey, 43200, function () {
+            $cacheKey = 'trmnl_recipes_'.$sort.'_page_'.$this->page;
+            $response = Cache::remember($cacheKey, 43200, function () use ($sort) {
                 $response = Http::timeout(10)->get(
                     config('services.trmnl.base_url').'/recipes.json',
                     [
-                        'sort-by' => 'newest',
+                        'sort-by' => $sort,
                         'page' => $this->page,
                     ]
                 );
@@ -86,14 +101,16 @@ class extends Component
     private function searchRecipes(string $term): void
     {
         $this->isSearching = true;
+        $sort = $this->resolvedSortBy();
+
         try {
-            $cacheKey = 'trmnl_recipes_search_'.md5($term).'_page_'.$this->page;
-            $response = Cache::remember($cacheKey, 300, function () use ($term) {
+            $cacheKey = 'trmnl_recipes_search_'.md5($term).'_'.$sort.'_page_'.$this->page;
+            $response = Cache::remember($cacheKey, 300, function () use ($term, $sort) {
                 $response = Http::get(
                     config('services.trmnl.base_url').'/recipes.json',
                     [
                         'search' => $term,
-                        'sort-by' => 'newest',
+                        'sort-by' => $sort,
                         'page' => $this->page,
                     ]
                 );
@@ -132,7 +149,7 @@ class extends Component
 
         $term = mb_trim($this->search);
         if ($term === '' || mb_strlen($term) < 2) {
-            $this->loadNewest();
+            $this->loadRecipes();
         } else {
             $this->searchRecipes($term);
         }
@@ -143,13 +160,26 @@ class extends Component
         $this->page = 1;
         $term = mb_trim($this->search);
         if ($term === '') {
-            $this->loadNewest();
+            $this->loadRecipes();
 
             return;
         }
 
         if (mb_strlen($term) < 2) {
             // Require at least 2 chars to avoid noisy calls
+            return;
+        }
+
+        $this->searchRecipes($term);
+    }
+
+    public function updatedSortBy(): void
+    {
+        $this->page = 1;
+        $term = mb_trim($this->search);
+        if ($term === '' || mb_strlen($term) < 2) {
+            $this->loadRecipes();
+
             return;
         }
 
@@ -244,9 +274,7 @@ class extends Component
             'name' => $item['name'] ?? 'Untitled',
             'icon_url' => $item['icon_url'] ?? null,
             'screenshot_url' => $item['screenshot_url'] ?? null,
-            'author_bio' => is_array($item['author_bio'] ?? null)
-                ? strip_tags($item['author_bio']['description'] ?? null)
-                : null,
+            'author_bio' => Purify::clean(data_get($item, 'author_bio.description')),
             'stats' => [
                 'installs' => data_get($item, 'stats.installs'),
                 'forks' => data_get($item, 'stats.forks'),
@@ -267,7 +295,13 @@ class extends Component
                 icon="magnifying-glass"
             />
         </div>
-        <flux:badge color="zinc">Newest</flux:badge>
+        <div class="w-40 shrink-0">
+            <flux:select wire:model.live="sortBy" size="sm">
+                <option value="newest">Newest</option>
+                <option value="popularity">Popularity</option>
+                <option value="oldest">Oldest</option>
+            </flux:select>
+        </div>
     </div>
 
     @if(empty($recipes))
@@ -309,7 +343,7 @@ class extends Component
                             </div>
 
                             @if($recipe['author_bio'])
-                                <flux:text class="mt-2" size="sm">{{ $recipe['author_bio'] }}</flux:text>
+                                <flux:text class="mt-2" size="sm">{!! \Stevebauman\Purify\Facades\Purify::clean($recipe['author_bio']) !!}</flux:text>
                             @endif
 
                             <div class="mt-4 flex items-center space-x-3">
@@ -375,7 +409,7 @@ class extends Component
                         <div class="rounded-xl dark:bg-white/10 border border-zinc-200 dark:border-white/10 shadow-xs">
                             <div class="px-10 py-8">
                                 <flux:heading size="sm" class="mb-2">Description</flux:heading>
-                                <flux:text size="sm">{{ $previewData['author_bio'] }}</flux:text>
+                                <flux:text size="sm">{!! \Stevebauman\Purify\Facades\Purify::clean($previewData['author_bio']) !!}</flux:text>
                             </div>
                         </div>
                     @endif

@@ -202,6 +202,8 @@ class PluginImportService
                 'configuration_template' => $configurationTemplate,
                 'data_payload' => json_decode($settings['static_data'] ?? '{}', true),
                 'framework_version' => $settings['framework_version'] ?? null,
+                'no_bleed' => ($settings['no_screen_padding'] ?? null) === 'yes',
+                'dark_mode' => ($settings['dark_mode'] ?? null) === 'yes',
                 'transform_code'     => $transformCode,
                 'transform_language' => $transformLanguage,
             ]);
@@ -403,6 +405,8 @@ class PluginImportService
                 'preferred_renderer' => $preferredRenderer,
                 'framework_version' => $settings['framework_version'] ?? null,
                 'icon_url' => $iconUrl,
+                'no_bleed' => ($settings['no_screen_padding'] ?? null) === 'yes',
+                'dark_mode' => ($settings['dark_mode'] ?? null) === 'yes',
                 'transform_code'     => $transformCode,
                 'transform_language' => $transformLanguage,
             ]);

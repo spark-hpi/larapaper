@@ -82,6 +82,27 @@ test('plugin can have polling body for POST requests', function (): void {
     expect($plugin->polling_body)->toBe('{"query": "query { user { id name } }"}');
 });
 
+test('updateDataPayload uses configured http client timeout', function (): void {
+    config(['app.http_client_timeout' => 45]);
+
+    $requestTimeout = null;
+    Http::fake(function ($request, array $options) use (&$requestTimeout) {
+        $requestTimeout = $options['timeout'] ?? null;
+
+        return Http::response(['temperature' => 72], 200);
+    });
+
+    $plugin = Plugin::factory()->create([
+        'data_strategy' => 'polling',
+        'polling_url' => 'https://example.com/weather',
+        'polling_verb' => 'get',
+    ]);
+
+    $plugin->updateDataPayload();
+
+    expect($requestTimeout)->toBe(45);
+});
+
 test('updateDataPayload sends POST request with body when polling_verb is post', function (): void {
     Http::fake([
         'https://example.com/api' => Http::response(['success' => true], 200),
@@ -802,6 +823,40 @@ test('plugin liquid render keeps UTC epoch math after iCal polling mutates PHP d
     Carbon::setTestNow();
 });
 
+test('holidays ical recipe view uses time_zone_iana from trmnl.user context', function (): void {
+    Carbon::setTestNow(Carbon::parse('2026-12-24 10:00:00', 'UTC'));
+
+    $user = User::factory()->create([
+        'timezone' => 'America/New_York',
+    ]);
+
+    $plugin = Plugin::factory()->create([
+        'user_id' => $user->id,
+        'markup_language' => 'blade',
+        'render_markup_view' => 'recipes.holidays-ical',
+        'data_strategy' => 'static',
+        'data_payload' => [
+            'ical' => [
+                [
+                    'SUMMARY' => 'Christmas Day',
+                    'LOCATION' => 'New York',
+                    'DTSTART' => '2026-12-25T00:00:00Z',
+                    'DTEND' => '2026-12-25T23:59:59Z',
+                ],
+            ],
+        ],
+    ]);
+
+    $rendered = $plugin->render('full', false);
+
+    expect($rendered)
+        ->toContain('Christmas Day')
+        ->toContain('Thu, Dec 24')
+        ->toContain('New York');
+
+    Carbon::setTestNow();
+});
+
 /**
  * Plugin security: XSS Payload Dataset
  * [Input, Expected Result, Forbidden String]
@@ -811,7 +866,7 @@ dataset('xss_vectors', [
     'attribute_event_handlers' => ['<a onmouseover="alert(1)">Link</a>', '<a>Link</a>', 'onmouseover'],
     'javascript_protocol' => ['<a href="javascript:alert(1)">Click</a>', '<a>Click</a>', 'javascript:'],
     'iframe_injection' => ['Watch <iframe src="https://x.com"></iframe>', 'Watch ', '<iframe>'],
-    'img_onerror_fallback' => ['Photo <img src=x onerror=alert(1)>', 'Photo <img src="x" alt="x">', 'onerror'],
+    'img_onerror_fallback' => ['Photo <img src=x onerror=alert(1)>', 'Photo <img src="x" alt="x" />', 'onerror'],
 ]);
 
 test('plugin model sanitizes template fields on save', function (string $input, string $expected, string $forbidden): void {
@@ -842,6 +897,35 @@ test('plugin model sanitizes template fields on save', function (string $input, 
         ->and($field['help_text'])->toBe($expected)
         ->and($field['description'])->not->toContain($forbidden);
 })->with('xss_vectors');
+
+test('plugin model purifies author bio html and leaves non-string help text unchanged', function (): void {
+    $user = User::factory()->create();
+
+    $plugin = Plugin::create([
+        'user_id' => $user->id,
+        'name' => 'Author Bio',
+        'data_stale_minutes' => 15,
+        'data_strategy' => 'static',
+        'polling_verb' => 'get',
+        'configuration_template' => [
+            'custom_fields' => [
+                [
+                    'keyname' => 'author_bio',
+                    'field_type' => 'author_bio',
+                    'name' => 'Author',
+                    'description' => '<strong>Hello</strong> <script>alert(1)</script>',
+                    'help_text' => ['not', 'a', 'string'],
+                ],
+            ],
+        ],
+    ]);
+
+    $field = $plugin->fresh()->configuration_template['custom_fields'][0];
+
+    expect($field['description'])->toBe('<strong>Hello</strong> ')
+        ->and($field['description'])->not->toContain('<script>')
+        ->and($field['help_text'])->toBe(['not', 'a', 'string']);
+});
 
 test('plugin model preserves multi_string csv format', function (): void {
     $user = User::factory()->create();
@@ -1142,4 +1226,73 @@ test('updateDataPayload stores raw polled data when the transform service return
     $plugin->updateDataPayload();
 
     expect($plugin->fresh()->data_payload)->toBe(['raw' => 'data']);
+});
+
+test('updating render-affecting attributes invalidates cached image and metadata', function (string $attribute, mixed $initialValue, mixed $newValue): void {
+    $plugin = Plugin::factory()->create([
+        $attribute => $initialValue,
+        'current_image' => 'cached-uuid-1234',
+        'current_image_metadata' => ['width' => 800, 'height' => 480],
+    ]);
+
+    $plugin->update([$attribute => $newValue]);
+
+    $plugin->refresh();
+    expect($plugin->current_image)->toBeNull()
+        ->and($plugin->current_image_metadata)->toBeNull();
+})->with([
+    ['render_markup', '<div>initial markup</div>', '<div>updated markup</div>'],
+    ['render_markup_half_horizontal', null, '<div>updated half horizontal</div>'],
+    ['render_markup_half_vertical', null, '<div>updated half vertical</div>'],
+    ['render_markup_quadrant', null, '<div>updated quadrant</div>'],
+    ['render_markup_shared', null, '<div>updated shared</div>'],
+    ['render_markup_view', null, 'recipes.test-view'],
+    ['markup_language', null, 'liquid'],
+    ['no_bleed', false, true],
+    ['dark_mode', false, true],
+    ['configuration', ['api_key' => 'old_secret'], ['api_key' => 'secret123']],
+    ['configuration_template', null, ['custom_fields' => [['name' => 'API Key', 'field_type' => 'string']]]],
+    ['data_strategy', 'static', 'polling'],
+    ['polling_url', 'https://api.example.com/initial', 'https://api.example.com/data'],
+    ['polling_verb', 'get', 'post'],
+    ['polling_header', null, 'Authorization: Bearer test'],
+    ['polling_body', null, '{"test": 123}'],
+    ['data_payload', ['count' => 1], ['count' => 42]],
+    ['preferred_renderer', null, 'liquid'],
+    ['framework_version', null, '3.1.0'],
+    ['transform_language', null, 'jq'],
+]);
+
+test('updating non-render attributes does not invalidate cached image', function (string $attribute, mixed $newValue): void {
+    $plugin = Plugin::factory()->create([
+        'current_image' => 'cached-uuid-1234',
+        'current_image_metadata' => ['width' => 800, 'height' => 480],
+        'name' => 'Initial Name',
+        'trmnlp_id' => 'initial-id',
+    ]);
+
+    $plugin->update([$attribute => $newValue]);
+
+    $plugin->refresh();
+    expect($plugin->current_image)->toBe('cached-uuid-1234')
+        ->and($plugin->current_image_metadata)->toBe(['width' => 800, 'height' => 480]);
+})->with([
+    ['name', 'New Name'],
+    ['trmnlp_id', 'new-id'],
+]);
+
+test('updating current_image does not clear newly set current_image', function (): void {
+    $plugin = Plugin::factory()->create([
+        'current_image' => null,
+        'current_image_metadata' => null,
+    ]);
+
+    $plugin->update([
+        'current_image' => 'new-image-uuid',
+        'current_image_metadata' => ['width' => 800, 'height' => 480],
+    ]);
+
+    $plugin->refresh();
+    expect($plugin->current_image)->toBe('new-image-uuid')
+        ->and($plugin->current_image_metadata)->toBe(['width' => 800, 'height' => 480]);
 });

@@ -148,6 +148,18 @@ return [
 
     'pixel_logo_enabled' => env('PIXELLOGO_ENABLED', true),
 
+    /*
+    |--------------------------------------------------------------------------
+    | HTTP Client Timeout
+    |--------------------------------------------------------------------------
+    |
+    | Maximum time in seconds for outbound HTTP client requests when fetching
+    | recipe polling data. Increase for slow upstream APIs.
+    |
+    */
+
+    'http_client_timeout' => (int) env('HTTP_CLIENT_TIMEOUT', 15),
+
     'force_https' => env('FORCE_HTTPS', false),
     'puppeteer_docker' => env('PUPPETEER_DOCKER', false),
     'docker' => env('APP_DOCKER', file_exists('/.dockerenv')),

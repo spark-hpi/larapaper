@@ -4,8 +4,8 @@ FROM php:8.4-cli-alpine
 RUN addgroup -g 1000 -S user && adduser -u 1000 -D user -G user
 # Install quality-of-life packages.
 RUN apk add --no-cache bash curl git vim
-# Install composer for php deps.
-RUN apk add --no-cache composer
+# Install composer for php deps (from the official image, so it runs on the container's php).
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 # Add Chromium and Image Magick for puppeteer.
 RUN apk add --no-cache \
   imagemagick-dev \
@@ -13,7 +13,8 @@ RUN apk add --no-cache \
   libzip-dev \
   freetype-dev \
   libpng-dev \
-  libjpeg-turbo-dev
+  libjpeg-turbo-dev \
+  icu-dev
 
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_DOCKER=1
@@ -25,11 +26,10 @@ RUN curl -fsSL https://github.com/Imagick/imagick/archive/refs/tags/3.8.0.tar.gz
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg
 
 # Install PHP extensions
-RUN docker-php-ext-install imagick zip gd
+RUN docker-php-ext-install imagick zip gd intl
+# The tests need more than the 128M default.
+RUN echo "memory_limit=1G" > "$PHP_INI_DIR/conf.d/memory-limit.ini"
 
-# Composer uses its php binary, but we want it to use the container's one
-RUN rm -f /usr/bin/php84
-RUN ln -s /usr/local/bin/php /usr/bin/php84
 # Install postgres pdo driver.
 # RUN apk add --no-cache postgresql-dev && docker-php-ext-install pdo_pgsql
 # Install redis driver.

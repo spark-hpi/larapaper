@@ -226,10 +226,12 @@ new class extends Component
     <div class="py-12">
         {{--@dump($devices)--}}
         <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-            <div class="mb-6 flex items-center justify-between">
-                <livewire:device-resource-nav />
-                <flux:modal.trigger name="create-device">
-                    <flux:button icon="plus" variant="primary">Add Device</flux:button>
+            <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="w-full min-w-0 sm:flex-1">
+                    <livewire:device-resource-nav />
+                </div>
+                <flux:modal.trigger name="create-device" class="shrink-0">
+                    <flux:button icon="plus" variant="primary" class="w-full sm:w-auto">Add Device</flux:button>
                 </flux:modal.trigger>
             </div>
             @if (config('app.multi_user_mode') && auth()->user()->isAdmin())
@@ -247,7 +249,10 @@ new class extends Component
                     @if (auth()->id() === 1)
                         <div class="space-y-3">
                             <livewire:actions.device-auto-join :key="'create-device-modal'" />
-                            <flux:text>Click the button above to permit auto join. Then point the device at this server's base url to finish setup. After it appears, add recipes to a device playlist to get started.</flux:text>
+                            <flux:text>
+                                Click the button above to permit auto join. Then point the device at this server's base
+                                url to finish setup. After it appears, add recipes to a device playlist to get started.
+                            </flux:text>
                         </div>
                         <flux:separator text="Or add manually" />
                     @endif
@@ -402,19 +407,19 @@ new class extends Component
                             </th>
                         @endif
                         <th
-                            class="px-3 py-3 text-left text-sm font-medium text-zinc-800 first:pl-0 last:pr-0 dark:text-white"
+                            class="hidden px-3 py-3 text-left text-sm font-medium text-zinc-800 first:pl-0 last:pr-0 md:table-cell dark:text-white"
                             data-flux-column=""
                         >
                             <div class="group-[]/right-align:justify-end flex whitespace-nowrap">Friendly ID</div>
                         </th>
                         <th
-                            class="px-3 py-3 text-left text-sm font-medium text-zinc-800 first:pl-0 last:pr-0 dark:text-white"
+                            class="hidden px-3 py-3 text-left text-sm font-medium text-zinc-800 first:pl-0 last:pr-0 md:table-cell dark:text-white"
                             data-flux-column=""
                         >
                             <div class="group-[]/right-align:justify-end flex whitespace-nowrap">Mac Address</div>
                         </th>
                         <th
-                            class="px-3 py-3 text-left text-sm font-medium text-zinc-800 first:pl-0 last:pr-0 dark:text-white"
+                            class="hidden px-3 py-3 text-left text-sm font-medium text-zinc-800 first:pl-0 last:pr-0 md:table-cell dark:text-white"
                             data-flux-column=""
                         >
                             <div class="group-[]/right-align:justify-end flex whitespace-nowrap">Refresh</div>
@@ -458,19 +463,19 @@ new class extends Component
                                     </flux:select>
                                 </td>
                             @endif
-                            <td class="px-3 py-3 text-sm whitespace-nowrap text-zinc-500 first:pl-0 last:pr-0 dark:text-zinc-300">
+                            <td class="hidden px-3 py-3 text-sm whitespace-nowrap text-zinc-500 first:pl-0 last:pr-0 md:table-cell dark:text-zinc-300">
                                 {{ $device->friendly_id }}
                             </td>
-                            <td class="px-3 py-3 text-sm whitespace-nowrap text-zinc-500 first:pl-0 last:pr-0 dark:text-zinc-300">
+                            <td class="hidden px-3 py-3 text-sm whitespace-nowrap text-zinc-500 first:pl-0 last:pr-0 md:table-cell dark:text-zinc-300">
                                 <div
                                     type="button"
                                     data-flux-badge="data-flux-badge"
-                                    class="[&_[data-flux-badge-icon]]:size-3 [&_[data-flux-badge-icon]]:mr-1 [&_button]:!text-zinc-700 [&_button]:dark:!text-zinc-200 [&:is(button)]:hover:bg-zinc-400/25 [&:is(button)]:hover:dark:bg-zinc-400/50 -mt-1 -mb-1 inline-flex items-center rounded-md bg-zinc-400/15 px-2 py-1 text-xs font-medium whitespace-nowrap text-zinc-700 dark:bg-zinc-400/40 dark:text-zinc-200"
+                                    class="[&_[data-flux-badge-icon]]:size-3 [&_[data-flux-badge-icon]]:mr-1 [&_button]:!text-zinc-700 [&_button]:dark:!text-zinc-200 [&:is(button)]:hover:bg-zinc-400/25 [&:is(button)]:hover:dark:bg-zinc-400/50 -mt-1 -mb-1 inline-flex items-center rounded-md bg-zinc-400/15 px-2 py-1 font-mono text-xs font-medium whitespace-nowrap text-zinc-700 dark:bg-zinc-400/40 dark:text-zinc-200"
                                 >
                                     {{ $device->mac_address }}
                                 </div>
                             </td>
-                            <td class="px-3 py-3 text-sm whitespace-nowrap text-zinc-500 first:pl-0 last:pr-0 dark:text-zinc-300">
+                            <td class="hidden px-3 py-3 text-sm whitespace-nowrap text-zinc-500 first:pl-0 last:pr-0 md:table-cell dark:text-zinc-300">
                                 {{ $device->default_refresh_interval }}
                             </td>
                             <td class="px-3 py-3 text-sm font-medium whitespace-nowrap text-zinc-800 first:pl-0 last:pr-0 dark:text-white">
@@ -514,8 +519,6 @@ new class extends Component
                             </td>
                         </tr>
                     @endforeach
-
-                    <!--[if ENDBLOCK[endif]-->
                 </tbody>
             </table>
         </div>
@@ -577,7 +580,8 @@ new class extends Component
 
                 <flux:callout variant="info" icon="pause-circle">
                     <flux:callout.heading>
-                        Paused until {{ $device->pause_until?->timezone($this->timezone) }} {{ $this->timezone }}</flux:callout.heading>
+                        Paused until {{ $device->pause_until?->timezone($this->timezone) }} {{ $this->timezone }}
+                    </flux:callout.heading>
                     <flux:callout.text>
                         @if ($device->usesTouchBar())
                             To exit pause early, click "End pause" and press the touch bar in the middle of your device.

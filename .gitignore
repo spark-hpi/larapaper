@@ -48,3 +48,4 @@ yarn-error.log
 /.envrc
 /.direnv
 /.worktrees
+/storage/framework/lsp*

@@ -36,6 +36,55 @@ it('imports plugin with framework_version from settings', function (): void {
     expect($plugin->framework_version)->toBe('3.0.5');
 });
 
+it('imports screen settings when yaml says yes', function (): void {
+    $user = User::factory()->create();
+
+    $settingsYaml = str_replace(
+        "name: Test Plugin\n",
+        "name: Test Plugin\nno_screen_padding: yes\ndark_mode: yes\n",
+        getValidSettingsYaml()
+    );
+
+    $zipContent = createMockZipFile([
+        'src/settings.yml' => $settingsYaml,
+        'src/full.liquid' => getValidFullLiquid(),
+    ]);
+
+    $zipFile = UploadedFile::fake()->createWithContent('test-plugin.zip', $zipContent);
+
+    $pluginImportService = new PluginImportService();
+    $plugin = $pluginImportService->importFromZip($zipFile, $user);
+
+    expect($plugin->no_bleed)->toBeTrue()
+        ->and($plugin->dark_mode)->toBeTrue();
+});
+
+it('leaves screen settings off when yaml says no or omits them', function (string $screenSettingsYaml): void {
+    $user = User::factory()->create();
+
+    $settingsYaml = str_replace(
+        "name: Test Plugin\n",
+        "name: Test Plugin\n".$screenSettingsYaml,
+        getValidSettingsYaml()
+    );
+
+    $zipContent = createMockZipFile([
+        'src/settings.yml' => $settingsYaml,
+        'src/full.liquid' => getValidFullLiquid(),
+    ]);
+
+    $zipFile = UploadedFile::fake()->createWithContent('test-plugin.zip', $zipContent);
+
+    $pluginImportService = new PluginImportService();
+    $plugin = $pluginImportService->importFromZip($zipFile, $user);
+
+    expect($plugin->no_bleed)->toBeFalse()
+        ->and($plugin->dark_mode)->toBeFalse();
+})->with([
+    'omitted' => [''],
+    'explicit no' => ["no_screen_padding: no\ndark_mode: no\n"],
+]);
+
 it('imports plugin from valid zip file', function (): void {
     $user = User::factory()->create();
 
@@ -711,6 +760,37 @@ it('imports transform code from a flat-root ZIP (no src/ prefix, as trmnlp push 
 
     expect($plugin->transform_code)->toBe($transformCode)
         ->and($plugin->transform_language)->toBe('python');
+});
+
+it('purifies author bio html when importing a recipe', function (): void {
+    $user = User::factory()->create();
+
+    $settingsYaml = <<<'YAML'
+name: Test Plugin
+refresh_interval: 30
+strategy: static
+polling_verb: get
+static_data: '{}'
+custom_fields:
+  - keyname: author_bio
+    field_type: author_bio
+    name: Author
+    description: '<strong>Hello</strong> <script>alert(1)</script>'
+YAML;
+
+    $zipContent = createMockZipFile([
+        'src/settings.yml' => $settingsYaml,
+        'src/full.liquid' => getValidFullLiquid(),
+    ]);
+
+    $zipFile = UploadedFile::fake()->createWithContent('test-plugin.zip', $zipContent);
+
+    $plugin = (new PluginImportService())->importFromZip($zipFile, $user);
+
+    $description = $plugin->fresh()->configuration_template['custom_fields'][0]['description'];
+
+    expect($description)->toBe('<strong>Hello</strong> ')
+        ->and($description)->not->toContain('<script>');
 });
 
 // Helper methods

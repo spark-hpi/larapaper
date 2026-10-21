@@ -479,6 +479,9 @@ new class extends Component
                                     fully supported.</flux:text>
                             </li>
                             <li>
+                                <flux:text>Transform/Serverless is not yet supported</flux:text>
+                            </li>
+                            <li>
                                 <flux:text>There are limitations in payload size (Data Payload, Template).</flux:text>
                             </li>
                         </ul>
@@ -592,13 +595,14 @@ new class extends Component
             $allPlugins = $this->plugins;
         @endphp
 
-        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
             @foreach ($allPlugins as $index => $plugin)
                 <div
                     wire:key="plugin-{{ $plugin['id'] ?? $plugin['name'] ?? $index }}"
                     x-data="{ pluginName: {{ json_encode(strtolower($plugin['name'] ?? '')) }} }"
                     x-show="searchTerm.length <= 1 || pluginName.includes(searchTerm.toLowerCase())"
-                    class="styled-container flex flex-col">
+                    class="h-full"
+                >
                     @php $isOtherUsersShared = $activeTab === 'shared' && ($plugin['is_shared'] ?? false) && ($plugin['user_id'] ?? null) !== auth()->id(); @endphp
                     @php
                         $ownerName = $plugin['user']['name'] ?? null;
@@ -607,42 +611,64 @@ new class extends Component
                             && ($activeTab === 'shared' || ($activeTab === 'mine' && $showAllPlugins && auth()->user()->isAdmin()));
                     @endphp
                     @if ($isOtherUsersShared)
-                        <div class="block flex-1">
+                        <div class="block h-full">
                     @else
-                        <a href="{{ $plugin['detail_view_url'] ?? route('plugins.recipe', ['plugin' => $plugin['id']]) }}"
-                           class="block flex-1">
+                        <a
+                            href="{{ $plugin['detail_view_url'] ?? route('plugins.recipe', ['plugin' => $plugin['id']]) }}"
+                            class="group block h-full"
+                            aria-label="{{ $plugin['name'] }}"
+                        >
                     @endif
-                        <div class="flex items-center space-x-4 px-10 py-8">
-                            @isset($plugin['icon_url'])
-                                <img src="{{ $plugin['icon_url'] }}" class="h-6" />
-                            @else
-                                <flux:icon
-                                    name="{{ $plugin['flux_icon_name'] ?? 'puzzle-piece' }}"
-                                    class="text-accent text-4xl"
-                                />
-                            @endif
-                            <div class="flex-1">
-                                <h3 class="text-lg font-medium dark:text-zinc-200">{{ $plugin['name'] }}</h3>
-                                @if ($showOwner)
-                                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">by {{ $ownerName }}</p>
-                                @endif
+                        <flux:card
+                            size="sm"
+                            class="flex h-full flex-col gap-3 transition-colors group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/60"
+                        >
+                            <div class="flex items-center gap-4">
+                                <div
+                                    class="flex size-10 shrink-0 items-center justify-center rounded-md bg-zinc-100 dark:bg-zinc-800/80"
+                                    aria-hidden="true"
+                                >
+                                    @isset($plugin['icon_url'])
+                                        <img
+                                            src="{{ $plugin['icon_url'] }}"
+                                            alt=""
+                                            width="24"
+                                            height="24"
+                                            class="size-6 object-contain"
+                                            loading="lazy"
+                                            decoding="async"
+                                        />
+                                    @else
+                                        <flux:icon
+                                            name="{{ $plugin['flux_icon_name'] ?? 'puzzle-piece' }}"
+                                            class="text-accent size-6"
+                                        />
+                                    @endif
+                                </div>
+
+                                <div class="min-w-0 flex-1">
+                                    <flux:heading class="truncate">{{ $plugin['name'] }}</flux:heading>
+                                    @if ($showOwner)
+                                        <flux:text class="mt-1 truncate text-xs">by {{ $ownerName }}</flux:text>
+                                    @endif
+                                </div>
                             </div>
-                        </div>
+
+                            @if (isset($plugin['id']) && $isOtherUsersShared)
+                                <div class="flex gap-2">
+                                    <flux:button size="sm" icon="eye" wire:click="previewPlugin({{ $plugin['id'] }})">
+                                        Preview
+                                    </flux:button>
+                                    <flux:button size="sm" wire:click="copyPlugin({{ $plugin['id'] }})">
+                                        Install Copy
+                                    </flux:button>
+                                </div>
+                            @endif
+                        </flux:card>
                     @if ($isOtherUsersShared)
                         </div>
                     @else
                         </a>
-                    @endif
-
-                    @if (isset($plugin['id']) && $isOtherUsersShared)
-                        <div class="px-4 pb-4 flex gap-2">
-                            <flux:button size="sm" icon="eye" wire:click="previewPlugin({{ $plugin['id'] }})">
-                                Preview
-                            </flux:button>
-                            <flux:button size="sm" wire:click="copyPlugin({{ $plugin['id'] }})">
-                                Install Copy
-                            </flux:button>
-                        </div>
                     @endif
                 </div>
             @endforeach

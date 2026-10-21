@@ -25,10 +25,19 @@ it('loads newest TRMNL recipes on mount', function (): void {
     Livewire::withoutLazyLoading();
 
     Livewire::test('catalog.trmnl')
+        ->assertSet('sortBy', 'newest')
+        ->assertSee('Newest')
+        ->assertSee('Popularity')
+        ->assertSee('Oldest')
         ->assertSee('Weather Chum')
         ->assertSee('Install')
         ->assertDontSeeHtml('variant="subtle" icon="eye"')
         ->assertSee('Installs: 10');
+
+    Http::assertSent(function (Illuminate\Http\Client\Request $request): bool {
+        return str_contains($request->url(), '/recipes.json')
+            && $request['sort-by'] === 'newest';
+    });
 });
 
 it('shows preview button when screenshot_url is provided', function (): void {
@@ -282,4 +291,108 @@ it('resets pagination when search term changes', function (): void {
         ->assertSee('Weather Result')
         ->assertDontSee('Initial 1')
         ->assertSet('page', 1);
+});
+
+it('reloads recipes when sort changes and resets pagination', function (): void {
+    Http::fake([
+        config('services.trmnl.base_url').'/recipes.json?sort-by=newest&page=1' => Http::response([
+            'data' => [['id' => 1, 'name' => 'Newest Recipe']],
+            'next_page_url' => '/recipes.json?page=2',
+        ], 200),
+        config('services.trmnl.base_url').'/recipes.json?sort-by=newest&page=2' => Http::response([
+            'data' => [['id' => 2, 'name' => 'Newest Page 2']],
+            'next_page_url' => null,
+        ], 200),
+        config('services.trmnl.base_url').'/recipes.json?sort-by=popularity&page=1' => Http::response([
+            'data' => [['id' => 3, 'name' => 'Popular Recipe']],
+            'next_page_url' => null,
+        ], 200),
+        config('services.trmnl.base_url').'/recipes.json?sort-by=oldest&page=1' => Http::response([
+            'data' => [['id' => 4, 'name' => 'Oldest Recipe']],
+            'next_page_url' => null,
+        ], 200),
+    ]);
+
+    Livewire::withoutLazyLoading();
+
+    Livewire::test('catalog.trmnl')
+        ->assertSee('Newest Recipe')
+        ->call('loadMore')
+        ->assertSee('Newest Page 2')
+        ->assertSet('page', 2)
+        ->set('sortBy', 'popularity')
+        ->assertSet('page', 1)
+        ->assertSee('Popular Recipe')
+        ->assertDontSee('Newest Recipe')
+        ->assertDontSee('Newest Page 2')
+        ->set('sortBy', 'oldest')
+        ->assertSee('Oldest Recipe')
+        ->assertDontSee('Popular Recipe');
+});
+
+it('applies selected sort when searching recipes', function (): void {
+    Http::fake([
+        config('services.trmnl.base_url').'/recipes.json?sort-by=newest&page=1' => Http::response([
+            'data' => [['id' => 1, 'name' => 'Initial Recipe']],
+            'next_page_url' => null,
+        ], 200),
+        config('services.trmnl.base_url').'/recipes.json?sort-by=popularity&page=1' => Http::response([
+            'data' => [['id' => 9, 'name' => 'Popular Browse']],
+            'next_page_url' => null,
+        ], 200),
+        config('services.trmnl.base_url').'/recipes.json?search=weather&sort-by=popularity&page=1' => Http::response([
+            'data' => [['id' => 2, 'name' => 'Weather Popular']],
+            'next_page_url' => null,
+        ], 200),
+    ]);
+
+    Livewire::withoutLazyLoading();
+
+    Livewire::test('catalog.trmnl')
+        ->set('sortBy', 'popularity')
+        ->set('search', 'weather')
+        ->assertSee('Weather Popular')
+        ->assertDontSee('Initial Recipe');
+});
+
+it('purifies author bio html in the recipe list and preview', function (): void {
+    Http::fake([
+        config('services.trmnl.base_url').'/recipes.json*' => Http::response([
+            'data' => [
+                [
+                    'id' => 123,
+                    'name' => 'Weather Chum',
+                    'icon_url' => null,
+                    'screenshot_url' => 'https://example.com/shot.png',
+                    'author_bio' => [
+                        'description' => '<strong>Listed</strong> <script>alert(1)</script>',
+                    ],
+                    'stats' => ['installs' => 1, 'forks' => 0],
+                ],
+            ],
+        ], 200),
+        config('services.trmnl.base_url').'/recipes/123.json' => Http::response([
+            'data' => [
+                'id' => 123,
+                'name' => 'Weather Chum',
+                'icon_url' => null,
+                'screenshot_url' => 'https://example.com/shot.png',
+                'author_bio' => [
+                    'description' => '<em>Preview</em> <script>alert(2)</script>',
+                ],
+                'stats' => ['installs' => 1, 'forks' => 0],
+            ],
+        ], 200),
+    ]);
+
+    Livewire::withoutLazyLoading();
+
+    Livewire::test('catalog.trmnl')
+        ->assertSet('recipes.0.author_bio', '<strong>Listed</strong> ')
+        ->assertSee('<strong>Listed</strong>', false)
+        ->assertDontSee('<script>alert(1)</script>', false)
+        ->call('previewRecipe', '123')
+        ->assertSet('previewData.author_bio', '<em>Preview</em> ')
+        ->assertSee('<em>Preview</em>', false)
+        ->assertDontSee('<script>alert(2)</script>', false);
 });
