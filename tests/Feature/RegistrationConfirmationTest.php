@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Models\User;
 
 beforeEach(function (): void {
+    config(['app.multiuser_registration.enabled' => true]);
+
     // Create an admin user first (ensures ID 1 exists before registration tests)
     User::factory()->admin()->create([
         'email' => 'admin@example.com',

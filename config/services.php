@@ -46,6 +46,20 @@ return [
         'liquid_path' => env('TRMNL_LIQUID_PATH', '/usr/local/bin/trmnl-liquid-cli'),
     ],
 
+    'transform' => [
+        // `local` runs JavaScript transforms with the Node.js binary on this host;
+        // `http` uses an external runner implementing POST /run. Unset disables transforms.
+        'provider' => env('TRANSFORM_PROVIDER', 'local'),
+        'runner_url' => env('TRANSFORM_RUNNER_URL', 'http://transform:3000'),
+        'runner_token' => env('TRANSFORM_RUNNER_TOKEN'),
+        'max_output_bytes' => env('TRANSFORM_MAX_OUTPUT_BYTES', 1048576),
+        'timeout_seconds' => env('TRANSFORM_TIMEOUT_SECONDS', 5),
+        // Local provider only. `allow_network=false` makes fetch() in transforms reject.
+        'allow_network' => env('TRANSFORM_ALLOW_NETWORK', true),
+        'memory_limit_mb' => env('TRANSFORM_MEMORY_LIMIT_MB', 128),
+        'node_binary' => env('TRANSFORM_NODE_BINARY', 'node'),
+    ],
+
     'webhook' => [
         'notifications' => [
             'url' => env('WEBHOOK_NOTIFICATION_URL', null),
@@ -63,11 +77,6 @@ return [
         'client_secret' => env('OIDC_CLIENT_SECRET'),
         'redirect' => env('APP_URL', 'http://localhost:8000').'/auth/oidc/callback',
         'scopes' => explode(',', env('OIDC_SCOPES', 'openid,profile,email')),
-    ],
-
-    'transform_runner' => [
-        'url'     => env('TRANSFORM_RUNNER_URL'),
-        'timeout' => (int) env('TRANSFORM_TIMEOUT_SECONDS', 30),
     ],
 
 ];

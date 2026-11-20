@@ -1,9 +1,12 @@
 <?php
 
+use App\Concerns\ManagesDeviceActions;
+use App\Concerns\ProvidesSelectablePlugins;
 use App\Models\Device;
 use App\Models\DeviceModel;
-use Carbon\Carbon;
-use Illuminate\Validation\ValidationException;
+use App\Services\ProxyCloudService;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Session;
 use Livewire\Component;
@@ -11,6 +14,8 @@ use Livewire\Component;
 new class extends Component
 {
     use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+    use ManagesDeviceActions;
+    use ProvidesSelectablePlugins;
 
     public $devices;
 
@@ -37,11 +42,9 @@ new class extends Component
 
     public $deviceModels;
 
-    public ?int $pause_duration = null;
+    public ?int $proxyKeyDeviceId = null;
 
-    public ?string $pause_until_date = null;
-
-    public ?string $pause_until_time = null;
+    public string $proxy_cloud_api_key = '';
 
     protected $rules = [
         'mac_address' => 'required',
@@ -64,10 +67,13 @@ new class extends Component
         return view('livewire.devices.manage');
     }
 
+    /**
+     * Devices that have not requested /api/setup or /api/display yet.
+     */
     #[Computed]
-    public function timezone(): string
+    public function devicesAwaitingActivation(): Collection
     {
-        return auth()->user()->preferredTimezone();
+        return $this->devices->whereNull('last_refreshed_at')->values();
     }
 
     public function loadDevices(): void
@@ -75,10 +81,10 @@ new class extends Component
         $user = auth()->user();
 
         if ($user->isAdmin() && $this->showAllDevices) {
-            $this->devices = Device::all();
+            $this->devices = Device::with('deviceModel')->get();
         } else {
-            $this->devices = Device::where('user_id', $user->id)
-                ->orWhereNull('user_id')
+            $this->devices = Device::with('deviceModel')
+                ->where(fn ($query) => $query->where('user_id', $user->id)->orWhereNull('user_id'))
                 ->get();
         }
     }
@@ -109,14 +115,6 @@ new class extends Component
     {
         if ($property === 'device_model_id' && empty($this->device_model_id)) {
             $this->device_model_id = null;
-        }
-
-        if ($property === 'pause_duration' && $this->pause_duration !== null) {
-            $this->pause_until_date = $this->pause_until_time = null;
-        }
-
-        if (in_array($property, ['pause_until_date', 'pause_until_time'], true) && $this->{$property}) {
-            $this->pause_duration = null;
         }
     }
 
@@ -164,59 +162,86 @@ new class extends Component
         Flux::toast(variant: 'success', text: 'Device created successfully.');
     }
 
-    public function toggleProxyCloud(Device $device): void
+    public function toggleProxyCloud(Device $device, ProxyCloudService $proxyCloud): void
     {
         abort_unless(auth()->user()->devices->contains($device), 403);
-        $device->update([
-            'proxy_cloud' => ! $device->proxy_cloud,
-        ]);
 
-        // if ($device->proxy_cloud) {
-        //     \App\Jobs\FetchProxyCloudResponses::dispatch();
-        // }
-    }
+        if ($device->proxy_cloud) {
+            $device->update([
+                'proxy_cloud' => false,
+            ]);
+            $this->loadDevices();
 
-    public function pauseDevice(int $deviceId): void
-    {
-        $device = auth()->user()->devices()->findOrFail($deviceId);
-        $device->update(['pause_until' => $this->resolvePauseUntil()]);
-        $this->reset('pause_duration', 'pause_until_date', 'pause_until_time');
-        Flux::modal('pause-device-'.$deviceId)->close();
-        $this->loadDevices();
-
-        $pauseUntil = $device->pause_until->timezone($this->timezone);
-        Flux::toast(variant: 'success', text: "Device paused until {$pauseUntil} {$this->timezone}");
-    }
-
-    public function unpauseDevice(int $deviceId): void
-    {
-        $device = auth()->user()->devices()->findOrFail($deviceId);
-        $device->update(['pause_until' => null]);
-        Flux::modal('unpause-device-'.$deviceId)->close();
-        $this->loadDevices();
-        Flux::toast(variant: 'success', text: 'Pause cleared. Wake your device manually to resume.');
-    }
-
-    private function resolvePauseUntil(): Carbon
-    {
-        if (filled($this->pause_until_date) && filled($this->pause_until_time)) {
-            $now = now($this->timezone);
-            $pauseUntil = Carbon::parse("{$this->pause_until_date} {$this->pause_until_time}", $this->timezone);
-
-            if ($pauseUntil->lte($now) || $pauseUntil->gt($now->copy()->addDays(Device::MAX_PAUSE_DAYS))) {
-                throw ValidationException::withMessages([
-                    'pause_until_date' => $pauseUntil->lte($now)
-                        ? 'The pause time must be in the future.'
-                        : 'The pause time cannot be more than '.Device::MAX_PAUSE_DAYS.' days in the future.',
-                ]);
-            }
-
-            return $pauseUntil->utc();
+            return;
         }
 
-        $this->validate(['pause_duration' => 'required|integer']);
+        try {
+            $response = $proxyCloud->fetchDisplay($device);
+        } catch (ConnectionException) {
+            Flux::toast(variant: 'danger', text: 'Could not reach TRMNL cloud.');
 
-        return now()->addMinutes((int) $this->pause_duration);
+            return;
+        }
+
+        if ($proxyCloud->deviceNotFound($response)) {
+            $this->proxyKeyDeviceId = $device->id;
+            $this->proxy_cloud_api_key = '';
+            $this->resetValidation('proxy_cloud_api_key');
+            Flux::modal('proxy-cloud-api-key')->show();
+
+            return;
+        }
+
+        if (! $proxyCloud->accepted($response)) {
+            Flux::toast(variant: 'danger', text: $proxyCloud->errorMessage($response) ?? 'TRMNL cloud rejected the proxy request.');
+
+            return;
+        }
+
+        $device->update([
+            'proxy_cloud' => true,
+        ]);
+        $this->loadDevices();
+    }
+
+    public function saveProxyCloudApiKey(ProxyCloudService $proxyCloud): void
+    {
+        $device = auth()->user()->devices()->find($this->proxyKeyDeviceId);
+        abort_unless($device instanceof Device, 403);
+
+        $this->validate([
+            'proxy_cloud_api_key' => ['required', 'string', 'max:255'],
+        ]);
+
+        try {
+            $response = $proxyCloud->fetchDisplay($device, $this->proxy_cloud_api_key);
+        } catch (ConnectionException) {
+            $this->addError('proxy_cloud_api_key', 'Could not reach TRMNL cloud.');
+
+            return;
+        }
+
+        if ($proxyCloud->deviceNotFound($response)) {
+            $this->addError('proxy_cloud_api_key', 'TRMNL cloud could not find a device for this API key.');
+
+            return;
+        }
+
+        if (! $proxyCloud->accepted($response)) {
+            $this->addError('proxy_cloud_api_key', $proxyCloud->errorMessage($response) ?? 'TRMNL cloud rejected this API key.');
+
+            return;
+        }
+
+        $device->update([
+            'proxy_cloud_api_key' => $this->proxy_cloud_api_key,
+            'proxy_cloud' => true,
+        ]);
+
+        $this->reset('proxy_cloud_api_key', 'proxyKeyDeviceId');
+        Flux::modal('proxy-cloud-api-key')->close();
+        $this->loadDevices();
+        Flux::toast(variant: 'success', text: 'Proxy enabled.');
     }
 }
 
@@ -250,8 +275,9 @@ new class extends Component
                         <div class="space-y-3">
                             <livewire:actions.device-auto-join :key="'create-device-modal'" />
                             <flux:text>
-                                Click the button above to permit auto join. Then point the device at this server's base
-                                url to finish setup. After it appears, add recipes to a device playlist to get started.
+                                Click the button above to permit auto join for {{ \App\Models\User::AUTO_JOIN_WINDOW_MINUTES }} minutes.
+                                Then point the device at this server's base url to finish setup. After it appears, add
+                                recipes to a device playlist to get started.
                             </flux:text>
                         </div>
                         <flux:separator text="Or add manually" />
@@ -386,6 +412,18 @@ new class extends Component
                 </div>
             </flux:modal>
 
+            @if ($this->devicesAwaitingActivation->isNotEmpty())
+                <flux:callout variant="warning" icon="exclamation-triangle" class="mb-6">
+                    <flux:callout.heading>Awaiting activation</flux:callout.heading>
+                    <flux:callout.text>
+                        {{ $this->devicesAwaitingActivation->pluck('name')->join(', ') }} {{ $this->devicesAwaitingActivation->count() === 1 ? 'has' : 'have' }} not
+                        connected yet. Point the device at this server to finish setup. The first setup request
+                        activates the device and hands out its API key. Until then, anyone who knows its MAC address can
+                        claim the key. After activation, setup can only run again while Auto-Join is permitted.
+                    </flux:callout.text>
+                </flux:callout>
+            @endif
+
             <table
                 class="min-w-full table-fixed divide-y divide-zinc-800/10 text-zinc-800 dark:divide-white/20"
                 data-flux-table=""
@@ -480,29 +518,32 @@ new class extends Component
                             </td>
                             <td class="px-3 py-3 text-sm font-medium whitespace-nowrap text-zinc-800 first:pl-0 last:pr-0 dark:text-white">
                                 <div class="flex items-center gap-4">
-                                    <flux:button.group>
-                                        <flux:tooltip content="View device" position="bottom">
-                                            <flux:button
-                                                href="{{ route('devices.configure', $device) }}"
-                                                wire:navigate
-                                                icon="eye"
-                                                iconVariant="outline"
-                                            />
-                                        </flux:tooltip>
-                                        @if ($device->isPauseActive())
-                                            <flux:modal.trigger name="unpause-device-{{ $device->id }}">
-                                                <flux:tooltip content="Device paused until: {{ $device->pause_until->diffForHumans() }}">
-                                                    <flux:button icon="pause-circle" />
-                                                </flux:tooltip>
-                                            </flux:modal.trigger>
-                                        @else
-                                            <flux:modal.trigger name="pause-device-{{ $device->id }}">
-                                                <flux:tooltip content="Pause screen generation" position="bottom">
-                                                    <flux:button icon="pause-circle" iconVariant="outline" />
-                                                </flux:tooltip>
-                                            </flux:modal.trigger>
-                                        @endif
-                                    </flux:button.group>
+                                    <div class="flex items-center gap-1">
+                                        <flux:button.group>
+                                            <flux:tooltip content="View device" position="bottom">
+                                                <flux:button
+                                                    href="{{ route('devices.configure', $device) }}"
+                                                    wire:navigate
+                                                    icon="eye"
+                                                    iconVariant="outline"
+                                                />
+                                            </flux:tooltip>
+                                            @if ($device->isPauseActive())
+                                                <flux:modal.trigger name="unpause-device-{{ $device->id }}">
+                                                    <flux:tooltip content="Device paused until: {{ $device->pause_until->diffForHumans() }}">
+                                                        <flux:button icon="pause-circle" />
+                                                    </flux:tooltip>
+                                                </flux:modal.trigger>
+                                            @else
+                                                <flux:modal.trigger name="pause-device-{{ $device->id }}">
+                                                    <flux:tooltip content="Pause screen generation" position="bottom">
+                                                        <flux:button icon="pause-circle" iconVariant="outline" />
+                                                    </flux:tooltip>
+                                                </flux:modal.trigger>
+                                            @endif
+                                        </flux:button.group>
+                                        <x-devices.actions-menu :device="$device" />
+                                    </div>
 
                                     <flux:tooltip
                                         content="Proxies images from the TRMNL Cloud service when no image is set (available in TRMNL DEV Edition only)."
@@ -524,85 +565,36 @@ new class extends Component
         </div>
     </div>
 
+    <flux:modal name="proxy-cloud-api-key" class="md:w-96">
+        <form wire:submit="saveProxyCloudApiKey" class="space-y-6">
+            <div>
+                <flux:heading size="lg">Cloud API key</flux:heading>
+                <flux:text class="mt-2">
+                    TRMNL cloud could not find this device. Enter the cloud device API key from Device Settings →
+                    Developer Perks.
+                </flux:text>
+            </div>
+
+            <flux:input label="Cloud API key" wire:model="proxy_cloud_api_key" type="text" name="proxy_cloud_api_key" />
+
+            <div class="flex">
+                <flux:spacer />
+                <flux:modal.close>
+                    <flux:button variant="ghost" type="button">Cancel</flux:button>
+                </flux:modal.close>
+                <flux:button type="submit" variant="primary">Save</flux:button>
+            </div>
+        </form>
+    </flux:modal>
+
     @foreach ($devices as $device)
-        <flux:modal name="pause-device-{{ $device->id }}">
-            <div class="space-y-6">
-                <div>
-                    <flux:heading size="lg">Pause</flux:heading>
-                    <div class="mt-2 text-sm text-zinc-500">
-                        Select how long to pause screen generation for
-                        <span class="font-semibold">{{ $device->name }}</span>.
-                    </div>
-                </div>
-                <form wire:submit="pauseDevice({{ $device->id }})">
-                    <div class="mb-4">
-                        <flux:radio.group wire:model.live="pause_duration" label="Pause Duration" variant="segmented">
-                            <flux:radio value="30" label="30 min" />
-                            <flux:radio value="60" label="60 min" />
-                            <flux:radio value="120" label="120 min" />
-                            <flux:radio value="240" label="240 min" />
-                            <flux:radio value="480" label="480 min" />
-                        </flux:radio.group>
-                    </div>
-
-                    <flux:separator text="or" class="my-4" />
-
-                    <div class="mb-4 grid grid-cols-2 gap-4">
-                        <flux:input
-                            type="date"
-                            label="Date"
-                            wire:model.live="pause_until_date"
-                            min="{{ now($this->timezone)->toDateString() }}"
-                            max="{{ now($this->timezone)->addDays(\App\Models\Device::MAX_PAUSE_DAYS)->toDateString() }}"
-                        />
-                        <flux:input type="time" label="Time" wire:model.live="pause_until_time" />
-                    </div>
-                    <flux:text class="text-zinc-500">Timezone: {{ $this->timezone }}</flux:text>
-                    <flux:text class="mt-2 mb-4">The device will still ping the server every 24 hours.</flux:text>
-                    <flux:error name="pause_until_date" />
-
-                    <div class="flex">
-                        <flux:spacer />
-                        <flux:modal.close>
-                            <flux:button variant="ghost">Cancel</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" variant="primary">Save</flux:button>
-                    </div>
-                </form>
-            </div>
-        </flux:modal>
-
-        <flux:modal name="unpause-device-{{ $device->id }}">
-            <div class="space-y-6">
-                <div>
-                    <flux:heading size="lg">Pause Active</flux:heading>
-                </div>
-
-                <flux:callout variant="info" icon="pause-circle">
-                    <flux:callout.heading>
-                        Paused until {{ $device->pause_until?->timezone($this->timezone) }} {{ $this->timezone }}
-                    </flux:callout.heading>
-                    <flux:callout.text>
-                        @if ($device->usesTouchBar())
-                            To exit pause early, click "End pause" and press the touch bar in the middle of your device.
-                        @else
-                            To exit pause early, click "End pause" and press the physical screen button on your device.
-                        @endif
-                    </flux:callout.text>
-                    <x-slot name="actions">
-                        <flux:button wire:click="unpauseDevice({{ $device->id }})" variant="primary">
-                            End pause
-                        </flux:button>
-                    </x-slot>
-                </flux:callout>
-
-                <div class="flex">
-                    <flux:spacer />
-                    <flux:modal.close>
-                        <flux:button variant="ghost">Close</flux:button>
-                    </flux:modal.close>
-                </div>
-            </div>
-        </flux:modal>
+        <x-devices.action-modals
+            :device="$device"
+            :firmwares="$this->firmwares"
+            :selected-firmware-model="$this->selected_firmware_model"
+            :simulate-physical-device="$this->simulate_physical_device"
+            :timezone="$this->timezone"
+            :selectable-plugins="$this->selectablePlugins"
+        />
     @endforeach
 </div>

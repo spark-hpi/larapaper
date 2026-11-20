@@ -1,10 +1,12 @@
 <?php
 
+use App\Enums\ScaleLevel;
+use App\Models\Device;
+use App\Models\DeviceModel;
 use App\Models\Playlist;
 use App\Models\PlaylistItem;
 use App\Models\Plugin;
 use App\Models\User;
-use App\Services\Plugin\ServerlessTransformService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 
@@ -1167,67 +1169,6 @@ test('deleting plugin cascades mashup playlist items containing plugin id', func
     expect(PlaylistItem::query()->find($mashupItem->id))->toBeNull();
 });
 
-test('updateDataPayload pipes polled data through the transform when both transform fields are set', function (): void {
-    Http::fake(['*' => Http::response(['id1', 'id2'], 200, ['Content-Type' => 'application/json'])]);
-
-    $this->mock(ServerlessTransformService::class)
-        ->shouldReceive('run')
-        ->once()
-        ->andReturn(['stories' => [['title' => 'Test Story']]]);
-
-    $plugin = Plugin::factory()->create([
-        'data_strategy'      => 'polling',
-        'polling_url'        => 'https://example.com/api',
-        'polling_verb'       => 'get',
-        'transform_code'     => "def run(input):\n    return {'stories': []}",
-        'transform_language' => 'python',
-    ]);
-
-    $plugin->updateDataPayload();
-
-    expect($plugin->fresh()->data_payload)->toBe(['stories' => [['title' => 'Test Story']]]);
-});
-
-test('updateDataPayload skips the transform when transform_code is null', function (): void {
-    Http::fake(['*' => Http::response(['key' => 'value'], 200, ['Content-Type' => 'application/json'])]);
-
-    $this->mock(ServerlessTransformService::class)
-        ->shouldNotReceive('run');
-
-    $plugin = Plugin::factory()->create([
-        'data_strategy'      => 'polling',
-        'polling_url'        => 'https://example.com/api',
-        'polling_verb'       => 'get',
-        'transform_code'     => null,
-        'transform_language' => null,
-    ]);
-
-    $plugin->updateDataPayload();
-
-    expect($plugin->fresh()->data_payload)->not->toBeNull();
-});
-
-test('updateDataPayload stores raw polled data when the transform service returns it unchanged', function (): void {
-    Http::fake(['*' => Http::response(['raw' => 'data'], 200, ['Content-Type' => 'application/json'])]);
-
-    $this->mock(ServerlessTransformService::class)
-        ->shouldReceive('run')
-        ->once()
-        ->andReturn(['raw' => 'data']);
-
-    $plugin = Plugin::factory()->create([
-        'data_strategy'      => 'polling',
-        'polling_url'        => 'https://example.com/api',
-        'polling_verb'       => 'get',
-        'transform_code'     => 'bad code',
-        'transform_language' => 'php',
-    ]);
-
-    $plugin->updateDataPayload();
-
-    expect($plugin->fresh()->data_payload)->toBe(['raw' => 'data']);
-});
-
 test('updating render-affecting attributes invalidates cached image and metadata', function (string $attribute, mixed $initialValue, mixed $newValue): void {
     $plugin = Plugin::factory()->create([
         $attribute => $initialValue,
@@ -1260,6 +1201,7 @@ test('updating render-affecting attributes invalidates cached image and metadata
     ['data_payload', ['count' => 1], ['count' => 42]],
     ['preferred_renderer', null, 'liquid'],
     ['framework_version', null, '3.1.0'],
+    ['transform_code', null, 'function run($input) { return $input; }'],
     ['transform_language', null, 'jq'],
 ]);
 
@@ -1295,4 +1237,18 @@ test('updating current_image does not clear newly set current_image', function (
     $plugin->refresh();
     expect($plugin->current_image)->toBe('new-image-uuid')
         ->and($plugin->current_image_metadata)->toBe(['width' => 800, 'height' => 480]);
+});
+
+test('plugin render uses the scale level set on the device', function (): void {
+    $deviceModel = DeviceModel::factory()->create(['width' => 1872, 'height' => 1404]);
+    $device = Device::factory()->create(['device_model_id' => $deviceModel->id, 'scale_level' => ScaleLevel::LARGE]);
+    $plugin = Plugin::factory()->create([
+        'markup_language' => 'blade',
+        'render_markup' => '<div>Hello</div>',
+    ]);
+
+    $rendered = $plugin->render(device: $device);
+
+    expect($rendered)->toContain('screen--scale-large')
+        ->not->toContain('screen--scale-xxlarge');
 });

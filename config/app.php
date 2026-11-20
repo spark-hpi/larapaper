@@ -123,13 +123,53 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
-    'registration' => [
-        'enabled' => env('REGISTRATION_ENABLED', true),
+    /*
+    |--------------------------------------------------------------------------
+    | Multi-user registration (MULTIUSER_REGISTRATION_ENABLED)
+    |--------------------------------------------------------------------------
+    |
+    | The first account can always be created. When this flag is true, further
+    | accounts can register. In multi-user mode they must be confirmed by an
+    | admin before they can log in. REGISTRATION_ENABLED is a legacy alias.
+    |
+    */
+
+    'multiuser_registration' => [
+        'enabled' => filter_var(env('MULTIUSER_REGISTRATION_ENABLED', env('REGISTRATION_ENABLED', true)), FILTER_VALIDATE_BOOLEAN),
     ],
 
-    'multi_user_mode' => env('MULTI_USER_MODE', env('REGISTRATION_ENABLED', true)),
+    /*
+    |--------------------------------------------------------------------------
+    | Insecure Blade PHP execution
+    |--------------------------------------------------------------------------
+    |
+    | User-authored Blade is compiled to PHP. In multi-user mode that is remote
+    | code execution for every registered user. When unset, multi-user mode
+    | allows Blade for admins only (see dangerously_allow_blade_for_non_admins);
+    | otherwise Blade is allowed for a single user and disabled once a second
+    | user exists. Set true or false to force it on or off for everyone.
+    |
+    */
 
-    'dangerously_allow_blade_for_non_admins' => env('MULTI_USER_DANGEROUSLY_ALLOW_BLADE_TEMPLATES_FOR_NON_ADMINS', false),
+    'blade' => [
+        'allow_php_execution' => in_array(env('INSECURE_BLADE_ALLOW_PHP_EXECUTION'), [null, ''], true)
+            ? null
+            : filter_var(env('INSECURE_BLADE_ALLOW_PHP_EXECUTION'), FILTER_VALIDATE_BOOLEAN),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Multi-user mode (MULTI_USER_MODE)
+    |--------------------------------------------------------------------------
+    |
+    | Admin confirmation of new accounts, per-user device and plugin ownership,
+    | plugin sharing, and admin-only Blade.
+    |
+    */
+
+    'multi_user_mode' => filter_var(env('MULTI_USER_MODE', env('REGISTRATION_ENABLED', true)), FILTER_VALIDATE_BOOLEAN),
+
+    'dangerously_allow_blade_for_non_admins' => filter_var(env('MULTI_USER_DANGEROUSLY_ALLOW_BLADE_TEMPLATES_FOR_NON_ADMINS', false), FILTER_VALIDATE_BOOLEAN),
 
     /*
     |--------------------------------------------------------------------------
@@ -166,6 +206,22 @@ return [
     'puppeteer_mode' => env('PUPPETEER_MODE', 'local'),
     'puppeteer_wait_for_network_idle' => env('PUPPETEER_WAIT_FOR_NETWORK_IDLE', true),
     'puppeteer_window_size_strategy' => env('PUPPETEER_WINDOW_SIZE_STRATEGY', 'v2'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Browser Disk Cache
+    |--------------------------------------------------------------------------
+    |
+    | Renders share Chromium's HTTP cache, so assets served as cacheable
+    | (framework CSS/JS, fonts, CDN scripts) download once instead of on
+    | every render. Each render still gets its own temporary profile.
+    | Chromium evicts the least recently used entries beyond the size cap.
+    |
+    */
+
+    'puppeteer_disk_cache' => env('PUPPETEER_DISK_CACHE', true),
+    'puppeteer_disk_cache_dir' => env('PUPPETEER_DISK_CACHE_DIR', storage_path('framework/cache/browser')),
+    'puppeteer_disk_cache_size_mb' => (int) env('PUPPETEER_DISK_CACHE_SIZE_MB', 100),
 
     'notifications' => [
         'battery_low' => [

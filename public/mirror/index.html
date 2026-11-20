@@ -17,77 +17,97 @@
   <link rel="icon" type="image/png" href="assets/favicon-32x32.png" sizes="32x32" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <script>
-    var trmnl = {
+    var lpMirror = {
       STORAGE_KEY: "byos_laravel_mirror_settings",
+      REQUEST_TIMEOUT: 20000, // ms, for both the API call and the image download
+      DEFAULT_REFRESH_RATE: 300, // seconds, used when the server sends no refresh_rate
+      RETRY_BASE_DELAY: 15, // seconds, doubled on every consecutive failure...
+      RETRY_MAX_DELAY: 300, // ...up to this cap
+      MAX_SILENT_FAILURES: 3, // keep showing the last good screen for this many failures
       refreshTimer: null,
-      renderedAt: 0,
+      nextRefreshAt: 0,
+      requestId: 0,
+      failures: 0,
+      memoryStore: null,
+      storageBroken: false,
       ui: {},
       wakeLock: null,
 
       showStatus: function (message) {
-        trmnl.ui.img.style.display = "none";
-        trmnl.ui.errorContainer.style.display = "flex";
-        trmnl.ui.errorMessage.textContent = message;
+        lpMirror.ui.img.style.display = "none";
+        lpMirror.ui.errorContainer.style.display = "flex";
+        lpMirror.ui.errorMessage.textContent = message;
       },
 
       showScreen: function (src) {
-        trmnl.ui.img.src = src;
-        trmnl.ui.img.style.display = "block";
-        trmnl.ui.errorContainer.style.display = "none";
+        lpMirror.ui.img.src = src;
+        lpMirror.ui.img.style.display = "block";
+        lpMirror.ui.errorContainer.style.display = "none";
       },
 
+      // The form always shows the saved settings: changes apply only on Save
       showSetupForm: function () {
-        var data = trmnl.getSettings();
-        trmnl.ui.apiKeyInput.value = data.api_key || "";
-        trmnl.ui.baseURLInput.value = data.base_url || "";
-        trmnl.ui.displayModeSelect.value = data.display_mode || "";
-        trmnl.ui.fullscreenToggle.checked = !!data.fullscreen;
-        trmnl.ui.wakeLockToggle.checked = !!trmnl.wakeLock || !!data.wake_lock;
+        var data = lpMirror.getSettings();
+        lpMirror.ui.apiKeyInput.value = data.api_key || "";
+        lpMirror.ui.baseURLInput.value = data.base_url || "";
+        lpMirror.ui.displayModeSelect.value = data.display_mode || "";
+        lpMirror.ui.fullscreenToggle.checked = lpMirror.isFullscreenSupported() && !!data.fullscreen;
+        lpMirror.ui.wakeLockToggle.checked = !!lpMirror.isWakeLockSupported() && !!data.wake_lock;
+        lpMirror.ui.simulateDeviceToggle.checked = data.mode === "display";
 
-        trmnl.ui.setup.style.display = "flex";
+        // Nothing to go back to until a device is configured
+        lpMirror.ui.cancelButton.style.display = data.api_key ? "block" : "none";
+
+        lpMirror.ui.setup.style.display = "flex";
+      },
+
+      cancelSetup: function () {
+        lpMirror.hideSetupForm();
       },
 
       saveSetup: function (event) {
         event.preventDefault();
 
-        var apiKey = trmnl.ui.apiKeyInput.value;
-        var baseURL = trmnl.ui.baseURLInput.value;
-        var displayMode = trmnl.ui.displayModeSelect.value;
-        var fullscreenEnabled = trmnl.ui.fullscreenToggle.checked;
-        var wakeLockEnabled = trmnl.ui.wakeLockToggle.checked;
+        var apiKey = lpMirror.ui.apiKeyInput.value;
+        var baseURL = lpMirror.ui.baseURLInput.value;
+        var displayMode = lpMirror.ui.displayModeSelect.value;
+        var fullscreenEnabled = lpMirror.ui.fullscreenToggle.checked;
+        var wakeLockEnabled = lpMirror.ui.wakeLockToggle.checked;
+        var mode = lpMirror.ui.simulateDeviceToggle.checked ? "display" : "mirror";
 
         if (!apiKey) {
           return;
         }
 
-        trmnl.saveSettings({
+        lpMirror.saveSettings({
           api_key: apiKey,
           base_url: baseURL,
           display_mode: displayMode,
           fullscreen: fullscreenEnabled,
-          wake_lock: wakeLockEnabled
+          wake_lock: wakeLockEnabled,
+          mode: mode
         });
 
-        if (wakeLockEnabled) {
-          trmnl.acquireWakeLock().then(function () {
-            trmnl.ui.wakeLockToggle.checked = !!trmnl.wakeLock;
-          }).catch(function (err) {
-            console.warn("Wake Lock request failed:", err);
-            trmnl.ui.wakeLockToggle.checked = false;
-          });
+        // Still inside the Save tap, so fullscreen is allowed by the browser
+        if (fullscreenEnabled) {
+          if (!lpMirror.isFullscreenActive()) {
+            lpMirror.enterFullscreen();
+          }
         } else {
-          trmnl.releaseWakeLock().then(function () {
-            trmnl.ui.wakeLockToggle.checked = false;
-          }).catch(function (err) {
-            console.warn("Wake Lock release failed:", err);
-          });
+          lpMirror.exitFullscreen();
         }
 
-        trmnl.fetchDisplay();
+        if (wakeLockEnabled) {
+          lpMirror.acquireWakeLock();
+        } else {
+          lpMirror.releaseWakeLock();
+        }
+
+        lpMirror.fetchDisplay();
       },
 
       hideSetupForm: function () {
-        trmnl.ui.setup.style.display = "none";
+        lpMirror.ui.setup.style.display = "none";
       },
 
       isFullscreenSupported: function () {
@@ -107,7 +127,7 @@
       },
 
       enterFullscreen: function () {
-        if (!trmnl.isFullscreenSupported()) return;
+        if (!lpMirror.isFullscreenSupported()) return;
 
         var el = document.documentElement;
         var promise;
@@ -128,8 +148,8 @@
       },
 
       exitFullscreen: function () {
-        if (!trmnl.isFullscreenSupported()) return;
-        if (!trmnl.isFullscreenActive()) return;
+        if (!lpMirror.isFullscreenSupported()) return;
+        if (!lpMirror.isFullscreenActive()) return;
 
         var promise;
 
@@ -148,11 +168,6 @@
         }
       },
 
-      syncFullscreenToggle: function () {
-        var active = trmnl.isFullscreenActive();
-        trmnl.ui.fullscreenToggle.checked = active;
-      },
-
       isWakeLockSupported: function () {
         return (
           window.isSecureContext &&
@@ -162,83 +177,134 @@
       },
 
       acquireWakeLock: function () {
-
-        if (!trmnl.isWakeLockSupported()) {
-          return {
-            then: function () { return this; },
-            catch: function () { return this; }
-          };
+        if (!lpMirror.isWakeLockSupported() || lpMirror.wakeLock) {
+          return;
         }
 
-        if (trmnl.wakeLock) {
-          return Promise.resolve();
-        }
-
-        return navigator.wakeLock.request("screen")
+        navigator.wakeLock.request("screen")
           .then(function (sentinel) {
+            lpMirror.wakeLock = sentinel;
 
-            trmnl.wakeLock = sentinel;
-
+            // The browser releases the lock when the page is hidden; the
+            // visibilitychange handler takes it again from the saved setting
             sentinel.addEventListener("release", function () {
-              trmnl.wakeLock = null;
-              trmnl.ui.wakeLockToggle.checked = false;
+              lpMirror.wakeLock = null;
             });
 
-            console.log("Wake Lock attivo");
-
+            console.log("Wake Lock active");
           })
           .catch(function (err) {
             console.warn("Wake Lock failed:", err);
-            trmnl.wakeLock = null;
-            trmnl.ui.wakeLockToggle.checked = false;
+            lpMirror.wakeLock = null;
           });
       },
 
-
       releaseWakeLock: function () {
-
-        if (!trmnl.wakeLock) {
-          return Promise.resolve();
+        if (!lpMirror.wakeLock) {
+          return;
         }
 
-        return trmnl.wakeLock.release()
+        lpMirror.wakeLock.release()
           .then(function () {
-            trmnl.wakeLock = null;
-            console.log("Wake Lock rilasciato");
+            lpMirror.wakeLock = null;
+            console.log("Wake Lock released");
           })
           .catch(function (err) {
             console.warn("Release failed:", err);
-            trmnl.wakeLock = null;
+            lpMirror.wakeLock = null;
           });
       },
 
 
-      toggleWakeLock: function () {
-        if (!trmnl.isWakeLockSupported()) return;
-        if (trmnl.wakeLock) {
-          trmnl.releaseWakeLock().then(function () {
-            trmnl.ui.wakeLockToggle.checked = false;
-          });
+
+      scheduleRefresh: function (seconds) {
+        clearTimeout(lpMirror.refreshTimer);
+        lpMirror.nextRefreshAt = Date.now() + seconds * 1000;
+        console.log("Refreshing in " + seconds + " seconds...");
+        lpMirror.refreshTimer = setTimeout(function () {
+          lpMirror.fetchDisplay({ quiet: true });
+        }, seconds * 1000);
+      },
+
+      // iOS freezes timers while the page is hidden or the screen is locked:
+      // when we come back, refresh right away if the scheduled time has passed.
+      resumeRefresh: function () {
+        if (!lpMirror.nextRefreshAt) return;
+
+        var remaining = lpMirror.nextRefreshAt - Date.now();
+        if (remaining <= 1000) {
+          lpMirror.fetchDisplay({ quiet: true });
         } else {
-          trmnl.acquireWakeLock().then(function () {
-            trmnl.ui.wakeLockToggle.checked = !!trmnl.wakeLock;
-          });
+          clearTimeout(lpMirror.refreshTimer);
+          lpMirror.refreshTimer = setTimeout(function () {
+            lpMirror.fetchDisplay({ quiet: true });
+          }, remaining);
         }
       },
 
+      handleFailure: function (message) {
+        lpMirror.failures++;
 
+        var delay = Math.min(
+          lpMirror.RETRY_BASE_DELAY * Math.pow(2, lpMirror.failures - 1),
+          lpMirror.RETRY_MAX_DELAY
+        );
+        var hasScreen = lpMirror.ui.img.style.display === "block";
+
+        console.warn(message + " (failure #" + lpMirror.failures + ")");
+
+        // On a wall display a stale screen is better than an error for a short hiccup
+        if (!hasScreen || lpMirror.failures >= lpMirror.MAX_SILENT_FAILURES) {
+          lpMirror.showStatus(message + " (retrying in " + delay + "s)");
+        }
+
+        lpMirror.scheduleRefresh(delay);
+      },
+
+      // Download the image off-screen first, so the visible one is swapped only when ready
+      loadImage: function (src, onLoad, onError) {
+        var loader = new Image();
+        var done = false;
+        var timer;
+
+        var finish = function (callback) {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          loader.onload = null;
+          loader.onerror = null;
+          callback();
+        };
+
+        timer = setTimeout(function () { finish(onError); }, lpMirror.REQUEST_TIMEOUT);
+        loader.onload = function () { finish(onLoad); };
+        loader.onerror = function () { finish(onError); };
+        loader.src = src;
+      },
 
       fetchDisplay: function (opts) {
         opts = opts || {};
-        clearTimeout(trmnl.refreshTimer);
+        clearTimeout(lpMirror.refreshTimer);
+        lpMirror.refreshTimer = null;
+        lpMirror.nextRefreshAt = 0;
 
-        if (!opts.quiet) {
-          trmnl.hideSetupForm();
-          trmnl.showStatus("Loading...");
+        // Responses of older requests are ignored
+        var requestId = ++lpMirror.requestId;
+        var isCurrent = function () { return requestId === lpMirror.requestId; };
+
+        var setup = lpMirror.getSettings();
+        var apiKey = setup.api_key;
+
+        if (!apiKey) {
+          lpMirror.showSetupForm();
+          return;
         }
 
-        var setup = trmnl.getSettings();
-        var apiKey = setup.api_key;
+        if (!opts.quiet) {
+          lpMirror.hideSetupForm();
+          lpMirror.showStatus("Loading...");
+        }
+
         var displayMode = setup.display_mode;
         var baseURL = setup.base_url || "https://your-byos-trmnl.com";
 
@@ -251,10 +317,19 @@
           "Access-Token": apiKey
         };
 
-        var url = baseURL + "/api/display";
+        // Mirror reads the current screen; display runs the cycle like a physical device
+        var isDisplayMode = setup.mode === "display";
+        var url = baseURL + (isDisplayMode ? "/api/display" : "/api/current_screen");
+        var successStatus = isDisplayMode ? 0 : 200;
 
         var xhr = new XMLHttpRequest();
         xhr.open("GET", url, true);
+
+        try {
+          xhr.timeout = lpMirror.REQUEST_TIMEOUT;
+        } catch (e) {
+          // very old WebKit: no XHR timeout, the image timeout still applies
+        }
 
         for (var headerName in headers) {
           if (headers.hasOwnProperty(headerName)) {
@@ -263,62 +338,99 @@
         }
 
         xhr.onload = function () {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              var data = JSON.parse(xhr.responseText);
-              console.log("Display response:", data);
+          if (!isCurrent()) return;
 
-              if (data.status !== 0) {
-                trmnl.showStatus(
-                  "Error: " + (data.error || data.message || data.status)
-                );
-                return;
-              }
-
-              trmnl.showScreen(data.image_url);
-              trmnl.renderedAt = new Date();
-
-              if (data.refresh_rate) {
-                var refreshRate = 30;
-                refreshRate = data.refresh_rate;
-
-                console.log("Refreshing in " + refreshRate + " seconds...");
-                trmnl.refreshTimer = setTimeout(
-                  function () { trmnl.fetchDisplay({ quiet: true }); },
-                  1000 * refreshRate
-                );
-              }
-            } catch (e) {
-              trmnl.showStatus("Error processing response: " + e.message);
-            }
-          } else {
-            var msg = xhr.statusText
+          if (xhr.status < 200 || xhr.status >= 300) {
+            var msg = xhr.statusText;
             if (xhr.status == 404) {
               msg = "Maybe wrong API key";
             }
-            trmnl.showStatus(
-              "Failed to fetch screen: " + xhr.status + " " + msg
-            );
+            lpMirror.handleFailure("Failed to fetch screen: " + xhr.status + " " + msg);
+            return;
           }
+
+          var data;
+          try {
+            data = JSON.parse(xhr.responseText);
+          } catch (e) {
+            lpMirror.handleFailure("Error processing response: " + e.message);
+            return;
+          }
+
+          if (!data || data.status !== successStatus) {
+            lpMirror.handleFailure(
+              "Error: " + (data && (data.error || data.message || data.status))
+            );
+            return;
+          }
+
+          if (!data.image_url) {
+            lpMirror.handleFailure("No screen available yet");
+            return;
+          }
+
+          lpMirror.loadImage(data.image_url, function () {
+            if (!isCurrent()) return;
+
+            lpMirror.showScreen(data.image_url);
+            lpMirror.failures = 0;
+
+            var refreshRate = parseInt(data.refresh_rate, 10);
+            if (!(refreshRate > 0)) {
+              refreshRate = lpMirror.DEFAULT_REFRESH_RATE;
+            }
+            lpMirror.scheduleRefresh(refreshRate);
+          }, function () {
+            if (!isCurrent()) return;
+            lpMirror.handleFailure("Failed to load screen image");
+          });
         };
 
         xhr.onerror = function () {
-          trmnl.showStatus("Network error: Failed to connect or request was blocked.");
+          if (!isCurrent()) return;
+          lpMirror.handleFailure("Network error: Failed to connect or request was blocked.");
+        };
+
+        xhr.ontimeout = function () {
+          if (!isCurrent()) return;
+          lpMirror.handleFailure("Network error: request timed out.");
         };
 
         xhr.send();
       },
 
+      // localStorage throws on iOS <= 10 private browsing: fall back to memory
+      readStorage: function () {
+        if (lpMirror.storageBroken) return lpMirror.memoryStore;
+        try {
+          return localStorage.getItem(lpMirror.STORAGE_KEY);
+        } catch (e) {
+          lpMirror.storageBroken = true;
+          return lpMirror.memoryStore;
+        }
+      },
+
+      writeStorage: function (value) {
+        lpMirror.memoryStore = value;
+        if (lpMirror.storageBroken) return;
+        try {
+          localStorage.setItem(lpMirror.STORAGE_KEY, value);
+        } catch (e) {
+          lpMirror.storageBroken = true;
+          console.warn("localStorage unavailable: settings kept in memory only");
+        }
+      },
+
       getSettings: function () {
         try {
-          return JSON.parse(localStorage.getItem(trmnl.STORAGE_KEY)) || {};
+          return JSON.parse(lpMirror.readStorage()) || {};
         } catch (e) {
           return {};
         }
       },
 
       saveSettings: function (data) {
-        var settings = trmnl.getSettings();
+        var settings = lpMirror.getSettings();
 
         for (var key in data) {
           if (data.hasOwnProperty(key)) {
@@ -326,8 +438,8 @@
           }
         }
 
-        localStorage.setItem(trmnl.STORAGE_KEY, JSON.stringify(settings));
-        console.log("Settings saved:", settings);
+        lpMirror.writeStorage(JSON.stringify(settings));
+        console.log("Settings saved");
       },
 
       cleanUrl: function () {
@@ -369,16 +481,21 @@
             hasOverrides = true;
           }
 
+          if (key === "mode" && (value === "display" || value === "mirror")) {
+            newSettings.mode = value;
+            hasOverrides = true;
+          }
+
         }
 
         if (hasOverrides) {
-          trmnl.saveSettings(newSettings);
-          console.log("Settings overridden from URL:", newSettings);
+          lpMirror.saveSettings(newSettings);
+          console.log("Settings overridden from URL");
         }
       },
 
       setDefaultBaseUrlIfMissing: function () {
-        var settings = trmnl.getSettings();
+        var settings = lpMirror.getSettings();
 
         if (settings && settings.base_url) {
           return;
@@ -396,7 +513,7 @@
         // Keep the path in front of /mirror/, if LaraPaper is served under one
         var baseUrl = origin + window.location.pathname.replace(/\/mirror(\/[^\/]*)?$/, "");
 
-        trmnl.saveSettings({
+        lpMirror.saveSettings({
           base_url: baseUrl
         });
 
@@ -404,11 +521,11 @@
       },
 
       clearSettings: function () {
+        lpMirror.memoryStore = null;
         try {
-          localStorage.removeItem(trmnl.STORAGE_KEY);
+          localStorage.removeItem(lpMirror.STORAGE_KEY);
         } catch (e) {
-          // fallback ultra-safe
-          localStorage.setItem(trmnl.STORAGE_KEY, "{}");
+          // storage unavailable: nothing persisted to remove
         }
         console.log("Settings cleared");
         window.location.reload();
@@ -417,79 +534,75 @@
       init: function () {
 
         // override settings from GET params
-        trmnl.applySettingsFromUrl();
+        lpMirror.applySettingsFromUrl();
 
-        trmnl.cleanUrl();
+        lpMirror.cleanUrl();
 
         // default base_url
-        trmnl.setDefaultBaseUrlIfMissing();
+        lpMirror.setDefaultBaseUrlIfMissing();
 
         // screen
-        trmnl.ui.img = document.getElementById("screen");
-        trmnl.ui.errorContainer = document.getElementById("error-container");
-        trmnl.ui.errorMessage = document.getElementById("error-message");
+        lpMirror.ui.img = document.getElementById("screen");
+        lpMirror.ui.errorContainer = document.getElementById("error-container");
+        lpMirror.ui.errorMessage = document.getElementById("error-message");
 
         // settings
-        trmnl.ui.apiKeyInput = document.getElementById("api_key");
-        trmnl.ui.baseURLInput = document.getElementById("base_url");
-        trmnl.ui.displayModeSelect = document.getElementById("display_mode");
-        trmnl.ui.fullscreenToggle = document.getElementById("fullscreenToggle");
-        trmnl.ui.wakeLockToggle = document.getElementById("wakeLockToggle");
-        trmnl.ui.setup = document.getElementById("setup");
+        lpMirror.ui.apiKeyInput = document.getElementById("api_key");
+        lpMirror.ui.baseURLInput = document.getElementById("base_url");
+        lpMirror.ui.displayModeSelect = document.getElementById("display_mode");
+        lpMirror.ui.fullscreenToggle = document.getElementById("fullscreenToggle");
+        lpMirror.ui.wakeLockToggle = document.getElementById("wakeLockToggle");
+        lpMirror.ui.simulateDeviceToggle = document.getElementById("simulateDeviceToggle");
+        lpMirror.ui.setup = document.getElementById("setup");
+        lpMirror.ui.cancelButton = document.getElementById("cancelSetup");
 
-        // Sync fullscreen state
-        document.addEventListener("fullscreenchange", trmnl.syncFullscreenToggle);
-        document.addEventListener("webkitfullscreenchange", trmnl.syncFullscreenToggle);
-        document.addEventListener("msfullscreenchange", trmnl.syncFullscreenToggle);
-
-        // Fullscreen toggle
-        if (!trmnl.isFullscreenSupported()) {
-          trmnl.ui.fullscreenToggle.disabled = true;
-          trmnl.ui.fullscreenToggle.parentElement.style.opacity = "0.5";
-          trmnl.ui.fullscreenToggle.parentElement.style.cursor = "not-allowed";
-        } else {
-          trmnl.ui.fullscreenToggle.addEventListener("change", function (e) {
-            e.stopPropagation();
-
-            if (e.target.checked) {
-              trmnl.enterFullscreen();
-            } else {
-              trmnl.exitFullscreen();
-            }
-          });
+        // Fullscreen toggle (applied on Save)
+        if (!lpMirror.isFullscreenSupported()) {
+          lpMirror.ui.fullscreenToggle.disabled = true;
+          lpMirror.ui.fullscreenToggle.parentElement.style.opacity = "0.5";
+          lpMirror.ui.fullscreenToggle.parentElement.style.cursor = "not-allowed";
         }
+
+        // Catch up on refreshes missed while the page was hidden / the iPad was locked
+        document.addEventListener("visibilitychange", function () {
+          if (document.visibilityState === "visible") {
+            lpMirror.resumeRefresh();
+          }
+        });
+        window.addEventListener("pageshow", function (e) {
+          if (e.persisted) {
+            lpMirror.resumeRefresh();
+          }
+        });
 
         var wakeLockHint = document.getElementById("wakeLockHint");
 
-        // Wake Lock toggle
-        if (trmnl.isWakeLockSupported()) {
+        // Wake Lock toggle (applied on Save)
+        if (lpMirror.isWakeLockSupported()) {
 
-          trmnl.ui.wakeLockToggle.disabled = false;
-          trmnl.ui.wakeLockToggle.parentElement.style.opacity = "1";
-          trmnl.ui.wakeLockToggle.parentElement.style.cursor = "pointer";
+          lpMirror.ui.wakeLockToggle.disabled = false;
+          lpMirror.ui.wakeLockToggle.parentElement.style.opacity = "1";
+          lpMirror.ui.wakeLockToggle.parentElement.style.cursor = "pointer";
 
           if (wakeLockHint) wakeLockHint.style.display = "none";
 
-          trmnl.ui.wakeLockToggle.addEventListener("change", function () {
-            trmnl.toggleWakeLock();
-          });
-
+          // The lock is dropped while the page is hidden: take it again
           document.addEventListener("visibilitychange", function () {
             if (
               document.visibilityState === "visible" &&
-              trmnl.ui.wakeLockToggle.checked
+              lpMirror.getSettings().wake_lock
             ) {
-              trmnl.acquireWakeLock();
+              lpMirror.acquireWakeLock();
             }
           });
 
         } else {
 
           // unsupported (HTTP or old browser)
-          trmnl.ui.wakeLockToggle.disabled = true;
-          trmnl.ui.wakeLockToggle.checked = false;
-          trmnl.ui.wakeLockToggle.parentElement.style.opacity = "0.5";
-          trmnl.ui.wakeLockToggle.parentElement.style.cursor = "not-allowed";
+          lpMirror.ui.wakeLockToggle.disabled = true;
+          lpMirror.ui.wakeLockToggle.checked = false;
+          lpMirror.ui.wakeLockToggle.parentElement.style.opacity = "0.5";
+          lpMirror.ui.wakeLockToggle.parentElement.style.cursor = "not-allowed";
 
           if (!window.isSecureContext && wakeLockHint) {
             wakeLockHint.style.display = "block";
@@ -498,49 +611,44 @@
         }
 
         // get settings from localstorage
-        var settings = trmnl.getSettings();
+        var settings = lpMirror.getSettings();
 
         // show setup form if missing apikey
         if (!settings || !settings.api_key) {
-          trmnl.showSetupForm();
+          lpMirror.showSetupForm();
         } else {
-          trmnl.fetchDisplay();
+          lpMirror.fetchDisplay();
         }
 
+        // One-shot listeners are removed by hand: iOS 9 reads an options
+        // object ({ once: true }) as useCapture = true
         // Auto fullscreen at first click/touch if option enabled
-        if (settings.fullscreen && trmnl.isFullscreenSupported()) {
+        if (settings.fullscreen && lpMirror.isFullscreenSupported()) {
           var activateFullscreenOnce = function () {
-            trmnl.enterFullscreen();
+            lpMirror.enterFullscreen();
             document.removeEventListener("click", activateFullscreenOnce);
             document.removeEventListener("touchstart", activateFullscreenOnce);
           };
-          document.addEventListener("click", activateFullscreenOnce, { once: true });
-          document.addEventListener("touchstart", activateFullscreenOnce, { once: true });
+          document.addEventListener("click", activateFullscreenOnce);
+          document.addEventListener("touchstart", activateFullscreenOnce);
         }
 
         // Auto Wake Lock at first click/touch if option enabled
-        if (settings.wake_lock && trmnl.isWakeLockSupported()) {
+        if (settings.wake_lock && lpMirror.isWakeLockSupported()) {
           var acquireWakeLockOnce = function () {
-            trmnl.acquireWakeLock().then(function () {
-              trmnl.ui.wakeLockToggle.checked = !!trmnl.wakeLock;
-            }).catch(function (err) {
-              console.warn("Wake Lock request failed:", err);
-              trmnl.ui.wakeLockToggle.checked = false;
-            });
+            lpMirror.acquireWakeLock();
             document.removeEventListener("click", acquireWakeLockOnce);
             document.removeEventListener("touchstart", acquireWakeLockOnce);
           };
-          document.addEventListener("click", acquireWakeLockOnce, { once: true });
-          document.addEventListener("touchstart", acquireWakeLockOnce, { once: true });
+          document.addEventListener("click", acquireWakeLockOnce);
+          document.addEventListener("touchstart", acquireWakeLockOnce);
         }
-
-        trmnl.syncFullscreenToggle();
       } //init end
 
     };
 
     document.addEventListener("DOMContentLoaded", function () {
-      trmnl.init();
+      lpMirror.init();
     });
   </script>
   <style>
@@ -566,11 +674,21 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      overflow-y: scroll;
+      overflow-y: auto;
     }
 
+    /*
+     * Panel centred with auto margins instead of justify-content: when it is
+     * taller than the viewport (iPad landscape) it starts at the top and can be
+     * scrolled, instead of being clipped above the fold.
+     */
     #setup {
+      justify-content: flex-start;
+      padding: 1em;
+      box-sizing: border-box;
+      -webkit-overflow-scrolling: touch;
       background-color: #3d3d3e;
+      z-index: 2;
     }
 
     #setup-panel {
@@ -580,7 +698,7 @@
       justify-content: center;
       background-color: #ffffff;
       padding: 2em;
-      margin: 1em;
+      margin: auto;
       border-radius: 1em;
       box-shadow: 0 0.5em 2em rgba(0, 0, 0, 1);
     }
@@ -595,11 +713,11 @@
       height: 100vh;
       object-fit: contain;
       background-color: #000000;
-      z-index: 1;
     }
 
     body.dark #screen,
     body.night #screen {
+      -webkit-filter: invert(1) hue-rotate(180deg); /* iOS < 9.3 */
       filter: invert(1) hue-rotate(180deg);
       background-color: #ffffff;
     }
@@ -642,10 +760,6 @@
       margin-bottom: 1em;
     }
 
-    #setup {
-      z-index: 2;
-    }
-
     .form-control {
       font-size: 1.25em;
       width: 14em;
@@ -656,13 +770,10 @@
     }
 
     label {
+      display: block;
       font-size: 1.25em;
       margin-bottom: 0.5em;
       cursor: pointer;
-    }
-
-    label {
-      display: block;
     }
 
     fieldset {
@@ -689,8 +800,25 @@
     }
 
     .btn-clear {
+      background-color: #c0392b;
+    }
+
+    /* Cancel + Clear side by side; no flex `gap` (unsupported on iOS 9) */
+    .btn-row {
+      display: flex;
       margin-top: 1em;
-      background-color: #777;
+    }
+
+    .btn-row .btn {
+      flex: 1;
+      width: auto;
+      padding-left: 0.5em;
+      padding-right: 0.5em;
+    }
+
+    /* margin on Cancel, so Clear has none when Cancel is hidden */
+    #cancelSetup {
+      margin-left: 0.5em;
     }
 
     #error-container .btn {
@@ -731,6 +859,10 @@
     .setting-row .switch {
       width: auto;
       min-width: 52px;
+    }
+
+    /* fixed height only on the switch: the select needs room for its padding */
+    .setting-row .switch {
       height: 28px;
     }
 
@@ -750,7 +882,11 @@
     .slider {
       position: absolute;
       cursor: pointer;
-      inset: 0;
+      /* no `inset` shorthand: unsupported before Safari 14.1 */
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
       background-color: #ccc;
       border-radius: 28px;
       transition: background-color 0.2s ease;
@@ -794,22 +930,17 @@
       background-color: #ffffff;
     }
 
-    .toggle-label {
-      font-size: 1.25em;
-      margin: 0;
-      cursor: default;
-      pointer-events: auto;
-    }
-
     .setting-hint {
-      font-size: 0.75em;
-      color: #f41414;
-      margin-top: 0.2em;
-      margin-left: 0.5em;
+      font-size: 0.85em;
+      color: #777;
+      margin-top: 0.25em;
     }
 
-    /* Fallback for iOS 9 */
-    @media screen and (max-width: 1024px) and (-webkit-min-device-pixel-ratio: 1) {
+    /*
+     * Float layout for old Safari (iOS 9). `inset` support (Safari 14.1+) is
+     * used as a marker so modern small screens keep the flex layout.
+     */
+    @supports not (inset: 0) {
       .setting-row {
         display: block;
         overflow: hidden;
@@ -825,13 +956,6 @@
       .setting-row select,
       .setting-row .switch {
         float: right;
-        width: auto;
-        min-width: 52px;
-        height: 28px;
-      }
-
-      .setting-hint {
-        display: none !important;
       }
     }
   </style>
@@ -840,19 +964,21 @@
 <body>
   <div id="setup" style="display: none;">
     <div id="setup-panel">
-      <img src="assets/logo--brand.svg" alt="TRMNL Logo" />
+      <img src="assets/logo--brand.svg" alt="LaraPaper" />
 
-      <form onsubmit="return trmnl.saveSetup(event)">
+      <form onsubmit="return lpMirror.saveSetup(event)">
 
         <fieldset>
           <label for="base_url">Custom Server URL</label>
           <input name="base_url" id="base_url" type="text" placeholder="https://your-byos-trmnl.com"
-            class="form-control" value="" />
+            class="form-control" value="" autocapitalize="off" autocorrect="off" autocomplete="off"
+            spellcheck="false" />
         </fieldset>
 
         <fieldset>
           <label for="api_key">Device API Key</label>
-          <input name="api_key" id="api_key" type="text" placeholder="API Key" class="form-control" required />
+          <input name="api_key" id="api_key" type="text" placeholder="API Key" class="form-control" required
+            autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" />
         </fieldset>
 
         <fieldset class="setting-row">
@@ -885,8 +1011,22 @@
           </label>
         </fieldset>
 
+        <fieldset class="setting-row">
+          <div>
+            <span class="toggle-label">Simulate physical device</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="simulateDeviceToggle">
+            <span class="slider"></span>
+          </label>
+        </fieldset>
+
         <button class="btn">Save</button>
-        <button class="btn btn-clear" type="button" onclick="trmnl.clearSettings()">Clear settings</button>
+        <div class="btn-row">
+          <button class="btn btn-clear" type="button" onclick="lpMirror.clearSettings()">Clear settings</button>
+          <button class="btn btn-secondary" type="button" id="cancelSetup"
+            onclick="lpMirror.cancelSetup()" style="display: none;">Cancel</button>
+        </div>
 
       </form>
     </div>
@@ -894,13 +1034,13 @@
 
   <div id="screen-container">
     <div id="red-overlay"></div>
-    <img id="screen" onclick="trmnl.showSetupForm()" style="display: none;">
+    <img id="screen" onclick="lpMirror.showSetupForm()" style="display: none;">
 
     <div id="error-container" style="display: none">
       <div id="error-message"></div>
       <div style="display: flex; margin-top: 1em">
-        <button class="btn" onclick="trmnl.showSetupForm()">Setup</button>
-        <button class="btn btn-secondary" onclick="trmnl.fetchDisplay()">Retry</button>
+        <button class="btn" onclick="lpMirror.showSetupForm()">Setup</button>
+        <button class="btn btn-secondary" onclick="lpMirror.fetchDisplay()">Retry</button>
       </div>
     </div>
   </div>

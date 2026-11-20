@@ -66,6 +66,7 @@ export default defineConfig({
       collapsible: true,
       children: [
         { title: 'Hosting', path: '/getting-started/installation', icon: 'download' },
+        { title: 'Home Assistant', path: '/getting-started/home-assistant', icon: 'house' },
         { title: 'Requirements (Bare-Metal)', path: '/getting-started/requirements', icon: 'list-checks' },
         {
           title: 'Environment variables',
@@ -93,6 +94,8 @@ export default defineConfig({
         { title: 'Multi-user mode', path: '/usage/multi-user', icon: 'users' },
         { title: 'Cloud proxy', path: '/usage/cloud-proxy', icon: 'cloud' },
         { title: 'Demo plugins', path: '/usage/demo-plugins', icon: 'puzzle' },
+        { title: 'Transform', path: '/usage/transform', icon: 'braces' },
+        { title: 'Transform providers', path: '/usage/transform-provider', icon: 'server' },
       ],
     },
     {
@@ -102,6 +105,7 @@ export default defineConfig({
       children: [
         { title: 'Experimental features', path: '/lab', icon: 'flask-conical' },
         { title: 'MCP Server', path: '/lab/mcp', icon: 'bot' },
+        { title: 'Pre-render playlist items', path: '/lab/prerender-playlist-items', icon: 'image' },
       ],
     },
     {

@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Enums\TextScaleLevel;
 use Exception;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property TextScaleLevel|null $text_scale_level
+ */
 class PlaylistItem extends Model
 {
     use HasFactory;
@@ -17,6 +21,7 @@ class PlaylistItem extends Model
         'is_active' => 'boolean',
         'last_displayed_at' => 'datetime',
         'mashup' => 'json',
+        'text_scale_level' => TextScaleLevel::class,
     ];
 
     /**
@@ -41,6 +46,16 @@ class PlaylistItem extends Model
     public function isMashup(): bool
     {
         return ! is_null($this->mashup);
+    }
+
+    /**
+     * Whether this item has its own plugin image cache to clear, warm or refresh (single recipe plugins only).
+     */
+    public function supportsImageCache(): bool
+    {
+        return ! $this->isMashup()
+            && $this->plugin instanceof Plugin
+            && $this->plugin->plugin_type === 'recipe';
     }
 
     /**
@@ -166,12 +181,14 @@ class PlaylistItem extends Model
                 'colorDepth' => $device?->colorDepth(),
                 'deviceVariant' => $device?->deviceModel->css_name ?? $device?->deviceVariant() ?? 'og',
                 'scaleLevel' => $device?->scaleLevel(),
+                'textScaleLevel' => $this->text_scale_level?->value,
+                'paletteClass' => $device?->paletteClass(),
                 'cssVariables' => $device?->deviceModel?->css_variables,
                 'frameworkVersion' => $this->plugin instanceof Plugin
                     ? $this->plugin->resolvedFrameworkVersion()
                     : null,
                 'slot' => $this->plugin instanceof Plugin
-                    ? $this->plugin->render('full', false, $device)
+                    ? $this->plugin->render('full', false, $device, $this->text_scale_level)
                     : throw new Exception('Invalid plugin instance'),
             ])->render();
         }
@@ -195,6 +212,8 @@ class PlaylistItem extends Model
             'colorDepth' => $device?->colorDepth(),
             'deviceVariant' => $device?->deviceModel->css_name ?? $device?->deviceVariant() ?? 'og',
             'scaleLevel' => $device?->scaleLevel(),
+            'textScaleLevel' => $this->text_scale_level?->value,
+            'paletteClass' => $device?->paletteClass(),
             'cssVariables' => $device?->deviceModel?->css_variables,
             'frameworkVersion' => $frameworkVersion,
             'mashupLayout' => $this->getMashupLayoutType(),
@@ -229,6 +248,53 @@ class PlaylistItem extends Model
             '2x2' => 4,
             default => 1,
         };
+    }
+
+    /**
+     * Keep the plugin ids a layout needs and drop extras left over from a larger layout.
+     *
+     * When $extrasOnly is true, the primary plugin is not part of $pluginIds, so the result is one shorter.
+     *
+     * @param  array<int|string, mixed>  $pluginIds
+     * @return list<mixed>
+     */
+    public static function takePluginIdsForLayout(string $layout, array $pluginIds, bool $extrasOnly = false): array
+    {
+        $count = self::getRequiredPluginCountForLayout($layout);
+
+        if ($extrasOnly) {
+            $count = max(0, $count - 1);
+        }
+
+        return array_slice(array_values($pluginIds), 0, $count);
+    }
+
+    /**
+     * Replace this item's layout and plugin slots. Order and active state stay unchanged.
+     *
+     * @param  list<int>  $pluginIds
+     */
+    public function applyLayout(string $layout, array $pluginIds): void
+    {
+        if ($layout === 'full') {
+            $this->update([
+                'plugin_id' => $pluginIds[0],
+                'mashup' => null,
+            ]);
+
+            return;
+        }
+
+        $primary = Plugin::query()->findOrFail($pluginIds[0]);
+
+        $this->update([
+            'plugin_id' => $pluginIds[0],
+            'mashup' => [
+                'mashup_layout' => $layout,
+                'mashup_name' => $primary->name.' Mashup',
+                'plugin_ids' => array_values(array_map(intval(...), $pluginIds)),
+            ],
+        ]);
     }
 
     /**

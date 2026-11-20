@@ -36,6 +36,28 @@ it('imports plugin with framework_version from settings', function (): void {
     expect($plugin->framework_version)->toBe('3.0.5');
 });
 
+it('imports plugin with framework_version latest as null', function (string $yamlValue): void {
+    $user = User::factory()->create();
+
+    $settingsYaml = str_replace(
+        "name: Test Plugin\n",
+        "name: Test Plugin\nframework_version: {$yamlValue}\n",
+        getValidSettingsYaml()
+    );
+
+    $zipContent = createMockZipFile([
+        'src/settings.yml' => $settingsYaml,
+        'src/full.liquid' => getValidFullLiquid(),
+    ]);
+
+    $zipFile = UploadedFile::fake()->createWithContent('test-plugin.zip', $zipContent);
+
+    $pluginImportService = new PluginImportService();
+    $plugin = $pluginImportService->importFromZip($zipFile, $user);
+
+    expect($plugin->framework_version)->toBeNull();
+})->with(['latest', 'Latest']);
+
 it('imports screen settings when yaml says yes', function (): void {
     $user = User::factory()->create();
 
@@ -723,21 +745,6 @@ it('sets both transform fields to null when no transform file is present', funct
     $zip = makePluginZip([
         'settings.yml' => "name: Test Plugin\nstrategy: static\n",
         'full.liquid'  => '<div>hello</div>',
-    ]);
-
-    $plugin = (new PluginImportService())->importFromZip($zip, $user);
-
-    expect($plugin->transform_code)->toBeNull()
-        ->and($plugin->transform_language)->toBeNull();
-});
-
-it('sets both transform fields to null when serverless_language is absent even if a transform file is present', function (): void {
-    $user = User::factory()->create();
-
-    $zip = makePluginZip([
-        'settings.yml' => "name: Test Plugin\nstrategy: static\n",
-        'full.liquid'  => '<div>hello</div>',
-        'transform.py' => 'def run(input): return input',
     ]);
 
     $plugin = (new PluginImportService())->importFromZip($zip, $user);

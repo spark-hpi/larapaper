@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Enums\FirmwareModel;
+use App\Enums\ScaleLevel;
 use App\Models\Device;
 use App\Models\Firmware;
 use App\Models\Playlist;
 use App\Models\PlaylistItem;
 use App\Models\Plugin;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
@@ -102,6 +104,73 @@ test('enabling sleep mode applies default times when none are set', function ():
         ->set('sleep_mode_enabled', true)
         ->assertSet('sleep_mode_from', '22:00')
         ->assertSet('sleep_mode_to', '06:00');
+});
+
+test('configure update saves the device scale level', function (): void {
+    $user = User::factory()->create();
+    actingAs($user);
+
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'width' => 800,
+        'height' => 480,
+        'rotate' => 0,
+        'image_format' => 'png',
+        'maximum_compatibility' => false,
+        'scale_level' => null,
+    ]);
+
+    Livewire::test('devices.configure', ['device' => $device])
+        ->set('scale_level', 'regular')
+        ->call('updateDevice')
+        ->assertHasNoErrors();
+
+    expect($device->refresh()->scale_level)->toBe(ScaleLevel::REGULAR);
+});
+
+test('configure update clears the device scale level when automatic is picked', function (): void {
+    $user = User::factory()->create();
+    actingAs($user);
+
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'width' => 800,
+        'height' => 480,
+        'rotate' => 0,
+        'image_format' => 'png',
+        'maximum_compatibility' => false,
+        'scale_level' => ScaleLevel::LARGE,
+    ]);
+
+    Livewire::test('devices.configure', ['device' => $device])
+        ->assertSet('scale_level', 'large')
+        ->set('scale_level', '')
+        ->call('updateDevice')
+        ->assertHasNoErrors();
+
+    expect($device->refresh()->scale_level)->toBeNull();
+});
+
+test('configure update rejects an unknown scale level', function (): void {
+    $user = User::factory()->create();
+    actingAs($user);
+
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'width' => 800,
+        'height' => 480,
+        'rotate' => 0,
+        'image_format' => 'png',
+        'maximum_compatibility' => false,
+        'scale_level' => ScaleLevel::LARGE,
+    ]);
+
+    Livewire::test('devices.configure', ['device' => $device])
+        ->set('scale_level', 'huge')
+        ->call('updateDevice')
+        ->assertHasErrors(['scale_level' => 'The selected scale level is invalid.']);
+
+    expect($device->refresh()->scale_level)->toBe(ScaleLevel::LARGE);
 });
 
 test('sortPlaylistItem reorders playlist items by zero-based position', function (): void {
@@ -312,4 +381,145 @@ test('configure playlist item name links to the native plugin instance', functio
     Livewire::test('devices.configure', ['device' => $device])
         ->assertSee('Camera Feed')
         ->assertSee(route('plugins.type-instance', ['type' => 'image_webhook', 'plugin' => $plugin]), false);
+});
+
+test('mirror url defaults to mirror mode and switches to display mode with the toggle', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $user->id, 'api_key' => 'device-key']);
+
+    Livewire::actingAs($user)
+        ->test('devices.configure', ['device' => $device])
+        ->assertSee('/mirror/index.html?api_key=device-key&amp;mode=mirror', false)
+        ->set('simulate_physical_device', true)
+        ->assertSee('/mirror/index.html?api_key=device-key&amp;mode=display', false);
+});
+
+test('configure rejects another users plugin as sleep screen', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $user->id]);
+    $foreignPlugin = Plugin::factory()->create(['user_id' => User::factory()->create()->id]);
+    actingAs($user);
+
+    Livewire::test('devices.configure', ['device' => $device])
+        ->set('sleep_plugin_id', $foreignPlugin->id)
+        ->call('updateDevice')
+        ->assertHasErrors(['sleep_plugin_id']);
+
+    expect($device->fresh()->sleep_plugin_id)->toBeNull();
+});
+
+test('configure accepts own plugin as sleep screen', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'width' => 800,
+        'height' => 480,
+        'rotate' => 0,
+        'image_format' => 'png',
+        'maximum_compatibility' => false,
+    ]);
+    $plugin = Plugin::factory()->create(['user_id' => $user->id]);
+    actingAs($user);
+
+    Livewire::test('devices.configure', ['device' => $device])
+        ->set('sleep_plugin_id', $plugin->id)
+        ->call('updateDevice')
+        ->assertHasNoErrors();
+
+    expect($device->fresh()->sleep_plugin_id)->toBe($plugin->id);
+});
+
+test('configure forbids managing playlists of another users device', function (string $method): void {
+    User::factory()->admin()->create(); // user #1 is always an admin
+    $user = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $user->id]);
+    $foreignPlaylist = Playlist::factory()->create([
+        'device_id' => Device::factory()->create(['user_id' => User::factory()->create()->id])->id,
+        'name' => 'Foreign',
+        'is_active' => true,
+    ]);
+    actingAs($user);
+
+    Livewire::test('devices.configure', ['device' => $device])
+        ->set('playlist_name', 'Hijacked')
+        ->call($method, $foreignPlaylist->id)
+        ->assertForbidden();
+
+    expect($foreignPlaylist->fresh())
+        ->name->toBe('Foreign')
+        ->is_active->toBeTrue();
+})->with(['togglePlaylistActive', 'editPlaylist', 'preparePlaylistEdit']);
+
+test('configure forbids toggling playlist items of another users device', function (): void {
+    User::factory()->admin()->create(); // user #1 is always an admin
+    $user = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $user->id]);
+    $foreignPlaylist = Playlist::factory()->for(Device::factory()->for(User::factory()))->create();
+    $foreignItem = PlaylistItem::factory()->for($foreignPlaylist)->create(['is_active' => true]);
+    actingAs($user);
+
+    Livewire::test('devices.configure', ['device' => $device])
+        ->call('togglePlaylistItemActive', $foreignItem->id)
+        ->assertForbidden();
+
+    expect($foreignItem->fresh()->is_active)->toBeTrue();
+});
+
+test('configure menu includes pause screen generation with the other device actions', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $user->id]);
+    actingAs($user);
+
+    Livewire::test('devices.configure', ['device' => $device])
+        ->assertSee('Pause Screen Generation')
+        ->assertSee('Update Firmware')
+        ->assertSee('Show Logs')
+        ->assertSee('Mirror URL')
+        ->assertSee('Delete Device');
+});
+
+test('user can pause screen generation from the device page', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $user->id]);
+    actingAs($user);
+
+    Carbon::setTestNow('2026-08-04 12:00:00');
+
+    Livewire::test('devices.configure', ['device' => $device])
+        ->set('pause_duration', 60)
+        ->call('pauseDevice', $device->id)
+        ->assertHasNoErrors();
+
+    expect($device->fresh()->pause_until?->equalTo(now()->addMinutes(60)))->toBeTrue();
+
+    Carbon::setTestNow();
+});
+
+test('configure update stores and clears the cloud proxy api key', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'width' => 800,
+        'height' => 480,
+        'rotate' => 0,
+        'image_format' => 'png',
+        'maximum_compatibility' => false,
+        'proxy_cloud_api_key' => null,
+    ]);
+    actingAs($user);
+
+    Livewire::test('devices.configure', ['device' => $device])
+        ->assertSee('Cloud Proxy')
+        ->set('proxy_cloud_api_key', 'cloud-key')
+        ->call('updateDevice')
+        ->assertHasNoErrors();
+
+    expect($device->fresh()->proxy_cloud_api_key)->toBe('cloud-key');
+
+    Livewire::test('devices.configure', ['device' => $device->fresh()])
+        ->set('proxy_cloud_api_key', '')
+        ->call('updateDevice')
+        ->assertHasNoErrors();
+
+    expect($device->fresh()->proxy_cloud_api_key)->toBeNull();
 });

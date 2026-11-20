@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Enums\ImageFormat;
+use App\Enums\ScaleLevel;
+use App\Enums\TextScaleLevel;
 use App\Models\Device;
 use App\Models\DeviceModel;
 use App\Services\ImageGenerationService;
@@ -258,6 +260,23 @@ it('cleanupFolder removes unused images', function (): void {
     Storage::disk('public')->assertMissing('/images/generated/another-inactive.png');
 });
 
+it('cleanupFolder preserves an image referenced only by a device offline_screen_image', function (): void {
+    // The offline (sleep/pause) screen lives in its own per-device column; cleanup
+    // must treat it as active even though no current_screen_image or plugin points at it.
+    Device::factory()->create([
+        'current_screen_image' => null,
+        'offline_screen_image' => 'offline-uuid',
+    ]);
+
+    Storage::disk('public')->put('/images/generated/offline-uuid.png', 'offline');
+    Storage::disk('public')->put('/images/generated/orphan-uuid.png', 'orphan');
+
+    ImageGenerationService::cleanupFolder();
+
+    Storage::disk('public')->assertExists('/images/generated/offline-uuid.png');
+    Storage::disk('public')->assertMissing('/images/generated/orphan-uuid.png');
+});
+
 it('cleanupFolder preserves .gitignore', function (): void {
     // Create gitignore file
     Storage::disk('public')->put('/images/generated/.gitignore', '*');
@@ -377,6 +396,16 @@ it('imageMetadataMatches returns false when metadata differs', function (): void
     $device->refresh();
 
     expect(ImageGenerationService::imageMetadataMatches($stored, $device))->toBeFalse();
+});
+
+it('imageMetadataMatches returns false when the device scale level changes', function (): void {
+    $deviceModel = DeviceModel::factory()->create(['width' => 1872, 'height' => 1404]);
+    $device = Device::factory()->create(['device_model_id' => $deviceModel->id, 'scale_level' => null]);
+    $stored = ImageGenerationService::buildImageMetadataFromDevice($device);
+
+    $device->update(['scale_level' => ScaleLevel::REGULAR]);
+
+    expect(ImageGenerationService::imageMetadataMatches($stored, $device->refresh()))->toBeFalse();
 });
 
 it('resetIfNotCacheable clears recipe cache when metadata does not match', function (): void {
@@ -578,4 +607,13 @@ it('stores a new uuid when the existing image file is missing on disk', function
     expect($uuid)->not->toBe('missing-on-disk-uuid')
         ->and($device->current_screen_image)->toBe($uuid);
     Storage::disk('public')->assertExists("/images/generated/{$uuid}.png");
+});
+
+it('imageMetadataMatches returns false when the playlist item text scale changes', function (): void {
+    $deviceModel = DeviceModel::factory()->create(['width' => 1872, 'height' => 1404]);
+    $device = Device::factory()->create(['device_model_id' => $deviceModel->id]);
+    $stored = ImageGenerationService::buildImageMetadataFromDevice($device);
+
+    expect(ImageGenerationService::imageMetadataMatches($stored, $device, TextScaleLevel::LARGE))->toBeFalse()
+        ->and(ImageGenerationService::imageMetadataMatches($stored, $device))->toBeTrue();
 });

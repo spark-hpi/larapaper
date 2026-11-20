@@ -6,6 +6,7 @@ use App\Models\DeviceModel;
 use App\Models\Plugin;
 use App\Models\User;
 use App\Plugins\PluginRegistry;
+use App\Services\Plugin\Transform\TransformService;
 use App\Services\PluginImportService;
 use Illuminate\Support\Str;
 use Keepsuit\Liquid\Exceptions\LiquidException;
@@ -267,6 +268,11 @@ new class extends Component
         $this->refreshPlugins();
     }
 
+    public function transformIsEnabled(): bool
+    {
+        return TransformService::isEnabled();
+    }
+
     public function importZip(PluginImportService $pluginImportService): void
     {
         abort_unless(auth()->user() !== null, 403);
@@ -478,9 +484,11 @@ new class extends Component
                                     >API responses in formats other than <span class="font-mono">JSON</span> are not yet
                                     fully supported.</flux:text>
                             </li>
-                            <li>
-                                <flux:text>Transform/Serverless is not yet supported</flux:text>
-                            </li>
+                            @unless ($this->transformIsEnabled())
+                                <li>
+                                    <flux:text>Transform/Serverless is not yet supported</flux:text>
+                                </li>
+                            @endunless
                             <li>
                                 <flux:text>There are limitations in payload size (Data Payload, Template).</flux:text>
                             </li>

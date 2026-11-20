@@ -49,3 +49,4 @@ yarn-error.log
 /.direnv
 /.worktrees
 /storage/framework/lsp*
+.vitest/

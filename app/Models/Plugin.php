@@ -2,23 +2,19 @@
 
 namespace App\Models;
 
-use App\Liquid\FileSystems\InlineTemplatesFileSystem;
-use App\Liquid\Filters\Data;
-use App\Liquid\Filters\Date;
-use App\Liquid\Filters\Localization;
-use App\Liquid\Filters\Numbers;
+use App\Enums\TextScaleLevel;
 use App\Liquid\Filters\StandardFilters;
-use App\Liquid\Filters\StringMarkup;
-use App\Liquid\Filters\Uniqueness;
-use App\Liquid\Tags\PluginRenderTag;
-use App\Liquid\Tags\TemplateTag;
+use App\Liquid\PluginLiquidEnvironment;
 use App\Plugins\PluginHandler;
 use App\Plugins\PluginRegistry;
 use App\Services\Plugin\Parsers\ResponseParserRegistry;
-use App\Services\Plugin\ServerlessTransformService;
+use App\Services\Plugin\Transform\TransformException;
+use App\Services\Plugin\Transform\TransformService;
 use App\Services\PluginImportService;
+use App\Support\UserBladeExecution;
 use Carbon\Carbon;
 use Closure;
+use DateTimeInterface;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -33,15 +29,16 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
-use Keepsuit\LaravelLiquid\LaravelLiquidExtension;
 use Keepsuit\Liquid\Exceptions\LiquidException;
-use Keepsuit\Liquid\Extensions\StandardExtension;
 use Stevebauman\Purify\Facades\Purify;
 use Symfony\Component\Yaml\Yaml;
 
 class Plugin extends Model
 {
     use HasFactory;
+
+    /** Maximum length of the stored transform error (message plus script output). */
+    private const MAX_TRANSFORM_ERROR_LENGTH = 8192;
 
     protected $guarded = ['id'];
 
@@ -60,8 +57,8 @@ class Plugin extends Model
         'plugin_type' => 'string',
         'alias' => 'boolean',
         'current_image_metadata' => 'array',
-        'transform_code'         => 'string',   // add this
-        'transform_language'     => 'string',   // add this
+        'transform_language' => 'string',
+        'transform_failed_at' => 'datetime',
     ];
 
     protected static function boot()
@@ -96,6 +93,7 @@ class Plugin extends Model
                 'data_payload',
                 'preferred_renderer',
                 'framework_version',
+                'transform_code',
                 'transform_language',
             ])) {
                 $model->current_image = null;
@@ -151,6 +149,28 @@ class Plugin extends Model
     public function resolvedFrameworkVersion(): string
     {
         return $this->framework_version ?? config('trmnl-blade.framework_version');
+    }
+
+    public static function normalizeImportedFrameworkVersion(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (! is_string($value)) {
+            return null;
+        }
+
+        if (strcasecmp($value, 'latest') === 0) {
+            return null;
+        }
+
+        return $value;
+    }
+
+    public static function frameworkVersionForSettingsExport(?string $stored): string
+    {
+        return $stored ?? 'latest';
     }
 
     public static function validateFrameworkVersion(mixed $value, Closure $fail): void
@@ -326,6 +346,10 @@ class Plugin extends Model
             return $handlerStale;
         }
 
+        if ($this->runsStaticTransform()) {
+            return true;
+        }
+
         if ($this->data_strategy === 'webhook') {
             // Treat as stale if any webhook event has occurred in the past hour
             return $this->data_payload_updated_at && $this->data_payload_updated_at->gt(now()->subHour());
@@ -408,6 +432,69 @@ class Plugin extends Model
     public static function oversizedDataPayloadErrorPayload(): array
     {
         return ['error' => 'Data payload exceeds maximum allowed size'];
+    }
+
+    /**
+     * Run the recipe's transform on polled data (or the empty static input) once transforms are enabled
+     * and the recipe has a transform language (null means no transform).
+     * Throws so the caller can fall back to the untransformed payload.
+     *
+     * @throws TransformException
+     */
+    private function applyTransform(mixed $payload): mixed
+    {
+        if (
+            ! is_array($payload)
+            || blank($this->transform_language)
+            || ! TransformService::isEnabled()
+            || ! in_array($this->data_strategy, TransformService::strategies(), true)
+        ) {
+            return $payload;
+        }
+
+        return app(TransformService::class)->transform($this, $payload);
+    }
+
+    /**
+     * Transform the payload and build the attributes to store. A failing transform
+     * stores the fallback payload (the untransformed payload by default) and records the error on the plugin.
+     *
+     * @return array{data_payload: mixed, data_payload_updated_at: DateTimeInterface, transform_error: ?string, transform_failed_at: ?DateTimeInterface}
+     */
+    private function transformedPayloadAttributes(mixed $rawPayload, mixed $fallbackPayload = null): array
+    {
+        $transformError = null;
+
+        try {
+            $finalPayload = $this->applyTransform($rawPayload);
+        } catch (TransformException $e) {
+            Log::warning('Transform failed; storing the untransformed payload', ['plugin_id' => $this->id, 'error' => $e->getMessage()]);
+            $finalPayload = $fallbackPayload ?? $rawPayload;
+            $transformError = mb_substr(mb_trim($e->getMessage()."\n".($e->diagnostics ?? '')), 0, self::MAX_TRANSFORM_ERROR_LENGTH);
+        }
+
+        if (! self::dataPayloadWithinWireLimit($finalPayload)) {
+            Log::warning("Plugin {$this->id} data_payload exceeded wire size limit; storing error placeholder");
+            $finalPayload = self::oversizedDataPayloadErrorPayload();
+        }
+
+        return [
+            'data_payload' => $finalPayload,
+            'data_payload_updated_at' => now(),
+            'transform_error' => $transformError,
+            'transform_failed_at' => $transformError === null ? null : ($this->transform_failed_at ?? now()),
+        ];
+    }
+
+    /**
+     * A static recipe with a transform runs it on every refresh instead of polling.
+     * The transform receives only the `trmnl` context and its output becomes the data payload.
+     */
+    public function runsStaticTransform(): bool
+    {
+        return $this->data_strategy === 'static'
+            && filled($this->transform_language)
+            && TransformService::isEnabled();
     }
 
     /** Supported TRMNL webhook merge strategies for recipe plugins. */
@@ -495,9 +582,26 @@ class Plugin extends Model
 
     public function updateDataPayload(): void
     {
+        if ($this->runsStaticTransform()) {
+            // Keep the last good output when the transform fails.
+            $this->update($this->transformedPayloadAttributes([], fallbackPayload: $this->data_payload));
+
+            return;
+        }
+
         if ($this->data_strategy !== 'polling' || ! $this->polling_url) {
             return;
         }
+
+        $this->update($this->transformedPayloadAttributes($this->fetchPollingPayload()));
+    }
+
+    /**
+     * Fetch and parse the polling URLs without transforming or storing the result.
+     * One URL yields its parsed response; several yield `IDX_n` keys.
+     */
+    public function fetchPollingPayload(): mixed
+    {
         $headers = ['User-Agent' => 'usetrmnl/larapaper', 'Accept' => 'application/json'];
 
         // resolve headers
@@ -563,22 +667,7 @@ class Plugin extends Model
         }
 
         // unwrap IDX_0 if only one URL
-        $finalPayload = (count($urls) === 1) ? reset($combinedResponse) : $combinedResponse;
-
-        if (! self::dataPayloadWithinWireLimit($finalPayload)) {
-            Log::warning("Plugin {$this->id} data_payload exceeded wire size limit; storing error placeholder");
-            $finalPayload = self::oversizedDataPayloadErrorPayload();
-        }
-
-        if ($this->transform_code && $this->transform_language) {
-            $finalPayload = app(ServerlessTransformService::class)
-                ->run($this->transform_code, $this->transform_language, $finalPayload);
-        }
-
-        $this->update([
-            'data_payload' => $finalPayload,
-            'data_payload_updated_at' => now(),
-        ]);
+        return (count($urls) === 1) ? reset($combinedResponse) : $combinedResponse;
     }
 
     private function parseResponse(Response $httpResponse): array
@@ -613,7 +702,7 @@ class Plugin extends Model
         // Apply basic replacements
         $template = str_replace(array_keys($replacements), array_values($replacements), $template);
 
-        // Convert Ruby/strftime date formats to PHP date formats
+        // Convert l_date formats from strftime to PHP date tokens.
         $template = $this->convertDateFormats($template);
 
         // Convert {% render "template" with %} syntax to {% render "template", %} syntax
@@ -643,24 +732,12 @@ class Plugin extends Model
     }
 
     /**
-     * Convert Ruby/strftime date formats to PHP date formats in Liquid templates
+     * Convert l_date formats from strftime to PHP date tokens.
+     *
+     * The built-in date filter speaks strftime natively. l_date still formats with Carbon.
      */
     private function convertDateFormats(string $template): string
     {
-        // Handle date filter formats: date: "format" or date: 'format'
-        $template = preg_replace_callback(
-            '/date:\s*(["\'])([^"\']+)\1/',
-            function (array $matches): string {
-                $quote = $matches[1];
-                $format = $matches[2];
-                $convertedFormat = \App\Liquid\Utils\ExpressionUtils::strftimeToPhpFormat($format);
-
-                return 'date: '.$quote.$convertedFormat.$quote;
-            },
-            $template
-        );
-
-        // Handle l_date filter formats: l_date: "format" or l_date: 'format'
         $template = preg_replace_callback(
             '/l_date:\s*(["\'])([^"\']+)\1/',
             function (array $matches): string {
@@ -719,7 +796,7 @@ class Plugin extends Model
         }
 
         // Use the Liquid template engine to resolve variables
-        $environment = App::make('liquid.environment');
+        $environment = PluginLiquidEnvironment::make();
         $environment->filterRegistry->register(StandardFilters::class);
         $liquidTemplate = $environment->parseString($template);
         $context = $environment->newRenderContext(data: $variables);
@@ -775,6 +852,20 @@ class Plugin extends Model
     }
 
     /**
+     * `trmnl` context passed to transforms. No device is bound while data is transformed,
+     * and system/sensor values are render-time only.
+     *
+     * @return array<string, mixed>
+     */
+    public function transformContext(): array
+    {
+        $context = $this->trmnlContext();
+        unset($context['system'], $context['sensors']);
+
+        return $context;
+    }
+
+    /**
      * TRMNL template variables shared by Liquid, Blade, and view rendering.
      *
      * @return array<string, mixed>
@@ -827,9 +918,11 @@ class Plugin extends Model
     /**
      * Render the plugin's markup
      *
+     * @param  TextScaleLevel|null  $textScaleLevel  Text scale of the playlist item being rendered (standalone screens only).
+     *
      * @throws LiquidException
      */
-    public function render(string $size = 'full', bool $standalone = true, ?Device $device = null): string
+    public function render(string $size = 'full', bool $standalone = true, ?Device $device = null, ?TextScaleLevel $textScaleLevel = null): string
     {
         if ($this->plugin_type !== 'recipe') {
             throw new InvalidArgumentException('Render method is only applicable for recipe plugins.');
@@ -855,25 +948,7 @@ class Plugin extends Model
                     $renderedContent = $this->renderWithExternalLiquidRenderer($markup, $context);
                 } else {
                     // Use PHP keepsuit/liquid renderer
-                    // Create a custom environment with inline templates support
-                    $inlineFileSystem = new InlineTemplatesFileSystem();
-                    $environment = new \Keepsuit\Liquid\Environment(
-                        fileSystem: $inlineFileSystem,
-                        extensions: [new StandardExtension(), new LaravelLiquidExtension()]
-                    );
-
-                    // Register all custom filters
-                    $environment->filterRegistry->register(Data::class);
-                    $environment->filterRegistry->register(Date::class);
-                    $environment->filterRegistry->register(Localization::class);
-                    $environment->filterRegistry->register(Numbers::class);
-                    $environment->filterRegistry->register(StringMarkup::class);
-                    $environment->filterRegistry->register(Uniqueness::class);
-
-                    // Register the template tag for inline templates
-                    $environment->tagRegistry->register(TemplateTag::class);
-                    // Use plugin render tag so partials receive trmnl, size, data, config
-                    $environment->tagRegistry->register(PluginRenderTag::class);
+                    $environment = PluginLiquidEnvironment::make();
 
                     // Apply Liquid replacements (including 'with' syntax conversion)
                     $processedMarkup = $this->applyLiquidReplacements($markup);
@@ -883,11 +958,8 @@ class Plugin extends Model
                     $renderedContent = $template->render($liquidContext);
                 }
             } else {
-                if (config('app.multi_user_mode') && $this->user !== null) {
-                    $isAdminOrAllowed = $this->user->isAdmin() || config('app.dangerously_allow_blade_for_non_admins');
-                    if (! $isAdminOrAllowed) {
-                        throw new \RuntimeException('Blade rendering is restricted to administrators. Switch the plugin to Liquid or contact an admin.');
-                    }
+                if (! UserBladeExecution::allowedForOwner($this->user)) {
+                    throw new InvalidArgumentException(UserBladeExecution::deniedMessage());
                 }
 
                 $renderedContent = Blade::render($markup, [
@@ -906,6 +978,8 @@ class Plugin extends Model
                         'noBleed' => $this->no_bleed,
                         'darkMode' => $this->dark_mode,
                         'scaleLevel' => $device?->scaleLevel(),
+                        'textScaleLevel' => $textScaleLevel?->value,
+                        'paletteClass' => $device?->paletteClass(),
                         'cssVariables' => $device?->deviceModel?->css_variables,
                         'frameworkVersion' => $this->resolvedFrameworkVersion(),
                         'slot' => $renderedContent,
@@ -918,6 +992,8 @@ class Plugin extends Model
                     'deviceVariant' => $device?->deviceModel->css_name ?? $device?->deviceVariant() ?? 'og',
                     'darkMode' => $this->dark_mode,
                     'scaleLevel' => $device?->scaleLevel(),
+                    'textScaleLevel' => $textScaleLevel?->value,
+                    'paletteClass' => $device?->paletteClass(),
                     'cssVariables' => $device?->deviceModel?->css_variables,
                     'frameworkVersion' => $this->resolvedFrameworkVersion(),
                     'slot' => $renderedContent,
@@ -944,6 +1020,8 @@ class Plugin extends Model
                         'noBleed' => $this->no_bleed,
                         'darkMode' => $this->dark_mode,
                         'scaleLevel' => $device?->scaleLevel(),
+                        'textScaleLevel' => $textScaleLevel?->value,
+                        'paletteClass' => $device?->paletteClass(),
                         'cssVariables' => $device?->deviceModel?->css_variables,
                         'frameworkVersion' => $this->resolvedFrameworkVersion(),
                         'slot' => $renderedView,
@@ -956,6 +1034,8 @@ class Plugin extends Model
                     'deviceVariant' => $device?->deviceModel->css_name ?? $device?->deviceVariant() ?? 'og',
                     'darkMode' => $this->dark_mode,
                     'scaleLevel' => $device?->scaleLevel(),
+                    'textScaleLevel' => $textScaleLevel?->value,
+                    'paletteClass' => $device?->paletteClass(),
                     'cssVariables' => $device?->deviceModel?->css_variables,
                     'frameworkVersion' => $this->resolvedFrameworkVersion(),
                     'slot' => $renderedView,
@@ -1026,7 +1106,7 @@ class Plugin extends Model
         // Get all attributes except id and uuid
         // Use toArray() to get cast values (respects JSON casts)
         $attributes = $this->toArray();
-        unset($attributes['id'], $attributes['uuid'], $attributes['trmnlp_id']);
+        unset($attributes['id'], $attributes['uuid'], $attributes['trmnlp_id'], $attributes['transform_error'], $attributes['transform_failed_at']);
 
         // Handle render_markup_view - copy file content to render_markup
         if ($this->render_markup_view) {

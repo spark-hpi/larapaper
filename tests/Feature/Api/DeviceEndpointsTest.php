@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TextScaleLevel;
 use App\Jobs\GenerateScreenJob;
 use App\Models\Device;
 use App\Models\DeviceModel;
@@ -28,6 +29,8 @@ test('device can fetch display data with valid credentials', function (): void {
         'api_key' => 'test-api-key',
         'current_screen_image' => 'test-image',
     ]);
+
+    Storage::disk('public')->put('images/generated/test-image.bmp', 'fake bmp content');
 
     $response = $this->withHeaders([
         'id' => $device->mac_address,
@@ -121,7 +124,7 @@ test('display endpoint includes maximum_compatibility value when true for device
 });
 
 test('new device is auto-assigned to user with auto-assign enabled', function (): void {
-    $user = User::factory()->create(['assign_new_devices' => true]);
+    $user = User::factory()->autoJoinEnabled()->create();
 
     $response = $this->withHeaders([
         'id' => '00:11:22:33:44:55',
@@ -149,10 +152,11 @@ test('new device is auto-assigned and mirrors specified device', function (): vo
     ]);
 
     // Create user with auto-assign enabled and mirror device set
-    $user = User::factory()->create([
-        'assign_new_devices' => true,
+    $user = User::factory()->autoJoinEnabled()->create([
         'assign_new_device_id' => $sourceDevice->id,
     ]);
+
+    Storage::disk('public')->put('images/generated/source-image.bmp', 'fake bmp content');
 
     // Make request from new device
     $response = $this->withHeaders([
@@ -197,6 +201,131 @@ test('device setup endpoint returns correct data', function (): void {
             'friendly_id' => 'test-device',
             'message' => 'Welcome to TRMNL BYOS',
         ]);
+});
+
+test('setup endpoint hands out the api key only once when auto-join is off', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'mac_address' => '00:11:22:33:44:55',
+        'api_key' => 'test-api-key',
+    ]);
+
+    $this->withHeaders(['id' => $device->mac_address])
+        ->get('/api/setup')
+        ->assertOk()
+        ->assertJson(['api_key' => 'test-api-key']);
+
+    expect($device->fresh()->last_refreshed_at)->not->toBeNull();
+
+    $this->withHeaders(['id' => $device->mac_address])
+        ->get('/api/setup')
+        ->assertNotFound()
+        ->assertJsonMissing(['api_key' => 'test-api-key']);
+});
+
+test('setup endpoint does not return the api key of a connected device when auto-join is off', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'mac_address' => '00:11:22:33:44:55',
+        'api_key' => 'test-api-key',
+        'last_refreshed_at' => now(),
+    ]);
+
+    $response = $this->withHeaders([
+        'id' => $device->mac_address,
+    ])->get('/api/setup');
+
+    $response->assertNotFound()
+        ->assertJsonMissing(['api_key' => 'test-api-key'])
+        ->assertJson([
+            'message' => 'MAC Address not registered or invalid access token',
+        ]);
+});
+
+test('setup endpoint returns the api key of a connected device when its owner has auto-join on', function (): void {
+    $user = User::factory()->autoJoinEnabled()->create();
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'mac_address' => '00:11:22:33:44:55',
+        'api_key' => 'test-api-key',
+        'last_refreshed_at' => now(),
+    ]);
+
+    $response = $this->withHeaders([
+        'id' => $device->mac_address,
+    ])->get('/api/setup');
+
+    $response->assertOk()
+        ->assertJson(['api_key' => 'test-api-key']);
+});
+
+test('setup endpoint ignores auto-join of a user who does not own the connected device', function (): void {
+    User::factory()->autoJoinEnabled()->create();
+    $owner = User::factory()->create();
+    $device = Device::factory()->create([
+        'user_id' => $owner->id,
+        'mac_address' => '00:11:22:33:44:55',
+        'last_refreshed_at' => now(),
+    ]);
+
+    $this->withHeaders([
+        'id' => $device->mac_address,
+    ])->get('/api/setup')->assertNotFound();
+
+    expect(Device::where('mac_address', '00:11:22:33:44:55')->count())->toBe(1);
+});
+
+test('expired auto join window neither re-hands out keys nor auto-provisions devices', function (): void {
+    $user = User::factory()->autoJoinEnabled()->create();
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'mac_address' => '00:11:22:33:44:55',
+        'api_key' => 'test-api-key',
+        'last_refreshed_at' => now(),
+    ]);
+
+    $this->travel(User::AUTO_JOIN_WINDOW_MINUTES + 1)->minutes();
+
+    $this->withHeaders(['id' => $device->mac_address])
+        ->get('/api/setup')
+        ->assertNotFound()
+        ->assertJsonMissing(['api_key' => 'test-api-key']);
+
+    $this->withHeaders(['id' => '66:77:88:99:AA:BB'])
+        ->get('/api/setup')
+        ->assertNotFound();
+
+    $this->withHeaders(['id' => '66:77:88:99:AA:CC', 'access-token' => 'new-device-key'])
+        ->get('/api/display')
+        ->assertNotFound();
+
+    expect(Device::count())->toBe(1);
+});
+
+test('setup endpoint is rate limited per ip', function (): void {
+    foreach (range(1, 10) as $attempt) {
+        $this->withHeaders(['id' => sprintf('00:11:22:33:44:%02d', $attempt)])
+            ->get('/api/setup')
+            ->assertNotFound();
+    }
+
+    $this->withHeaders(['id' => '00:11:22:33:44:99'])
+        ->get('/api/setup')
+        ->assertTooManyRequests();
+});
+
+test('device display endpoint is rate limited per ip', function (): void {
+    foreach (range(1, 60) as $attempt) {
+        $this->withHeaders(['access-token' => "invalid-key-{$attempt}"])
+            ->get('/api/display')
+            ->assertNotFound();
+    }
+
+    $this->withHeaders(['access-token' => 'invalid-key-61'])
+        ->get('/api/display')
+        ->assertTooManyRequests();
 });
 
 test('device can submit logs', function (): void {
@@ -465,6 +594,8 @@ test('device can mirror another device', function (): void {
         'api_key' => 'mirror-api-key',
         'mirror_device_id' => $sourceDevice->id,
     ]);
+
+    Storage::disk('public')->put('images/generated/source-image.bmp', 'fake bmp content');
 
     // Make request from mirror device
     $response = $this->withHeaders([
@@ -1690,6 +1821,8 @@ test('device not in sleep mode returns normal image', function (): void {
     // Freeze time to 18:00 (outside sleep window)
     Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2000-01-01 18:00:00'));
 
+    Storage::disk('public')->put('images/generated/test-image.bmp', 'fake bmp content');
+
     $response = $this->withHeaders([
         'id' => $device->mac_address,
         'access-token' => $device->api_key,
@@ -1725,6 +1858,88 @@ test('display status update requires sleep mode times when sleep mode is enabled
 
     $response->assertStatus(422)
         ->assertJsonValidationErrors(['sleep_mode_from']);
+});
+
+test('display status update sets the sleep and pause plugins', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $user->id]);
+    $sleepPlugin = Plugin::factory()->create(['user_id' => $user->id]);
+    $pausePlugin = Plugin::factory()->create(['user_id' => $user->id]);
+
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/display/status', [
+        'device_id' => $device->id,
+        'sleep_plugin_id' => $sleepPlugin->id,
+        'pause_plugin_id' => $pausePlugin->id,
+    ])
+        ->assertOk()
+        ->assertJson([
+            'sleep_plugin_id' => $sleepPlugin->id,
+            'pause_plugin_id' => $pausePlugin->id,
+        ]);
+
+    $device->refresh();
+    expect($device->sleep_plugin_id)->toBe($sleepPlugin->id)
+        ->and($device->pause_plugin_id)->toBe($pausePlugin->id);
+});
+
+test('display status update rejects another users sleep and pause plugins', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $user->id]);
+    $foreignPlugin = Plugin::factory()->create(['user_id' => User::factory()->create()->id]);
+
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/display/status', [
+        'device_id' => $device->id,
+        'sleep_plugin_id' => $foreignPlugin->id,
+        'pause_plugin_id' => $foreignPlugin->id,
+    ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['sleep_plugin_id', 'pause_plugin_id']);
+
+    $device->refresh();
+    expect($device->sleep_plugin_id)->toBeNull()
+        ->and($device->pause_plugin_id)->toBeNull();
+});
+
+test('display status update clears the sleep and pause plugins when sent null', function (): void {
+    $user = User::factory()->create();
+    $plugin = Plugin::factory()->create(['user_id' => $user->id]);
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'sleep_plugin_id' => $plugin->id,
+        'pause_plugin_id' => $plugin->id,
+    ]);
+
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/display/status', [
+        'device_id' => $device->id,
+        'sleep_plugin_id' => null,
+        'pause_plugin_id' => null,
+    ])->assertOk();
+
+    $device->refresh();
+    expect($device->sleep_plugin_id)->toBeNull()
+        ->and($device->pause_plugin_id)->toBeNull();
+});
+
+test('display status update rejects a plugin that does not exist', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $user->id]);
+
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/display/status', [
+        'device_id' => $device->id,
+        'sleep_plugin_id' => 999999,
+    ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['sleep_plugin_id']);
+
+    expect($device->refresh()->sleep_plugin_id)->toBeNull();
 });
 
 test('device returns sleep.png and correct refresh time when paused', function (): void {
@@ -1782,6 +1997,33 @@ test('device paused for long period returns refresh rate capped at 24 hours', fu
 test('screens endpoint accepts nullable file_name', function (): void {
     Queue::fake();
 
+    $user = User::factory()->create();
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'mac_address' => '00:11:22:33:44:55',
+    ]);
+
+    Sanctum::actingAs($user, ['update-screen']);
+
+    $response = $this->withHeaders([
+        'id' => $device->mac_address,
+    ])->postJson('/api/screens', [
+        'image' => [
+            'content' => '<div>Test content</div>',
+        ],
+    ]);
+
+    $response->assertOk()
+        ->assertExactJson(['message' => 'success'])
+        ->assertHeader('Deprecation', 'true')
+        ->assertHeader('Link', '<'.route('display.update').'>; rel="successor-version"');
+
+    Queue::assertPushed(GenerateScreenJob::class);
+});
+
+test('screens endpoint rejects device access token without a sanctum token', function (): void {
+    Queue::fake();
+
     $device = Device::factory()->create([
         'mac_address' => '00:11:22:33:44:55',
         'api_key' => 'test-api-key',
@@ -1790,22 +2032,46 @@ test('screens endpoint accepts nullable file_name', function (): void {
     $response = $this->withHeaders([
         'id' => $device->mac_address,
         'access-token' => $device->api_key,
-    ])->post('/api/screens', [
+    ])->postJson('/api/screens', [
+        'image' => [
+            'content' => "{{ 'ok' }}",
+        ],
+    ]);
+
+    $response->assertUnauthorized();
+
+    Queue::assertNothingPushed();
+});
+
+test('screens endpoint requires the update-screen ability', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $user->id]);
+
+    Sanctum::actingAs($user, ['read']);
+
+    $response = $this->withHeaders([
+        'id' => $device->mac_address,
+    ])->postJson('/api/screens', [
         'image' => [
             'content' => '<div>Test content</div>',
         ],
     ]);
 
-    $response->assertOk();
-
-    Queue::assertPushed(GenerateScreenJob::class);
+    $response->assertForbidden();
 });
 
-test('screens endpoint returns 404 for invalid device credentials', function (): void {
+test('screens endpoint returns 404 for devices of other users', function (): void {
+    Queue::fake();
+
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $otherUser->id]);
+
+    Sanctum::actingAs($user, ['update-screen']);
+
     $response = $this->withHeaders([
-        'id' => 'invalid-mac',
-        'access-token' => 'invalid-key',
-    ])->post('/api/screens', [
+        'id' => $device->mac_address,
+    ])->postJson('/api/screens', [
         'image' => [
             'content' => '<div>Test content</div>',
             'file_name' => 'test.blade.php',
@@ -1814,12 +2080,14 @@ test('screens endpoint returns 404 for invalid device credentials', function ():
 
     $response->assertNotFound()
         ->assertJson([
-            'message' => 'MAC Address not registered or invalid access token',
+            'message' => 'MAC Address not registered',
         ]);
+
+    Queue::assertNothingPushed();
 });
 
 test('setup endpoint assigns device model when model-id header is provided', function (): void {
-    $user = User::factory()->create(['assign_new_devices' => true]);
+    $user = User::factory()->autoJoinEnabled()->create();
     $deviceModel = DeviceModel::factory()->create([
         'name' => 'test-model',
         'label' => 'Test Model',
@@ -1842,7 +2110,7 @@ test('setup endpoint assigns device model when model-id header is provided', fun
 });
 
 test('setup endpoint handles non-existent device model gracefully', function (): void {
-    $user = User::factory()->create(['assign_new_devices' => true]);
+    $user = User::factory()->autoJoinEnabled()->create();
 
     $response = $this->withHeaders([
         'id' => '00:11:22:33:44:55',
@@ -1890,6 +2158,8 @@ test('display endpoint matches MAC address case-insensitively', function (): voi
         'current_screen_image' => 'test-image',
     ]);
 
+    Storage::disk('public')->put('images/generated/test-image.bmp', 'fake bmp content');
+
     // Request with uppercase MAC address should still match
     $response = $this->withHeaders([
         'id' => 'A1:B2:C3:D4:E5:F6',
@@ -1911,17 +2181,20 @@ test('display endpoint matches MAC address case-insensitively', function (): voi
 test('screens endpoint matches MAC address case-insensitively', function (): void {
     Queue::fake();
 
+    $user = User::factory()->create();
+
     // Create device with uppercase MAC address
-    $device = Device::factory()->create([
+    Device::factory()->create([
+        'user_id' => $user->id,
         'mac_address' => 'A1:B2:C3:D4:E5:F6',
-        'api_key' => 'test-api-key',
     ]);
+
+    Sanctum::actingAs($user, ['update-screen']);
 
     // Request with lowercase MAC address should still match
     $response = $this->withHeaders([
         'id' => 'a1:b2:c3:d4:e5:f6',
-        'access-token' => $device->api_key,
-    ])->post('/api/screens', [
+    ])->postJson('/api/screens', [
         'image' => [
             'content' => '<div>Test content</div>',
         ],
@@ -2089,4 +2362,48 @@ test('getDeviceSpecificDefaultImage returns null for error type when no device-s
 
     $result = ImageGenerationService::getDeviceSpecificDefaultImage($device, 'error');
     expect($result)->toBeNull();
+});
+
+test('display re-renders a cached plugin image made at another text scale than the playlist item', function (): void {
+    $device = Device::factory()->create([
+        'mac_address' => '00:11:22:33:44:77',
+        'api_key' => 'text-scale-key',
+        'proxy_cloud' => false,
+    ]);
+    $plugin = Plugin::factory()->create([
+        'data_strategy' => 'static',
+        'polling_url' => null,
+        'data_stale_minutes' => 60,
+        'data_payload_updated_at' => now(),
+        'render_markup' => '<div>Hello</div>',
+        'current_image' => 'cached-image-uuid',
+        'current_image_metadata' => ImageGenerationService::buildImageMetadataFromDevice($device),
+    ]);
+    Storage::disk('public')->put('images/generated/cached-image-uuid.png', 'cached');
+    $playlist = Playlist::factory()->create([
+        'device_id' => $device->id,
+        'is_active' => true,
+        'weekdays' => null,
+        'active_from' => null,
+        'active_until' => null,
+    ]);
+    PlaylistItem::factory()->create([
+        'playlist_id' => $playlist->id,
+        'plugin_id' => $plugin->id,
+        'is_active' => true,
+        'text_scale_level' => TextScaleLevel::LARGE,
+    ]);
+
+    $this->withHeaders([
+        'id' => $device->mac_address,
+        'access-token' => $device->api_key,
+        'rssi' => -70,
+        'battery_voltage' => 3.8,
+        'fw-version' => '1.0.0',
+    ])->get('/api/display')->assertOk();
+
+    $plugin->refresh();
+    expect($plugin->current_image)->not->toBe('cached-image-uuid')
+        ->and($plugin->current_image_metadata['text_scale_level'])->toBe('large')
+        ->and($device->refresh()->current_screen_image)->toBe($plugin->current_image);
 });

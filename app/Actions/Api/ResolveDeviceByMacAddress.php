@@ -13,8 +13,12 @@ class ResolveDeviceByMacAddress
     /**
      * Resolve or auto-provision a device by its MAC address header (`id`).
      *
-     * Used by the firmware /setup flow. Returns null if the device cannot be
-     * resolved and no auto-assign user is configured.
+     * Used by the firmware /setup flow, which hands the device its api_key. A
+     * MAC address is not a secret, so an existing device is only returned while
+     * it has never been activated (no /setup or /display request yet), or when
+     * its owner's Auto-Join window is open (used to re-pair a device after a
+     * factory reset). Unknown MAC addresses are only auto-provisioned while a
+     * user's Auto-Join window is open. Returns null otherwise.
      */
     public function handle(Request $request): ?Device
     {
@@ -27,10 +31,17 @@ class ResolveDeviceByMacAddress
         $device = Device::where('mac_address', mb_strtoupper($macAddress))->first();
 
         if ($device) {
-            return $device;
+            // Unowned (shared) devices may re-pair while any admin's Auto-Join window is open.
+            $autoJoinOpen = $device->user !== null
+                ? $device->user->hasActiveAutoJoin()
+                : User::withActiveAutoJoin()->exists();
+
+            return $device->last_refreshed_at === null || $autoJoinOpen
+                ? $device
+                : null;
         }
 
-        $autoAssignUser = User::where('assign_new_devices', true)->first();
+        $autoAssignUser = User::withActiveAutoJoin()->first();
 
         if (! $autoAssignUser) {
             return null;

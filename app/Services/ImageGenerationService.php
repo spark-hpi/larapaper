@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ImageFormat;
+use App\Enums\TextScaleLevel;
 use App\Models\Device;
 use App\Models\DeviceModel;
 use App\Models\DevicePalette;
@@ -124,8 +125,9 @@ class ImageGenerationService
                 $browserStage->setBrowsershotOption('waitUntil', 'networkidle0');
             }
 
-            if (config('app.puppeteer_docker')) {
-                $browserStage->setBrowsershotOption('args', ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu']);
+            $browserArguments = self::browserArguments();
+            if ($browserArguments !== []) {
+                $browserStage->setBrowsershotOption('args', $browserArguments);
             }
 
             $colorPalette = match (true) {
@@ -173,6 +175,33 @@ class ImageGenerationService
             Log::error('Failed to generate image: '.$e->getMessage());
             throw new RuntimeException('Failed to generate image: '.$e->getMessage(), 0, $e);
         }
+    }
+
+    /**
+     * Chromium arguments for every Browsershot render.
+     *
+     * Local renders share an HTTP disk cache so cacheable assets are not
+     * downloaded again on every render; AWS Lambda renders do not.
+     *
+     * @return list<string>
+     */
+    public static function browserArguments(): array
+    {
+        $arguments = config('app.puppeteer_docker')
+            ? ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu']
+            : [];
+
+        $cacheDirectory = config('app.puppeteer_disk_cache_dir');
+
+        if (config('app.puppeteer_mode') !== 'sidecar-aws'
+            && config('app.puppeteer_disk_cache')
+            && is_string($cacheDirectory)
+            && $cacheDirectory !== '') {
+            $arguments[] = '--disk-cache-dir='.$cacheDirectory;
+            $arguments[] = '--disk-cache-size='.(config('app.puppeteer_disk_cache_size_mb') * 1024 * 1024);
+        }
+
+        return $arguments;
     }
 
     /**
@@ -404,8 +433,9 @@ class ImageGenerationService
     public static function cleanupFolder(): void
     {
         $activeDeviceImageUuids = Device::pluck('current_screen_image')->filter()->toArray();
+        $activeOfflineImageUuids = Device::pluck('offline_screen_image')->filter()->toArray();
         $activePluginImageUuids = Plugin::pluck('current_image')->filter()->toArray();
-        $activeImageUuids = array_merge($activeDeviceImageUuids, $activePluginImageUuids);
+        $activeImageUuids = array_merge($activeDeviceImageUuids, $activeOfflineImageUuids, $activePluginImageUuids);
 
         $files = Storage::disk('public')->files('/images/generated/');
         foreach ($files as $file) {
@@ -424,8 +454,10 @@ class ImageGenerationService
     /**
      * Ensure plugin image cache is valid for the current context. No-op for image_webhook.
      * When deviceOrModel is provided (recipe only), clears cache if stored metadata does not match.
+     *
+     * @param  TextScaleLevel|null  $textScaleLevel  Text scale of the playlist item the image is rendered for.
      */
-    public static function resetIfNotCacheable(?Plugin $plugin, Device|DeviceModel|null $deviceOrModel = null): void
+    public static function resetIfNotCacheable(?Plugin $plugin, Device|DeviceModel|null $deviceOrModel = null, ?TextScaleLevel $textScaleLevel = null): void
     {
         if (! $plugin?->id) {
             return;
@@ -448,7 +480,7 @@ class ImageGenerationService
         if ($plugin->current_image === null) {
             return;
         }
-        if (self::imageMetadataMatches($plugin->current_image_metadata, $deviceOrModel)) {
+        if (self::imageMetadataMatches($plugin->current_image_metadata, $deviceOrModel, $textScaleLevel)) {
             return;
         }
         $plugin->update([
@@ -461,9 +493,10 @@ class ImageGenerationService
     /**
      * Build canonical image metadata from a Device for cache comparison.
      *
-     * @return array{width: int, height: int, rotation: int, palette_id: int|null, mime_type: string}
+     * @param  TextScaleLevel|null  $textScaleLevel  Text scale of the playlist item the image is rendered for.
+     * @return array{width: int, height: int, rotation: int, palette_id: int|null, mime_type: string, scale_level: string|null, text_scale_level: string|null}
      */
-    public static function buildImageMetadataFromDevice(Device $device): array
+    public static function buildImageMetadataFromDevice(Device $device, ?TextScaleLevel $textScaleLevel = null): array
     {
         $device->loadMissing(['deviceModel', 'deviceModel.palette']);
         $settings = self::getImageSettings($device);
@@ -475,13 +508,15 @@ class ImageGenerationService
             'rotation' => $settings['rotation'] ?? 0,
             'palette_id' => $paletteId,
             'mime_type' => $settings['mime_type'],
+            'scale_level' => $device->scaleLevel(),
+            'text_scale_level' => $textScaleLevel?->value,
         ];
     }
 
     /**
      * Build canonical image metadata from a DeviceModel for cache comparison.
      *
-     * @return array{width: int, height: int, rotation: int, palette_id: int|null, mime_type: string}
+     * @return array{width: int, height: int, rotation: int, palette_id: int|null, mime_type: string, scale_level: string|null, text_scale_level: null}
      */
     public static function buildImageMetadataFromDeviceModel(DeviceModel $model): array
     {
@@ -491,24 +526,28 @@ class ImageGenerationService
             'rotation' => $model->rotation ?? 0,
             'palette_id' => $model->palette_id,
             'mime_type' => $model->mime_type,
+            'scale_level' => $model->scale_level,
+            'text_scale_level' => null,
         ];
     }
 
     /**
      * Check if stored metadata matches the current device or device model.
      * Returns false if stored is null or empty so cache is regenerated and metadata is stored.
+     *
+     * @param  TextScaleLevel|null  $textScaleLevel  Text scale of the playlist item the image is rendered for.
      */
-    public static function imageMetadataMatches(?array $stored, Device|DeviceModel $deviceOrModel): bool
+    public static function imageMetadataMatches(?array $stored, Device|DeviceModel $deviceOrModel, ?TextScaleLevel $textScaleLevel = null): bool
     {
         if ($stored === null || $stored === []) {
             return false;
         }
 
         $current = $deviceOrModel instanceof Device
-            ? self::buildImageMetadataFromDevice($deviceOrModel)
+            ? self::buildImageMetadataFromDevice($deviceOrModel, $textScaleLevel)
             : self::buildImageMetadataFromDeviceModel($deviceOrModel);
 
-        foreach (['width', 'height', 'rotation', 'palette_id', 'mime_type'] as $key) {
+        foreach (['width', 'height', 'rotation', 'palette_id', 'mime_type', 'scale_level', 'text_scale_level'] as $key) {
             if (($stored[$key] ?? null) !== ($current[$key] ?? null)) {
                 return false;
             }
@@ -599,8 +638,9 @@ class ImageGenerationService
                 $browserStage->setBrowsershotOption('waitUntil', 'networkidle0');
             }
 
-            if (config('app.puppeteer_docker')) {
-                $browserStage->setBrowsershotOption('args', ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu']);
+            $browserArguments = self::browserArguments();
+            if ($browserArguments !== []) {
+                $browserStage->setBrowsershotOption('args', $browserArguments);
             }
 
             $palette = $device->palette ?? $device->deviceModel?->palette;
@@ -669,6 +709,7 @@ class ImageGenerationService
             'deviceOrientation' => $deviceOrientation,
             'colorDepth' => $colorDepth,
             'scaleLevel' => $scaleLevel,
+            'paletteClass' => $device->paletteClass(),
             'cssVariables' => $device->deviceModel->css_variables ?? [],
         ];
 

@@ -1,10 +1,9 @@
 <?php
 
-use App\Enums\FirmwareModel;
-use App\Jobs\FirmwareDownloadJob;
-use App\Jobs\FirmwarePollJob;
+use App\Concerns\ManagesDeviceActions;
+use App\Concerns\ProvidesSelectablePlugins;
+use App\Enums\ScaleLevel;
 use App\Models\DeviceModel;
-use App\Models\Firmware;
 use App\Models\Playlist;
 use App\Models\PlaylistItem;
 use App\Models\Plugin;
@@ -14,6 +13,8 @@ use Livewire\Component;
 new class extends Component
 {
     use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+    use ManagesDeviceActions;
+    use ProvidesSelectablePlugins;
 
     private const DEFAULT_SLEEP_MODE_FROM = '22:00';
 
@@ -48,6 +49,9 @@ new class extends Component
     // Signal to device to use high compatibility approaches when redrawing content
     public $maximum_compatibility = false;
 
+    // Interface scale; null follows the device model
+    public $scale_level = null;
+
     // Sleep mode and special function
     public $sleep_mode_enabled = false;
 
@@ -56,6 +60,10 @@ new class extends Component
     public $sleep_mode_to;
 
     public $special_function;
+
+    public $sleep_plugin_id;
+
+    public string $proxy_cloud_api_key = '';
 
     // Playlist properties
     public $playlists;
@@ -72,15 +80,6 @@ new class extends Component
 
     // Device model properties
     public $deviceModels;
-
-    // Firmware properties
-    public $firmwares;
-
-    public $selected_firmware_model;
-
-    public $selected_firmware_id;
-
-    public $download_firmware;
 
     public function getAvailableUsersProperty(): \Illuminate\Database\Eloquent\Collection
     {
@@ -113,6 +112,7 @@ new class extends Component
         $this->image_format = $device->image_format;
         $this->device_model_id = $device->device_model_id;
         $this->maximum_compatibility = $device->maximum_compatibility;
+        $this->scale_level = $device->scale_level?->value;
         $this->deviceModels = DeviceModel::orderBy('label')->get()->sortBy(function ($deviceModel) {
             // Put TRMNL models at the top, then sort alphabetically within each group
             $isTrmnl = str_starts_with($deviceModel->label, 'TRMNL');
@@ -120,12 +120,13 @@ new class extends Component
             return $isTrmnl ? '0'.$deviceModel->label : '1'.$deviceModel->label;
         });
         $this->playlists = $device->playlists()->with('items.plugin')->orderBy('created_at')->get();
-        $this->selected_firmware_model = FirmwareModel::forDevice($device)->value;
-        $this->refreshFirmwareList();
+        $this->prepareFirmwareUpdate($device->id);
         $this->sleep_mode_enabled = $device->sleep_mode_enabled ?? false;
         $this->sleep_mode_from = optional($device->sleep_mode_from)->format('H:i');
         $this->sleep_mode_to = optional($device->sleep_mode_to)->format('H:i');
         $this->special_function = $device->special_function;
+        $this->sleep_plugin_id = $device->sleep_plugin_id;
+        $this->proxy_cloud_api_key = $device->proxy_cloud_api_key ?? '';
         $this->is_mirror = $device->mirror_device_id !== null;
         $this->mirror_device_id = $device->mirror_device_id;
 
@@ -198,10 +199,13 @@ new class extends Component
             'device_model_id' => 'nullable|exists:device_models,id',
             'mirror_device_id' => 'required_if:is_mirror,true',
             'maximum_compatibility' => 'boolean',
+            'scale_level' => ['nullable', Rule::enum(ScaleLevel::class)],
             'sleep_mode_enabled' => 'boolean',
             'sleep_mode_from' => 'nullable|required_if:sleep_mode_enabled,true|date_format:H:i',
             'sleep_mode_to' => 'nullable|required_if:sleep_mode_enabled,true|date_format:H:i',
             'special_function' => 'nullable|string',
+            'sleep_plugin_id' => ['nullable', Rule::exists('plugins', 'id')->where('user_id', auth()->id())],
+            'proxy_cloud_api_key' => 'nullable|string|max:255',
         ], [
             'sleep_mode_from.required_if' => 'A sleep mode start time is required when sleep mode is enabled.',
             'sleep_mode_to.required_if' => 'A sleep mode end time is required when sleep mode is enabled.',
@@ -229,10 +233,13 @@ new class extends Component
             'device_model_id' => $deviceModelId,
             'mirror_device_id' => $this->is_mirror ? $this->mirror_device_id : null,
             'maximum_compatibility' => $this->maximum_compatibility,
+            'scale_level' => empty($this->scale_level) ? null : $this->scale_level,
             'sleep_mode_enabled' => $this->sleep_mode_enabled,
             'sleep_mode_from' => $this->sleep_mode_from,
             'sleep_mode_to' => $this->sleep_mode_to,
             'special_function' => $this->special_function,
+            'sleep_plugin_id' => $this->sleep_plugin_id ?: null,
+            'proxy_cloud_api_key' => $this->proxy_cloud_api_key !== '' ? $this->proxy_cloud_api_key : null,
         ]);
 
         Flux::modal('edit-device')->close();
@@ -272,6 +279,8 @@ new class extends Component
 
     public function togglePlaylistActive(Playlist $playlist)
     {
+        $this->authorize('update', $playlist->device);
+
         $playlist->update(['is_active' => ! $playlist->is_active]);
         $this->playlists = $this->device->playlists()->with('items.plugin')->orderBy('created_at')->get();
     }
@@ -301,6 +310,8 @@ new class extends Component
 
     public function togglePlaylistItemActive(PlaylistItem $item)
     {
+        $this->authorize('update', $item->playlist->device);
+
         $item->update(['is_active' => ! $item->is_active]);
         $this->playlists = $this->device->playlists()->with('items.plugin')->orderBy('created_at')->get();
     }
@@ -327,11 +338,7 @@ new class extends Component
 
         $this->authorize('update', $item->playlist->device);
 
-        if ($item->isMashup()) {
-            return;
-        }
-
-        if (! $item->plugin_id || ! $item->plugin || $item->plugin->plugin_type !== 'recipe') {
+        if (! $item->supportsImageCache()) {
             return;
         }
 
@@ -347,6 +354,8 @@ new class extends Component
 
     public function editPlaylist(Playlist $playlist)
     {
+        $this->authorize('update', $playlist->device);
+
         $this->validate([
             'playlist_name' => 'required|string|max:255',
             'selected_weekdays' => 'nullable|array',
@@ -384,68 +393,13 @@ new class extends Component
 
     public function preparePlaylistEdit(Playlist $playlist)
     {
+        $this->authorize('update', $playlist->device);
+
         $this->playlist_name = $playlist->name;
         $this->selected_weekdays = $playlist->weekdays ?? null;
         $this->active_from = optional($playlist->active_from)->format('H:i');
         $this->active_until = optional($playlist->active_until)->format('H:i');
         $this->refresh_time = $playlist->refresh_time;
-    }
-
-    public function updatedSelectedFirmwareModel(): void
-    {
-        $this->selectLatestFirmwareForModel();
-    }
-
-    public function checkFirmwareUpdates(): void
-    {
-        abort_unless(auth()->user()->devices->contains($this->device), 403);
-
-        FirmwarePollJob::dispatchSync();
-
-        $this->refreshFirmwareList();
-    }
-
-    private function refreshFirmwareList(): void
-    {
-        $this->firmwares = Firmware::query()->orderedForSelection()->get();
-        $this->selectLatestFirmwareForModel();
-    }
-
-    private function selectLatestFirmwareForModel(): void
-    {
-        $this->selected_firmware_id = $this->firmwares
-            ->where('model', $this->selected_firmware_model)
-            ->where('latest', true)
-            ->first()?->id;
-    }
-
-    public function updateFirmware()
-    {
-        $this->authorize('update', $this->device);
-
-        $this->validate([
-            'selected_firmware_model' => ['required', Rule::enum(FirmwareModel::class)],
-            'selected_firmware_id' => 'required|exists:firmware,id',
-        ]);
-
-        $firmware = Firmware::findOrFail($this->selected_firmware_id);
-        $selectedModel = FirmwareModel::from($this->selected_firmware_model);
-
-        if ($firmware->model !== $selectedModel) {
-            $this->addError('selected_firmware_id', 'The selected firmware does not match the selected device model.');
-
-            return;
-        }
-
-        if ($this->download_firmware) {
-            FirmwareDownloadJob::dispatchSync($firmware);
-        }
-
-        $this->device->update([
-            'update_firmware_id' => $this->selected_firmware_id,
-        ]);
-
-        Flux::modal('update-firmware')->close();
     }
 }
 ?>
@@ -530,24 +484,12 @@ new class extends Component
                             <flux:button icon="pencil-square" aria-label="Edit device" />
                         </flux:modal.trigger>
 
-                        <flux:dropdown>
-                            <flux:button icon="ellipsis-horizontal" variant="subtle" aria-label="Device actions" />
-                            <flux:menu>
-                                <flux:modal.trigger name="update-firmware">
-                                    <flux:menu.item icon="arrow-up-circle">Update Firmware</flux:menu.item>
-                                </flux:modal.trigger>
-                                <flux:menu.item icon="bars-3" href="{{ route('devices.logs', $device) }}" wire:navigate>
-                                    Show Logs
-                                </flux:menu.item>
-                                <flux:modal.trigger name="mirror-url">
-                                    <flux:menu.item icon="link">Mirror URL</flux:menu.item>
-                                </flux:modal.trigger>
-                                <flux:menu.separator />
-                                <flux:modal.trigger name="delete-device">
-                                    <flux:menu.item icon="trash" variant="danger">Delete Device</flux:menu.item>
-                                </flux:modal.trigger>
-                            </flux:menu>
-                        </flux:dropdown>
+                        <x-devices.actions-menu :device="$device" show-pause>
+                            <flux:menu.separator />
+                            <flux:modal.trigger name="delete-device">
+                                <flux:menu.item icon="trash" variant="danger">Delete Device</flux:menu.item>
+                            </flux:modal.trigger>
+                        </x-devices.actions-menu>
                     </div>
                 </flux:card.actions>
             </flux:card.header>
@@ -600,6 +542,20 @@ new class extends Component
                         </flux:select>
                     @endif
 
+                    <flux:select
+                        label="Scale"
+                        wire:model="scale_level"
+                        description="Size of text and spacing in screens. Automatic picks one from the screen width."
+                    >
+                        <flux:select.option value="">
+                            Automatic ({{ ScaleLevel::tryFrom($device->deviceModel?->scale_level ?? '')?->label() ?? 'Regular' }})
+                        </flux:select.option>
+                        @foreach (ScaleLevel::cases() as $scaleLevel)
+                            <flux:select.option value="{{ $scaleLevel->value }}">
+                                {{ $scaleLevel->label() }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+
                     <flux:checkbox
                         wire:model="maximum_compatibility"
                         label="Maximum Compatibility"
@@ -640,6 +596,38 @@ new class extends Component
                             <flux:input type="time" label="From" wire:model.fill="sleep_mode_from" />
                             <flux:input type="time" label="To" wire:model.fill="sleep_mode_to" />
                         </div>
+                        <flux:select
+                            label="Sleep Screen"
+                            wire:model="sleep_plugin_id"
+                            description="Optionally render a plugin instead of the default sleep screen."
+                        >
+                            <flux:select.option value="">Default sleep screen</flux:select.option>
+                            @foreach ($this->selectablePlugins as $plugin)
+                                <flux:select.option value="{{ $plugin->id }}">{{ $plugin->name }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+                    @endif
+
+                    <flux:separator class="my-4" text="Cloud Proxy" />
+                    <flux:input
+                        label="Cloud API key"
+                        wire:model="proxy_cloud_api_key"
+                        type="password"
+                        viewable
+                        description="Used instead of the device API key when proxying TRMNL cloud. Leave blank to use the device API key."
+                    />
+
+                    @if (config('app.multi_user_mode') && auth()->user()->isAdmin())
+                        <flux:separator class="my-4" text="Admin" />
+                        <flux:select label="Owner"
+                                     wire:change="reassignDevice($event.target.value ? Number($event.target.value) : null)">
+                            <flux:select.option value="">Nobody (Unowned)</flux:select.option>
+                            @foreach ($this->availableUsers as $u)
+                                <flux:select.option value="{{ $u->id }}" :selected="$device->user_id === $u->id">
+                                    {{ $u->name }}
+                                </flux:select.option>
+                            @endforeach
+                        </flux:select>
                     @endif
 
                     <div class="flex">
@@ -649,76 +637,6 @@ new class extends Component
                             >Save changes
                         </flux:button>
                     </div>
-                </div>
-            </flux:modal>
-
-            <flux:modal name="update-firmware" class="md:w-96">
-                <div class="space-y-6">
-                    <div>
-                        <flux:heading size="lg">Update Firmware</flux:heading>
-                        <flux:subheading>Select a firmware version to update to</flux:subheading>
-                    </div>
-
-                    <form wire:submit="updateFirmware">
-                        <flux:callout variant="warning" icon="exclamation-triangle" class="mb-4">
-                            <flux:callout.heading>TRMNL devices only</flux:callout.heading>
-                            <flux:callout.text>
-                                OTA firmware updates are currently available only for TRMNL devices. Applying firmware
-                                to other device models may break your device.</flux:callout.text>
-                        </flux:callout>
-
-                        <flux:button
-                            variant="subtle"
-                            icon="arrow-path"
-                            wire:click="checkFirmwareUpdates"
-                            class="mb-4 w-full"
-                        >
-                            Check for new firmware versions
-                        </flux:button>
-
-                        <div class="mb-4">
-                            <flux:select label="Device Model" wire:model.live="selected_firmware_model" required>
-                                @foreach (FirmwareModel::cases() as $firmwareModel)
-                                    <flux:select.option value="{{ $firmwareModel->value }}">
-                                        {{ $firmwareModel->label() }}</flux:select.option>
-                                @endforeach
-                            </flux:select>
-                        </div>
-
-                        <div class="mb-4">
-                            <flux:select label="Firmware Version" wire:model="selected_firmware_id" required>
-                                @foreach ($firmwares->where('model', $selected_firmware_model) as $firmware)
-                                    <flux:select.option value="{{ $firmware->id }}">
-                                        {{ $firmware->version_tag }} {{ $firmware->latest ? '(Latest)' : '' }}
-                                    </flux:select.option>
-                                @endforeach
-                            </flux:select>
-                        </div>
-
-                        <div class="mb-4">
-                            <flux:checkbox wire:model="download_firmware" label="Cache Firmware on BYOS">
-                            </flux:checkbox>
-                            <flux:text class="mt-2 text-xs">Check if the Device has no internet connection.</flux:text>
-                        </div>
-
-                        @if(config('app.multi_user_mode') && auth()->user()->isAdmin())
-                            <flux:separator class="my-4" text="Admin" />
-                            <flux:select label="Owner"
-                                         wire:change="reassignDevice($event.target.value ? Number($event.target.value) : null)">
-                                <flux:select.option value="">Nobody (Unowned)</flux:select.option>
-                                @foreach ($this->availableUsers as $u)
-                                    <flux:select.option value="{{ $u->id }}" :selected="$device->user_id === $u->id">
-                                        {{ $u->name }}
-                                    </flux:select.option>
-                                @endforeach
-                            </flux:select>
-                        @endif
-
-                        <div class="flex">
-                            <flux:spacer />
-                            <flux:button type="submit" variant="primary">Update Firmware</flux:button>
-                        </div>
-                    </form>
                 </div>
             </flux:modal>
 
@@ -739,22 +657,14 @@ new class extends Component
                 </div>
             </flux:modal>
 
-            <flux:modal name="mirror-url" class="md:w-96">
-                @php
-                    $mirrorUrl = url('/mirror/index.html').'?api_key='.urlencode($device->api_key);
-                @endphp
-
-                <div class="space-y-6">
-                    <div>
-                        <flux:heading size="lg">Mirror WebUI</flux:heading>
-                        <flux:subheading
-                            >Mirror this device onto older devices with a web browser — Safari is supported back to iOS
-                            9.</flux:subheading>
-                    </div>
-
-                    <flux:input label="Mirror URL" value="{{ $mirrorUrl }}" readonly copyable />
-                </div>
-            </flux:modal>
+            <x-devices.action-modals
+                :device="$device"
+                :firmwares="$this->firmwares"
+                :selected-firmware-model="$this->selected_firmware_model"
+                :simulate-physical-device="$this->simulate_physical_device"
+                :timezone="$this->timezone"
+                :selectable-plugins="$this->selectablePlugins"
+            />
 
             <flux:card.body class="space-y-6">
                 @if (! $device->mirror_device_id)

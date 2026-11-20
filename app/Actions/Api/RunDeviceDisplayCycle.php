@@ -2,6 +2,7 @@
 
 namespace App\Actions\Api;
 
+use App\Actions\RenderPluginImage;
 use App\Jobs\GenerateScreenJob;
 use App\Models\Device;
 use App\Models\PlaylistItem;
@@ -15,7 +16,10 @@ use Illuminate\Support\Facades\Log;
 
 class RunDeviceDisplayCycle
 {
-    public function __construct(private readonly DeviceImageResolver $imageResolver) {}
+    public function __construct(
+        private readonly DeviceImageResolver $imageResolver,
+        private readonly RenderPluginImage $renderPluginImage,
+    ) {}
 
     /**
      * Resolve the image path and refresh-time override for the current display
@@ -32,7 +36,7 @@ class RunDeviceDisplayCycle
     {
         if ($device->isPauseActive()) {
             return [
-                'image_path' => $this->defaultImagePath($device, 'sleep'),
+                'image_path' => $this->offlineImagePath($device, $device->pausePlugin),
                 'refresh_time_override' => min(Device::MAX_PAUSE_REFRESH_SECONDS, (int) now()->diffInSeconds($device->pause_until)),
                 'screen_identity' => 'sleep',
                 'screen_prefix' => DeviceScreenFilename::PREFIX_SYSTEM,
@@ -41,7 +45,7 @@ class RunDeviceDisplayCycle
 
         if ($device->isSleepModeActive()) {
             return [
-                'image_path' => $this->defaultImagePath($device, 'sleep'),
+                'image_path' => $this->offlineImagePath($device, $device->sleepPlugin),
                 'refresh_time_override' => $device->getSleepModeEndsInSeconds() ?? $device->default_refresh_interval,
                 'screen_identity' => 'sleep',
                 'screen_prefix' => DeviceScreenFilename::PREFIX_SYSTEM,
@@ -50,19 +54,21 @@ class RunDeviceDisplayCycle
 
         $refreshTimeOverride = null;
         $imageUuid = $device->mirrorDevice?->current_screen_image;
+        $imagePath = $imageUuid ? $this->imageResolver->resolve($device, $imageUuid) : null;
         // A mirrored device shows whatever its source shows; treat that as one
         // screen rather than inheriting the source's per-plugin identities.
         $identity = 'mirror:'.$device->mirror_device_id;
         $prefix = DeviceScreenFilename::PREFIX_SYSTEM;
 
-        if (! $imageUuid) {
+        if ($imagePath === null) {
             ['refresh_time_override' => $refreshTimeOverride, 'identity' => $identity, 'prefix' => $prefix]
                 = $this->processPlaylist($device);
             $device->refresh();
             $imageUuid = $device->current_screen_image;
+            $imagePath = $imageUuid ? $this->imageResolver->resolve($device, $imageUuid) : null;
         }
 
-        if (! $imageUuid) {
+        if ($imagePath === null) {
             return [
                 'image_path' => $this->defaultImagePath($device, 'setup-logo'),
                 'refresh_time_override' => $refreshTimeOverride,
@@ -72,7 +78,7 @@ class RunDeviceDisplayCycle
         }
 
         return [
-            'image_path' => $this->imageResolver->resolve($device, $imageUuid),
+            'image_path' => $imagePath,
             'refresh_time_override' => $refreshTimeOverride,
             'screen_identity' => $identity,
             'screen_prefix' => $prefix,
@@ -138,7 +144,7 @@ class RunDeviceDisplayCycle
     {
         $plugin = $playlistItem->plugin;
 
-        ImageGenerationService::resetIfNotCacheable($plugin, $device);
+        ImageGenerationService::resetIfNotCacheable($plugin, $device, $playlistItem->text_scale_level);
         $plugin->refresh();
 
         $isDataStale = $plugin->isDataStale();
@@ -148,7 +154,7 @@ class RunDeviceDisplayCycle
             $plugin->refresh();
         }
 
-        if ($this->shouldSkipFromPayload($plugin)) {
+        if ($this->renderPluginImage->shouldSkipFromPayload($plugin)) {
             Log::info('Skipping rendering because payload sets TRMNL_SKIP_DISPLAY', [
                 'device_id' => $device->id,
                 'plugin_id' => $plugin->id,
@@ -162,9 +168,9 @@ class RunDeviceDisplayCycle
         if ($needsRender) {
             try {
                 $usesMarkupPipeline = $plugin->handler()?->output() !== PluginOutput::Image;
-                $markup = $usesMarkupPipeline ? $plugin->render(device: $device) : '';
+                $markup = $usesMarkupPipeline ? $plugin->render(device: $device, textScaleLevel: $playlistItem->text_scale_level) : '';
 
-                if ($usesMarkupPipeline && $this->shouldSkipFromMarkup($markup)) {
+                if ($usesMarkupPipeline && $this->renderPluginImage->shouldSkipFromMarkup($markup)) {
                     Log::info('Skipping rendering because markup sets TRMNL_SKIP_DISPLAY', [
                         'device_id' => $device->id,
                         'plugin_id' => $plugin->id,
@@ -175,7 +181,7 @@ class RunDeviceDisplayCycle
                     return false;
                 }
 
-                GenerateScreenJob::dispatchSync($device->id, $plugin->id, $markup);
+                GenerateScreenJob::dispatchSync($device->id, $plugin->id, $markup, $playlistItem->text_scale_level);
             } catch (Exception $e) {
                 Log::error("Failed to render plugin {$plugin->id} ({$plugin->name}): ".$e->getMessage());
                 $errorImageUuid = ImageGenerationService::generateDefaultScreenImage($device, 'error', $plugin->name);
@@ -195,6 +201,20 @@ class RunDeviceDisplayCycle
         }
 
         return true;
+    }
+
+    /**
+     * Resolve the plugin's image for a device's offline (sleep/pause) screen and
+     * return its UUID, or null if it opted out or produced nothing. Shares the plugin
+     * image cache with the playlist pipeline, re-rendering only when the data is stale
+     * or nothing is cached, but renders straight to a generated image so it never
+     * writes current_screen_image.
+     *
+     * @throws Exception when rendering fails
+     */
+    private function renderOfflineImage(Device $device, Plugin $plugin): ?string
+    {
+        return $this->renderPluginImage->handle($plugin, $device, existingImageId: $device->offline_screen_image);
     }
 
     private function renderMashup(Device $device, PlaylistItem $playlistItem): void
@@ -226,18 +246,37 @@ class RunDeviceDisplayCycle
         }
     }
 
-    private function shouldSkipFromPayload(Plugin $plugin): bool
+    /**
+     * Resolve the image shown while asleep or paused: the configured plugin rendered
+     * into the per-device offline_screen_image slot (never current_screen_image), or
+     * the default sleep face when no plugin is set or rendering yields nothing.
+     */
+    private function offlineImagePath(Device $device, ?Plugin $plugin): string
     {
-        return is_array($plugin->data_payload)
-            && ($plugin->data_payload['TRMNL_SKIP_DISPLAY'] ?? false) === true;
-    }
+        if ($plugin instanceof Plugin) {
+            try {
+                $imageUuid = $this->renderOfflineImage($device, $plugin);
+            } catch (Exception $e) {
+                Log::error('Failed to render offline plugin', [
+                    'device_id' => $device->id,
+                    'plugin_id' => $plugin->id,
+                    'plugin_name' => $plugin->name,
+                    'exception' => $e->getMessage(),
+                ]);
+                $imageUuid = null;
+            }
 
-    private function shouldSkipFromMarkup(string $markup): bool
-    {
-        return preg_match(
-            '/<script\b[^>]*>.*?window\.TRMNL_SKIP_DISPLAY\s*=\s*true\b.*?<\/script>/is',
-            $markup
-        ) === 1;
+            if ($imageUuid !== null) {
+                $device->update(['offline_screen_image' => $imageUuid]);
+
+                $imagePath = $this->imageResolver->resolve($device, $imageUuid);
+                if ($imagePath !== null) {
+                    return $imagePath;
+                }
+            }
+        }
+
+        return $this->defaultImagePath($device, 'sleep');
     }
 
     /**

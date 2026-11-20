@@ -11,6 +11,8 @@ use App\Http\Controllers\Api\Firmware\DeviceLogController;
 use App\Http\Controllers\Api\Firmware\DisplayController;
 use App\Http\Controllers\Api\Firmware\ScreenController;
 use App\Http\Controllers\Api\Firmware\SetupController;
+use App\Http\Controllers\Api\PlaylistController;
+use App\Http\Controllers\Api\PlaylistItemController;
 use App\Http\Controllers\Api\PluginActionController;
 use App\Http\Controllers\Api\PluginArchiveController;
 use App\Http\Controllers\Api\PluginSettingsController;
@@ -23,11 +25,13 @@ use Illuminate\Support\Facades\Route;
 | Device endpoints (header-authenticated, used by TRMNL compatible device)
 |--------------------------------------------------------------------------
 */
-Route::get('/display', DisplayController::class);
-Route::get('/setup', SetupController::class);
-Route::post('/log', [DeviceLogController::class, 'store']);
-Route::post('/screens', [ScreenController::class, 'store'])->name('screens.update');
-Route::get('/current_screen', CurrentScreenController::class);
+Route::get('/setup', SetupController::class)->middleware('throttle:device-setup');
+
+Route::middleware('throttle:device-api')->group(function (): void {
+    Route::get('/display', DisplayController::class);
+    Route::post('/log', [DeviceLogController::class, 'store']);
+    Route::get('/current_screen', CurrentScreenController::class);
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -41,12 +45,26 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/devices/{device}', [DeviceController::class, 'update'])->name('api.devices.update');
     Route::get('/device-models', [DeviceModelController::class, 'index']);
 
+    Route::get('/playlists', [PlaylistController::class, 'index'])->name('api.playlists.index');
+    Route::patch('/playlists/{playlist}', [PlaylistController::class, 'update'])->name('api.playlists.update');
+    Route::get('/playlists/{playlist}/items', [PlaylistItemController::class, 'index'])->name('api.playlists.items.index');
+    Route::prefix('/playlist-items/{playlistItem}/cache')->name('api.playlist-items.cache.')->group(function (): void {
+        Route::post('/clear', [PlaylistItemController::class, 'clearCache'])->name('clear');
+        Route::post('/warm', [PlaylistItemController::class, 'warmCache'])->name('warm');
+        Route::post('/refresh', [PlaylistItemController::class, 'refreshCache'])->name('refresh');
+    });
+
     Route::get('/display/status', [DisplayStatusController::class, 'show'])->name('display.status');
     Route::post('/display/status', [DisplayStatusController::class, 'update'])->name('display.status.post');
 
     Route::post('/display/update', DisplayUpdateController::class)
         ->middleware('ability:update-screen')
         ->name('display.update');
+
+    // Deprecated alias of /display/update, kept for older clients.
+    Route::post('/screens', [ScreenController::class, 'store'])
+        ->middleware('ability:update-screen')
+        ->name('screens.update');
 
     Route::get('/plugin_settings/{trmnlp_id}/archive', [PluginArchiveController::class, 'export']);
     Route::post('/plugin_settings/{trmnlp_id}/archive', [PluginArchiveController::class, 'import']);

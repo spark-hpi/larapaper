@@ -9,7 +9,7 @@ Multi-user mode lets multiple people share a single LaraPaper instance. Each use
 
 ## Enabling
 
-Set `MULTI_USER_MODE=true` in your environment (or set `REGISTRATION_ENABLED=1`, which implies multi-user mode).
+Set `MULTI_USER_MODE=true` in your environment (or set `REGISTRATION_ENABLED=1`, which implies multi-user mode). To let more people sign up after the first account, also keep `MULTIUSER_REGISTRATION_ENABLED` on (it defaults to `REGISTRATION_ENABLED`).
 
 ```env
 MULTI_USER_MODE=true
@@ -73,9 +73,13 @@ MULTI_USER_DANGEROUSLY_ALLOW_BLADE_TEMPLATES_FOR_NON_ADMINS=true
 Enabling this gives non-admin users the ability to execute arbitrary PHP on the server. Only use it when all users are trusted.
 :::
 
+`INSECURE_BLADE_ALLOW_PHP_EXECUTION` overrides these rules for everyone: `false` disables Blade even for admins, `true` enables it for all users.
+
 ## Environment variables
 
 | Variable | Description | Default |
 |---|---|---|
 | `MULTI_USER_MODE` | Enable multi-user mode | `REGISTRATION_ENABLED` |
+| `MULTIUSER_REGISTRATION_ENABLED` | Allow signups after the first account | `REGISTRATION_ENABLED` |
 | `MULTI_USER_DANGEROUSLY_ALLOW_BLADE_TEMPLATES_FOR_NON_ADMINS` | Allow non-admins to use Blade templates | `false` |
+| `INSECURE_BLADE_ALLOW_PHP_EXECUTION` | Force Blade on/off for everyone | unset |

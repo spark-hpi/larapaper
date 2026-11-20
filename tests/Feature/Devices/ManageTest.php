@@ -1,9 +1,14 @@
 <?php
 
+use App\Enums\FirmwareModel;
 use App\Models\Device;
 use App\Models\DeviceModel;
+use App\Models\Firmware;
+use App\Models\Plugin;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 test('device management page can be rendered', function (): void {
@@ -95,27 +100,40 @@ test('user can generate a credential when adding a device', function (string $ac
 ]);
 
 test('user can toggle proxy cloud for their device', function (): void {
+    Http::preventStrayRequests();
+    config(['services.trmnl.proxy_base_url' => 'https://example.com']);
+    Http::fake([
+        'https://example.com/api/display' => Http::response(['status' => 0], 200),
+    ]);
+
     $user = User::factory()->create();
     $this->actingAs($user);
     $device = Device::factory()->create([
         'user_id' => $user->id,
         'proxy_cloud' => false,
+        'api_key' => 'device-key',
     ]);
 
     $response = Livewire::test('devices.manage')
         ->call('toggleProxyCloud', $device);
 
     $response->assertHasNoErrors();
-    expect($device->fresh()->proxy_cloud)->toBeTrue();
+    expect($device->fresh()->proxy_cloud)->toBeTrue()
+        ->and($device->fresh()->proxy_cloud_api_key)->toBeNull();
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://example.com/api/display'
+        && $request->hasHeader('access-token', 'device-key'));
 
-    // Toggle back to false
     $response = Livewire::test('devices.manage')
         ->call('toggleProxyCloud', $device);
 
     expect($device->fresh()->proxy_cloud)->toBeFalse();
+    Http::assertSentCount(1);
 });
 
 test('user cannot toggle proxy cloud for other users devices', function (): void {
+    Http::preventStrayRequests();
+    Http::fake();
+
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -129,7 +147,168 @@ test('user cannot toggle proxy cloud for other users devices', function (): void
         ->call('toggleProxyCloud', $device);
 
     $response->assertStatus(403);
+    Http::assertNothingSent();
     expect($device->fresh()->proxy_cloud)->toBeFalse();
+});
+
+test('turning proxy on prompts for a cloud api key when the cloud device is not found', function (): void {
+    Http::preventStrayRequests();
+    config(['services.trmnl.proxy_base_url' => 'https://example.com']);
+    Http::fake([
+        'https://example.com/api/display' => Http::response([
+            'status' => 500,
+            'error' => 'Device not found',
+            'reset_firmware' => true,
+        ], 200),
+    ]);
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'proxy_cloud' => false,
+    ]);
+
+    Livewire::test('devices.manage')
+        ->call('toggleProxyCloud', $device)
+        ->assertHasNoErrors()
+        ->assertSet('proxyKeyDeviceId', $device->id)
+        ->assertDispatched('modal-show', name: 'proxy-cloud-api-key');
+
+    expect($device->fresh()->proxy_cloud)->toBeFalse()
+        ->and($device->fresh()->proxy_cloud_api_key)->toBeNull();
+});
+
+test('user can enable proxy with a cloud api key after the cloud device is not found', function (): void {
+    Http::preventStrayRequests();
+    config(['services.trmnl.proxy_base_url' => 'https://example.com']);
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'proxy_cloud' => false,
+        'api_key' => 'device-key',
+    ]);
+
+    Http::fake(function (Request $request) {
+        if ($request->hasHeader('access-token', 'cloud-key')) {
+            return Http::response(['status' => 0, 'filename' => 'screen'], 200);
+        }
+
+        return Http::response([
+            'status' => 500,
+            'error' => 'Device not found',
+            'reset_firmware' => true,
+        ], 200);
+    });
+
+    Livewire::test('devices.manage')
+        ->call('toggleProxyCloud', $device)
+        ->assertSet('proxyKeyDeviceId', $device->id)
+        ->set('proxy_cloud_api_key', 'cloud-key')
+        ->call('saveProxyCloudApiKey')
+        ->assertHasNoErrors()
+        ->assertSet('proxyKeyDeviceId', null);
+
+    $device->refresh();
+
+    expect($device->proxy_cloud)->toBeTrue()
+        ->and($device->proxy_cloud_api_key)->toBe('cloud-key');
+
+    Http::assertSent(fn (Request $request): bool => $request->hasHeader('access-token', 'cloud-key')
+        && $request->url() === 'https://example.com/api/display');
+});
+
+test('a cloud api key for an unknown device does not enable proxy', function (): void {
+    Http::preventStrayRequests();
+    config(['services.trmnl.proxy_base_url' => 'https://example.com']);
+    Http::fake([
+        'https://example.com/api/display' => Http::response([
+            'status' => 500,
+            'error' => 'Device not found',
+            'reset_firmware' => true,
+        ], 200),
+    ]);
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'proxy_cloud' => false,
+    ]);
+
+    Livewire::test('devices.manage')
+        ->set('proxyKeyDeviceId', $device->id)
+        ->set('proxy_cloud_api_key', 'still-denied')
+        ->call('saveProxyCloudApiKey')
+        ->assertHasErrors('proxy_cloud_api_key');
+
+    expect($device->fresh()->proxy_cloud)->toBeFalse()
+        ->and($device->fresh()->proxy_cloud_api_key)->toBeNull();
+});
+
+test('cloud api key is required to enable proxy after the cloud device is not found', function (): void {
+    Http::preventStrayRequests();
+    Http::fake();
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'proxy_cloud' => false,
+    ]);
+
+    Livewire::test('devices.manage')
+        ->set('proxyKeyDeviceId', $device->id)
+        ->set('proxy_cloud_api_key', '')
+        ->call('saveProxyCloudApiKey')
+        ->assertHasErrors(['proxy_cloud_api_key' => 'required']);
+
+    Http::assertNothingSent();
+    expect($device->fresh()->proxy_cloud)->toBeFalse();
+});
+
+test('user cannot save a proxy cloud api key for another users device', function (): void {
+    Http::preventStrayRequests();
+    Http::fake();
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    $device = Device::factory()->create([
+        'user_id' => User::factory()->create()->id,
+        'proxy_cloud' => false,
+    ]);
+
+    Livewire::test('devices.manage')
+        ->set('proxyKeyDeviceId', $device->id)
+        ->set('proxy_cloud_api_key', 'cloud-key')
+        ->call('saveProxyCloudApiKey')
+        ->assertStatus(403);
+
+    Http::assertNothingSent();
+    expect($device->fresh()->proxy_cloud)->toBeFalse()
+        ->and($device->fresh()->proxy_cloud_api_key)->toBeNull();
+});
+
+test('turning proxy off does not call the cloud api', function (): void {
+    Http::preventStrayRequests();
+    Http::fake();
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'proxy_cloud' => true,
+        'proxy_cloud_api_key' => 'cloud-key',
+    ]);
+
+    Livewire::test('devices.manage')
+        ->call('toggleProxyCloud', $device);
+
+    Http::assertNothingSent();
+    expect($device->fresh()->proxy_cloud)->toBeFalse()
+        ->and($device->fresh()->proxy_cloud_api_key)->toBe('cloud-key');
 });
 
 test('user can pause device with preset duration', function (): void {
@@ -245,7 +424,7 @@ test('add device modal highlights auto join for the first user', function (): vo
         ->get('/devices')
         ->assertOk()
         ->assertSee('Or add manually')
-        ->assertSee('Click the button above to permit auto join.')
+        ->assertSee('Click the button above to permit auto join for')
         ->assertSee('device playlist to get started');
 });
 
@@ -258,4 +437,120 @@ test('add device modal does not show auto join for other users', function (): vo
         ->assertOk()
         ->assertDontSee('Or add manually')
         ->assertDontSee('Point the device at this server to finish setup');
+});
+
+test('device management page warns about devices awaiting activation', function (): void {
+    $user = User::factory()->create();
+    Device::factory()->create(['user_id' => $user->id, 'name' => 'Kitchen TRMNL', 'last_refreshed_at' => null]);
+    Device::factory()->create(['user_id' => $user->id, 'name' => 'Office TRMNL', 'last_refreshed_at' => now()]);
+
+    $this->actingAs($user);
+
+    $component = Livewire::test('devices.manage')
+        ->assertSee('Awaiting activation');
+
+    expect($component->instance()->devicesAwaitingActivation->pluck('name')->all())->toBe(['Kitchen TRMNL']);
+});
+
+test('device management page shows no activation warning when all devices are activated', function (): void {
+    $user = User::factory()->create();
+    Device::factory()->create(['user_id' => $user->id, 'last_refreshed_at' => now()]);
+
+    $this->actingAs($user);
+
+    Livewire::test('devices.manage')
+        ->assertDontSee('Awaiting activation');
+});
+
+test('user cannot pause device with another users plugin as pause screen', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $user->id]);
+    $foreignPlugin = Plugin::factory()->create(['user_id' => User::factory()->create()->id]);
+    $this->actingAs($user);
+
+    Livewire::test('devices.manage')
+        ->set('pause_duration', 60)
+        ->set('pause_plugin_id', $foreignPlugin->id)
+        ->call('pauseDevice', $device->id)
+        ->assertHasErrors(['pause_plugin_id']);
+
+    expect($device->fresh()->pause_plugin_id)->toBeNull();
+});
+
+test('device list shows remaining pause time when a device is paused', function (): void {
+    $this->freezeTime();
+    $user = User::factory()->create();
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'pause_until' => now()->addHour(),
+    ]);
+    $this->actingAs($user);
+
+    Livewire::test('devices.manage')
+        ->assertSee('Device paused until: '.$device->pause_until->diffForHumans())
+        ->assertDontSee('Pause screen generation');
+});
+
+test('device list offers pause screen generation when a device is not paused', function (): void {
+    $user = User::factory()->create();
+    Device::factory()->create(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    Livewire::test('devices.manage')
+        ->assertSee('Pause screen generation')
+        ->assertDontSee('Device paused until');
+});
+
+test('device list shows firmware, logs, and mirror actions', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create([
+        'user_id' => $user->id,
+        'api_key' => 'list-device-key',
+    ]);
+    $this->actingAs($user);
+
+    Livewire::test('devices.manage')
+        ->assertDontSee('Pause Screen Generation')
+        ->assertSee('Update Firmware')
+        ->assertSee('Show Logs')
+        ->assertSee('Mirror URL')
+        ->assertSee('End pause')
+        ->assertSee(route('devices.logs', $device), false)
+        ->assertSee('/mirror/index.html?api_key=list-device-key&amp;mode=mirror', false);
+});
+
+test('user can queue a firmware update from the device list', function (): void {
+    $user = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => $user->id]);
+    $firmware = Firmware::factory()->trmnl()->latest()->create([
+        'version_tag' => '1.2.3',
+    ]);
+    $this->actingAs($user);
+
+    Livewire::test('devices.manage')
+        ->call('prepareFirmwareUpdate', $device->id)
+        ->set('selected_firmware_model', FirmwareModel::Trmnl->value)
+        ->set('selected_firmware_id', $firmware->id)
+        ->call('updateFirmware', $device->id)
+        ->assertHasNoErrors();
+
+    expect($device->fresh()->update_firmware_id)->toBe($firmware->id);
+});
+
+test('user cannot queue a firmware update for another users device', function (): void {
+    User::factory()->admin()->create(); // user #1 is always an admin
+    $user = User::factory()->create();
+    $device = Device::factory()->create(['user_id' => User::factory()->create()->id]);
+    $firmware = Firmware::factory()->trmnl()->latest()->create([
+        'version_tag' => '9.9.9',
+    ]);
+    $this->actingAs($user);
+
+    Livewire::test('devices.manage')
+        ->set('selected_firmware_model', FirmwareModel::Trmnl->value)
+        ->set('selected_firmware_id', $firmware->id)
+        ->call('updateFirmware', $device->id)
+        ->assertNotFound();
+
+    expect($device->fresh()->update_firmware_id)->toBeNull();
 });

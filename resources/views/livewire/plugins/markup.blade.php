@@ -3,6 +3,7 @@
 use App\Jobs\GenerateScreenJob;
 use App\Models\Device;
 use App\Models\Plugin;
+use App\Support\UserBladeExecution;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Blade;
 use Keepsuit\Liquid\Exceptions\LiquidException;
@@ -25,6 +26,11 @@ new class extends Component
         $this->devices = auth()->user()->devices->pluck('id', 'name');
     }
 
+    public function userBladeIsAllowed(): bool
+    {
+        return UserBladeExecution::allowed();
+    }
+
     public function submit(): void
     {
         $this->isLoading = true;
@@ -40,8 +46,12 @@ new class extends Component
             auth()->user()->devices->pluck('id')->toArray()
         );
 
-        $isAdminOrAllowed = ! config('app.multi_user_mode') || auth()->user()->isAdmin() || config('app.dangerously_allow_blade_for_non_admins');
-        abort_unless($isAdminOrAllowed, 403, 'Blade rendering is restricted to administrators.');
+        if ($this->markup_language !== 'liquid' && ! UserBladeExecution::allowed()) {
+            $this->addError('generate_screen', UserBladeExecution::deniedMessage());
+            $this->isLoading = false;
+
+            return;
+        }
 
         try {
             foreach ($this->checked_devices as $deviceId) {
@@ -296,6 +306,19 @@ HTML;
             <flux:badge size="sm" class="ml-2">Plugin</flux:badge>
         </h2>
 
+        @if (! $this->userBladeIsAllowed())
+            <flux:callout variant="warning" icon="exclamation-triangle" class="mt-4 mb-4">
+                <flux:callout.heading>Blade markup is disabled</flux:callout.heading>
+                <flux:callout.text>
+                    You can still write Blade markup here. Generating a Blade screen is disabled because Blade executes
+                    PHP. Liquid templates can still be generated. To compile Blade, set
+                    <code>INSECURE_BLADE_ALLOW_PHP_EXECUTION=true</code>
+                    in the environment. That flag is remote code execution for every registered user — leave it false on
+                    a shared instance.
+                </flux:callout.text>
+            </flux:callout>
+        @endif
+
         <div class="mt-5 mb-5">
             <div class="mb-4 flex items-center gap-4">
                 <span>Template language</span>
@@ -334,7 +357,13 @@ HTML;
 
                 <flux:spacer />
 
-                <flux:button type="submit" variant="primary"> Generate Screen </flux:button>
+                <flux:button
+                    type="submit"
+                    variant="primary"
+                    :disabled="$markup_language !== 'liquid' && ! $this->userBladeIsAllowed()"
+                >
+                    Generate Screen
+                </flux:button>
             </div>
         </form>
 

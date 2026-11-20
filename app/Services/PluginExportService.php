@@ -6,6 +6,7 @@ use App\Models\Plugin;
 use App\Models\User;
 use Exception;
 use Illuminate\Support\Facades\File;
+use InvalidArgumentException;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use Spatie\TemporaryDirectory\TemporaryDirectory;
@@ -51,6 +52,14 @@ class PluginExportService
         $settings = $this->generateSettingsYaml($plugin);
         $settingsYaml = Yaml::dump($settings, 10, 2, Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK);
         File::put($tempDir.'/settings.yml', $settingsYaml);
+
+        if (filled($plugin->transform_code) && filled($plugin->transform_language)) {
+            $transformExtension = match ($plugin->transform_language) {
+                'php' => 'php', 'python' => 'py', 'node' => 'js', 'ruby' => 'rb',
+                default => throw new InvalidArgumentException('Unsupported transform language'),
+            };
+            File::put($tempDir.'/transform.'.$transformExtension, $plugin->transform_code);
+        }
 
         $extension = $plugin->markup_language === 'liquid' ? 'liquid' : 'blade.php';
 
@@ -113,9 +122,12 @@ class PluginExportService
         $settings['no_screen_padding'] = $plugin->no_bleed ? 'yes' : 'no';
         $settings['dark_mode'] = $plugin->dark_mode ? 'yes' : 'no';
         $settings['strategy'] = $plugin->data_strategy;
+        if (filled($plugin->transform_code) && filled($plugin->transform_language)) {
+            $settings['serverless_language'] = $plugin->transform_language;
+        }
 
-        // Add static data if available
-        if ($plugin->data_payload) {
+        // Add static data if available; a static transform's payload is generated output, not source data
+        if ($plugin->data_payload && ! $plugin->runsStaticTransform()) {
             $settings['static_data'] = json_encode($plugin->data_payload, JSON_PRETTY_PRINT);
         }
 
@@ -137,6 +149,7 @@ class PluginExportService
         }
 
         $settings['refresh_interval'] = $plugin->data_stale_minutes;
+        $settings['framework_version'] = Plugin::frameworkVersionForSettingsExport($plugin->framework_version);
         $settings['id'] = $plugin->trmnlp_id;
 
         // Add custom fields from configuration template

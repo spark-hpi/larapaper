@@ -9,9 +9,10 @@ description: LaraPaper environment configuration reference.
 | --- | --- | --- |
 | `TRMNL_PROXY_BASE_URL` | Base URL of the native TRMNL service | `https://trmnl.app` |
 | `TRMNL_PROXY_REFRESH_MINUTES` | How often to fetch new images from the cloud service | `15` |
-| `REGISTRATION_ENABLED` | Allow registration via the web UI | `1` |
-| `MULTI_USER_MODE` | Enable multi-user mode (account confirmation, per-user ownership) | `REGISTRATION_ENABLED` |
-| `MULTI_USER_DANGEROUSLY_ALLOW_BLADE_TEMPLATES_FOR_NON_ADMINS` | Allow non-admin users to use Blade templates (arbitrary PHP) | `false` |
+| `MULTIUSER_REGISTRATION_ENABLED` | After the first account, allow more signups. In multi-user mode new accounts need admin confirmation. `REGISTRATION_ENABLED` is accepted as a legacy alias | `REGISTRATION_ENABLED` or `1` |
+| `MULTI_USER_MODE` | Enable [multi-user mode](/usage/multi-user) (account confirmation, per-user ownership, admin-only Blade) | `REGISTRATION_ENABLED` or `1` |
+| `MULTI_USER_DANGEROUSLY_ALLOW_BLADE_TEMPLATES_FOR_NON_ADMINS` | In multi-user mode, allow non-admin users to use Blade templates (arbitrary PHP) | `false` |
+| `INSECURE_BLADE_ALLOW_PHP_EXECUTION` | Force compiling user-authored Blade as PHP on (`1`) or off (`0`) for everyone. Unset: admins only in multi-user mode, otherwise on for a single user | auto |
 | `PASSKEYS_ENABLED` | Enable passkeys (requires HTTPS). See [Authentication](/getting-started/authentication#passkeys) | `0` |
 | `SSL_MODE` | SSL mode when not behind a reverse proxy ([docs](https://serversideup.net/open-source/docker-php/docs/customizing-the-image/configuring-ssl)) | `off` |
 | `FORCE_HTTPS` | Enforce HTTPS when the server terminates SSL | `0` |
@@ -20,8 +21,15 @@ description: LaraPaper environment configuration reference.
 | `TRMNL_IMAGE_URL_TIMEOUT` | Display endpoint response timeout (seconds) | `30` |
 | `HTTP_CLIENT_TIMEOUT` | Outbound HTTP timeout when fetching recipe polling URLs (seconds) | `10` |
 | `APP_TIMEZONE` | PHP timezone (UTC recommended) | `UTC` |
-| `TRANSFORM_RUNNER_URL` | Base URL of the transform runner microservice (e.g. `http://localhost:3000`). When set, enables the Transform tab on plugin recipe pages. Omit to disable the feature. | — |
-| `TRANSFORM_TIMEOUT_SECONDS` | HTTP timeout for transform runner requests (seconds) | `30` |
+| `TOGGLE_MCP` | Default for the MCP Server lab flag | `false` |
+| `TOGGLE_PRERENDER_PLAYLIST_ITEMS` | Default for the Pre-render playlist items lab flag | `false` |
+| `TRANSFORM_PROVIDER` | `local` runs JavaScript [transforms](/usage/transform) with Node.js in the container; `http` uses an external runner | `null` |
+| `TRANSFORM_RUNNER_URL` | Base URL of the transform runner | `http://transform:3000` |
+| `TRANSFORM_RUNNER_TOKEN` | Optional bearer token sent to the runner | `null` |
+| `TRANSFORM_TIMEOUT_SECONDS` | Max seconds for one transform | `5` |
+| `TRANSFORM_MEMORY_LIMIT_MB` | Max JavaScript heap for one local transform | `128` |
+| `TRANSFORM_NODE_BINARY` | Node.js binary used by the local provider | `node` |
+| `TRANSFORM_ALLOW_NETWORK` | `false` makes `fetch()` in local transforms fail | `true` |
 
 ## Browser assets
 
@@ -48,3 +56,11 @@ The redirect URI is `{APP_URL}/auth/oidc/callback`. It is not a separate variabl
 | `OIDC_CLIENT_ID` | OAuth client ID | |
 | `OIDC_CLIENT_SECRET` | OAuth client secret | |
 | `OIDC_SCOPES` | Comma-separated scopes | `openid,profile,email` |
+
+## Security
+
+LaraPaper is built for a single user on a VPS or in a homelab. Multi-user mode is for trusted environments only, like family and friends. Full isolation between users is a non-goal, so multi-user mode is not a security boundary.
+
+The first account can always be created. After that, signup stays closed unless `MULTIUSER_REGISTRATION_ENABLED` is on.
+
+User-authored Blade templates are compiled to PHP. In single-user mode that stays available, because the only account is the person running the server. In multi-user mode Blade is not compiled unless `INSECURE_BLADE_ALLOW_PHP_EXECUTION=1`. Setting `INSECURE_BLADE_ALLOW_PHP_EXECUTION=0` disables Blade in single-user mode as well. Turning the flag on means any registered user can execute PHP as the web server user. That includes reading `.env`, configuration, and other users' data. Liquid templates stay available either way.

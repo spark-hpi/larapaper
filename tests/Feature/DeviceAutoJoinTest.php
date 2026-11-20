@@ -9,7 +9,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 
 it('auto-join via api key creates device with null user_id', function (): void {
-    $user = User::factory()->confirmed()->create(['assign_new_devices' => true]);
+    $user = User::factory()->confirmed()->autoJoinEnabled()->create();
 
     $request = Request::create('/', 'GET', [], [], [], [
         'HTTP_ACCESS-TOKEN' => 'new-token-123',
@@ -23,7 +23,7 @@ it('auto-join via api key creates device with null user_id', function (): void {
 });
 
 it('auto-join via mac address creates device with null user_id', function (): void {
-    $user = User::factory()->confirmed()->create(['assign_new_devices' => true]);
+    $user = User::factory()->confirmed()->autoJoinEnabled()->create();
 
     $request = Request::create('/', 'GET', [], [], [], [
         'HTTP_ID' => '11:22:33:44:55:66',

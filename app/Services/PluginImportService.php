@@ -8,6 +8,7 @@ use Exception;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
+use InvalidArgumentException;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use Spatie\TemporaryDirectory\TemporaryDirectory;
@@ -89,23 +90,7 @@ class PluginImportService
         $yamlParts = preg_split('/^---[ \t]*\r?\n/m', $settingsYaml, 2);
         $settings = Yaml::parse(count($yamlParts) > 1 ? $yamlParts[1] : $settingsYaml);
         $this->validateYAML($settings);
-
-        $transformCode = null;
-        $transformLanguage = null;
-        $serverlessLanguage = ! empty($settings['serverless_language'])
-            ? strtolower((string) $settings['serverless_language'])
-            : null;
-
-        if ($serverlessLanguage) {
-            $extMap = ['python' => 'py', 'node' => 'js', 'php' => 'php'];
-            $ext = $extMap[$serverlessLanguage] ?? null;
-            $srcDir = dirname((string) $filePaths['settingsYamlPath']);
-
-            if ($ext && File::exists($srcDir.'/transform.'.$ext)) {
-                $transformCode = File::get($srcDir.'/transform.'.$ext);
-                $transformLanguage = $serverlessLanguage;
-            }
-        }
+        $transform = $this->readTransform($filePaths['settingsYamlPath'], $settings);
 
         // Determine markup language from the first available file
         $markupLanguage = 'blade';
@@ -201,11 +186,10 @@ class PluginImportService
                 'render_markup_shared' => $sharedMarkup,
                 'configuration_template' => $configurationTemplate,
                 'data_payload' => json_decode($settings['static_data'] ?? '{}', true),
-                'framework_version' => $settings['framework_version'] ?? null,
+                'framework_version' => Plugin::normalizeImportedFrameworkVersion($settings['framework_version'] ?? null),
+                ...$transform,
                 'no_bleed' => ($settings['no_screen_padding'] ?? null) === 'yes',
                 'dark_mode' => ($settings['dark_mode'] ?? null) === 'yes',
-                'transform_code'     => $transformCode,
-                'transform_language' => $transformLanguage,
             ]);
 
         if (! $plugin_updated) {
@@ -280,23 +264,7 @@ class PluginImportService
         $yamlParts = preg_split('/^---[ \t]*\r?\n/m', $settingsYaml, 2);
         $settings = Yaml::parse(count($yamlParts) > 1 ? $yamlParts[1] : $settingsYaml);
         $this->validateYAML($settings);
-
-        $transformCode = null;
-        $transformLanguage = null;
-        $serverlessLanguage = ! empty($settings['serverless_language'])
-            ? strtolower((string) $settings['serverless_language'])
-            : null;
-
-        if ($serverlessLanguage) {
-            $extMap = ['python' => 'py', 'node' => 'js', 'php' => 'php'];
-            $ext = $extMap[$serverlessLanguage] ?? null;
-            $srcDir = dirname((string) $filePaths['settingsYamlPath']);
-
-            if ($ext && File::exists($srcDir.'/transform.'.$ext)) {
-                $transformCode = File::get($srcDir.'/transform.'.$ext);
-                $transformLanguage = $serverlessLanguage;
-            }
-        }
+        $transform = $this->readTransform($filePaths['settingsYamlPath'], $settings);
 
         // Determine markup language from the first available file
         $markupLanguage = 'blade';
@@ -403,12 +371,11 @@ class PluginImportService
                 'configuration_template' => $configurationTemplate,
                 'data_payload' => json_decode($settings['static_data'] ?? '{}', true),
                 'preferred_renderer' => $preferredRenderer,
-                'framework_version' => $settings['framework_version'] ?? null,
+                'framework_version' => Plugin::normalizeImportedFrameworkVersion($settings['framework_version'] ?? null),
+                ...$transform,
                 'icon_url' => $iconUrl,
                 'no_bleed' => ($settings['no_screen_padding'] ?? null) === 'yes',
                 'dark_mode' => ($settings['dark_mode'] ?? null) === 'yes',
-                'transform_code'     => $transformCode,
-                'transform_language' => $transformLanguage,
             ]);
 
         if (! $plugin_updated) {
@@ -427,6 +394,46 @@ class PluginImportService
         $plugin['trmnlp_yaml'] = $settingsYaml;
 
         return $plugin;
+    }
+
+    /**
+     * Read the transform source; its language comes from the file extension
+     * (`transform.js` is JavaScript). `serverless_language` only disambiguates
+     * archives that ship several transform files, and `none` skips the transform.
+     *
+     * @return array{transform_code: ?string, transform_language: ?string}
+     */
+    private function readTransform(string $settingsPath, array $settings): array
+    {
+        $result = ['transform_code' => null, 'transform_language' => null];
+        $directory = dirname($settingsPath);
+        $extensions = ['php' => 'php', 'python' => 'py', 'node' => 'js', 'ruby' => 'rb'];
+        $declaredLanguage = $settings['serverless_language'] ?? null;
+        if ($declaredLanguage === 'none') {
+            return $result;
+        }
+        $found = [];
+        foreach ($extensions as $key => $extension) {
+            $path = $directory.'/transform.'.$extension;
+            if (is_file($path) && ! is_link($path)) {
+                $found[$key] = $path;
+            }
+        }
+        if ($found === []) {
+            return $result;
+        }
+        $language = count($found) === 1 ? array_key_first($found) : $declaredLanguage;
+        if (! is_string($language) || ! isset($found[$language])) {
+            throw new InvalidArgumentException('Ambiguous transform files: set serverless_language to choose one');
+        }
+        if (filesize($found[$language]) > 200000) {
+            throw new InvalidArgumentException('Transform code exceeds maximum allowed size');
+        }
+
+        return [
+            'transform_code' => File::get($found[$language]),
+            'transform_language' => $language,
+        ];
     }
 
     private function findRequiredFiles(string $tempDir, ?string $zipEntryPath = null): array
@@ -648,10 +655,10 @@ class PluginImportService
                         $quadrantLiquidPath = $newSrcDir.'/quadrant.'.$extension;
                     }
 
-                    foreach (['py', 'js', 'php'] as $transformExt) {
-                        $origTransformPath = $srcDir.'/transform.'.$transformExt;
-                        if (File::exists($origTransformPath)) {
-                            File::copy($origTransformPath, $newSrcDir.'/transform.'.$transformExt);
+                    foreach (['php', 'py', 'js', 'rb'] as $extension) {
+                        $transformPath = $srcDir.'/transform.'.$extension;
+                        if (is_file($transformPath) && ! is_link($transformPath)) {
+                            File::copy($transformPath, $newSrcDir.'/transform.'.$extension);
                         }
                     }
 
